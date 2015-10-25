@@ -12,7 +12,7 @@
 // @resource    global.min.css http://www.metacritic.com/css/global.min.1445030030.css
 // @resource    base.min.css http://www.metacritic.com/css/filters/base.min.1445029958.css
 // @license     GNUGPL
-// @version     1
+// @version     2a
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -64,6 +64,7 @@ var baseURL_xone = "http://www.metacritic.com/game/xbox-one/";
 var baseURL_tv = "http://www.metacritic.com/tv/";
 
 var baseURL_search = "http://www.metacritic.com/search/{type}/{query}/results";
+var baseURL_autosearch = "http://www.metacritic.com/autosearch";
 
 var mybrowser = "other";
 if(~navigator.userAgent.indexOf("Chrome")) {
@@ -210,7 +211,7 @@ var CSS =   "/* http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-
 ";
   
 function name2metacritic(s) {
-  return s.replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
+  return s.normalize('NFKD').replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
 }
 function minutesSince(time) {
   var seconds = ((new Date()).getTime() - time.getTime()) / 1000;
@@ -218,6 +219,52 @@ function minutesSince(time) {
 }
 function fixMetacriticURLs(html) {
   return html.replace(/<a /g,'<a target="_blank" ').replace(/href="\//g,'href="'+baseURL).replace(/src="\//g,'src="'+baseURL);
+}
+function searchType2metacritic(type) {
+  return ({
+    'movie' : 'movie',
+    'pcgame' : 'game',
+    'xonegame' : 'game',
+    'ps4game' : 'game',
+    'music' : 'album',
+    'tv' : 'tv'
+  })[type];
+}
+function metacritic2searchType(type) {
+  return ({
+    "Album" : "music",
+    "TV" : "tv",
+    "Movie" : "movie",
+    "PC Game" : "pcgame",
+    "PS4 Game" : "ps4game",
+    "XONE Game" : "onegame",
+    "WIIU Game" : "xxxxx",
+    "3DS Game" : "xxxx"
+  })[type];
+}
+
+
+function metaScore(score, word) {
+  var fg,bg,t;
+  if(score == null) {
+    fg = "black";
+    bg = "#ccc";
+    t = "tbd";
+  } else if(score >= 75) {
+    fg = "white";
+    bg = "#6c3";
+    t = parseInt(score);
+  } else if(score < 40) {
+    fg = "white";
+    bg = "#f00";
+    t = parseInt(score);
+  } else {
+    fg = "white";
+    bg = "#fc3";
+    t = parseInt(score);
+  }
+  
+ return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
 function listenForHotkeys(code, cb) {
@@ -230,6 +277,7 @@ function listenForHotkeys(code, cb) {
       } else {
         i++;
         if(i == code.length) {
+          ev.preventDefault();
           $(document).unbind("keydown.listenForHotkeys");
           cb();
         }
@@ -243,7 +291,13 @@ function metacritic_hoverInfo(url, cb, errorcb) {
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
     if(response.status == 200 && cb) {
-      cb(response.responseText, new Date(response.time));
+      if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
+        var j = JSON.parse(response.responseText);
+        current.url = baseURL + j["jsonRedirect"];
+        metacritic_hoverInfo(baseURL + j["jsonRedirect"], cb, errorcb);
+      } else {
+        cb(response.responseText, new Date(response.time));
+      }
     } else if(response.status != 200 && errorcb) {
       errorcb(response.responseText, new Date(response.time));
       if(!cached)
@@ -270,12 +324,13 @@ function metacritic_hoverInfo(url, cb, errorcb) {
         "Referer" : url,
         "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
         "Host" : "www.metacritic.com",
-        "User-Agent" : navigator.userAgent,
+        "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
         "X-Requested-With" : "XMLHttpRequest"
       },
       onload: function(response) { 
         response.time = (new Date()).toJSON();
         cache[url] = response;
+        
         GM_setValue("hovercache",JSON.stringify(cache));
         handleresponse(response, false);
       }
@@ -304,14 +359,13 @@ function metacritic_searchResults(url, cb, errorcb) {
     handleresponse(cache[url], true);
   } else {
     GM_xmlhttpRequest({
-      method: "POST",
+      method: "GET",
       url: url,
-      data: "hoverinfo=1",
       headers: {
         "Referer" : url,
         "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
         "Host" : "www.metacritic.com",
-        "User-Agent" : navigator.userAgent
+        "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
       },
       onload: function(response) { 
         
@@ -332,6 +386,7 @@ function metacritic_searchResults(url, cb, errorcb) {
         handleresponse(response, false);
       },
       onerror: function(response) {
+              alert(response.responseText);
         console.log("Show metacritic ratings: Search error: "+response.status+"\n"+url);
         handleresponse({
           time : (new Date()).toJSON(),
@@ -367,7 +422,7 @@ function metacritic_showHoverInfo(url) {
     var functions = {
       "other" : {
         "parent": function() {},
-        "frame" : function() {
+        "frame" : function sizecorrection() {
           var f = parent.document.getElementById('mciframe123');
           for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
             f.style.width = parseInt(f.style.width)+10+"px";
@@ -461,40 +516,151 @@ function metacritic_showHoverInfo(url) {
 
   },
   // On error i.e. no result on metacritic.com
-  function(html, time) {
-    listenForHotkeys("meta",function() {
-      var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
-      div.css({
-        position:"fixed", 
-        bottom :0, 
-        left: 0,
-        minWidth: 300,
-        maxHeight: "80%",
-        maxWidth: 640,
-        overflow:"auto",
-        backgroundColor: "#fff",
-        border: "2px solid #bbb",
-        borderRadius:" 6px",
-        boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-        color: "#000",
-        padding:" 3px",
-        zIndex: "5010001",
-      });
-      var query = $('<input type="text" size="60" id="mcisearchquery">').val(url.split("/").pop().replace(/-/g," ")).appendTo(div).on('keypress', function(e) {
-        var code = e.keyCode || e.which;
-        if(code == 13) { // Enter key
-          metacritic_search.call(this,e);
+  function(html, time) {    
+  
+    // Make search available
+    metacritic_waitForHotkeys();
+    
+    var handleresponse = function(response) {
+      var data;
+      try {
+        data = JSON.parse(response.responseText);
+      } catch(e) {
+        console.log("Error in JSON: search_term="+current.searchTerm);
+        console.log(e);
+      }
+      if(data && data.autoComplete && data.autoComplete.length) {
+        // Remove data with wrong type
+        var newdata = [];
+        data.autoComplete.forEach(function(result) {
+          if(metacritic2searchType(result.refType) == current.type) {
+            newdata.push(result);
+          }
+        });
+        data.autoComplete = newdata;
+        if(data.autoComplete.length == 0) {
+          // No results
+          console.log("No results (after filtering by type) for search_term="+current.searchTerm);
+        } else if(data.autoComplete.length == 1) {
+          // One result, let's show it
+          metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
+        } else {
+          // More than one result            
+          var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
+          div.css({
+            position:"fixed", 
+            bottom :0, 
+            left: 0,
+            minWidth: 300,
+            maxHeight: "80%",
+            maxWidth: 640,
+            overflow:"auto",
+            backgroundColor: "#fff",
+            border: "2px solid #bbb",
+            borderRadius:" 6px",
+            boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
+            color: "#000",
+            padding:" 3px",
+            zIndex: "5010001",
+            fontFamily: "Arial,Helvetica,sans-serif"
+          });
+          
+          var accept = function(ev) {
+            alert(this.parentNode.parentNode.dataset.url);
+          };
+          var deny = function(ev) {
+            alert(this.parentNode.parentNode.dataset.url);
+          };
+          
+          data.autoComplete.forEach(function(result,i) {
+            var rdiv = $('<div style="background:#'+(i%2==0?'fff':'eee')+'; padding-bottom:3px;width: 290px" data-url="'+baseURL+result.url+'"><div style="float:left;width:60px">\
+              <img src="'+result.imagePath+'">\
+            </div><div style="float:left; width: 200px">\
+              <span style="font-size:small">'+result.name + (result.itemDate?' ('+result.itemDate+')':'') + '</span>\
+              <span style="font-size:x-small"><br>'+metaScore(result.metaScore,result.scoreWord)+' '+result.refType+'</span>\
+            </div></div>').appendTo(div).append(); 
+            var cdiv = $('<div style="float:left; "></div>').appendTo(rdiv);
+            $('<div style="clear:left;"></div>').appendTo(rdiv);
+            $('<span>&check;</span>').appendTo(cdiv).css({"color":"green","cursor":"pointer"}).click(accept);
+            $('<span>&cross;</span>').appendTo(cdiv).css({"color":"crimson","cursor":"pointer"}).click(deny);
+            
+          });
+        }
+      } else {
+        // No results
+        console.log("No results for search_term="+current.searchTerm);
+      }
+    };
+    var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
+    for(var prop in cache) {
+      // Delete cached values, that are older than 2 hours
+      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+        delete cache[prop];
+      }
+    }
+    
+    current.searchTerm = current.data.join(" ");
+    if(current.searchTerm in cache) {
+      handleresponse(cache[current.searchTerm], true);
+    } else {
+      GM_xmlhttpRequest({
+        method: "POST",
+        url: baseURL_autosearch,
+        data: "search_term="+encodeURIComponent(current.searchTerm),
+        headers: {
+          "Referer" : url,
+          "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
+          "Host" : "www.metacritic.com",
+          "User-Agent" : "MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0",
+          "X-Requested-With" : "XMLHttpRequest"
+        },
+        onload: function(response) {
+          
+          response = {
+            time : (new Date()).toJSON(),
+            responseText : response.responseText,
+          };
+          cache[current.searchTerm] = response;
+          GM_setValue("autosearchcache",JSON.stringify(cache));
+          handleresponse(response, false);
         }
       });
-      $('<button id="mcisearchbutton">').text("Search").appendTo(div).click(metacritic_search);
+    }
+  });
+}
+
+function metacritic_waitForHotkeys() {
+  listenForHotkeys("meta",function() {
+    var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
+    div.css({
+      position:"fixed", 
+      bottom :0, 
+      left: 0,
+      minWidth: 300,
+      maxHeight: "80%",
+      maxWidth: 640,
+      overflow:"auto",
+      backgroundColor: "#fff",
+      border: "2px solid #bbb",
+      borderRadius:" 6px",
+      boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
+      color: "#000",
+      padding:" 3px",
+      zIndex: "5010001",
     });
-  }  
-  );
+    var query = $('<input type="text" size="60" id="mcisearchquery">').appendTo(div).focus().val(current.data.join(" ")).on('keypress', function(e) {
+      var code = e.keyCode || e.which;
+      if(code == 13) { // Enter key
+        metacritic_search.call(this,e);
+      }
+    });
+    $('<button id="mcisearchbutton">').text("Search").appendTo(div).click(metacritic_search);
+  });
 }
 
 function metacritic_search() {
   var query = $("#mcisearchquery").val();
-  var type = "all";
+  var type = searchType2metacritic(current.type);
   
   var style = document.createElement('style');
   style.type = 'text/css';
@@ -537,126 +703,280 @@ function metacritic_search() {
   );
 }
 
+var current = {
+  url : null,
+  type : null,
+  data : null, // Array of raw search keys 
+  searchTerm : null 
+};
 
 
+var metacritic = {
+  "music" : function metacritic_music(artistname, albumname) {
+    current.data = [albumname.trim(),artistname.trim()]
+    artistname = name2metacritic(artistname);
+    albumname = name2metacritic(albumname);
+    var url = baseURL_music + albumname + "/" + artistname;
+    current.url = url;
+    current.type = "music";
+    current.searchTerm = albumname + "/" + artistname;
+    metacritic_showHoverInfo(url);
+  },
+  "movie" : function metacritic_movie(moviename) {
+    current.data = [moviename.trim()]
+    moviename = name2metacritic(moviename);
+    var url = baseURL_movie + moviename;
+    current.url = url;
+    current.type = "movie";
+    current.searchTerm = moviename;
+    metacritic_showHoverInfo(url);
+  },
+  "tv" : function metacritic_tv(seriesname) {
+    current.data = [seriesname.trim()]
+    seriesname = name2metacritic(seriesname);
+    var url = baseURL_tv + seriesname;
+    current.url = url;
+    current.type = "tv";
+    current.searchTerm = seriesname;
+    metacritic_showHoverInfo(url);
+  },
+  "pcgame" : function metacritic_pcgame(gamename) {
+    current.data = [gamename.trim()]
+    gamename = name2metacritic(gamename);
+    var url = baseURL_pcgame + gamename;
+    current.url = url;
+    current.type = "pcgame";
+    current.searchTerm = gamename;
+    metacritic_showHoverInfo(url);
+  },
+  "ps4game" : function metacritic_ps4game(gamename) {
+    current.data = [gamename.trim()]
+    gamename = name2metacritic(gamename);
+    var url = baseURL_ps4 + gamename;
+    current.url = url;
+    current.type = "ps4game";
+    current.searchTerm = gamename;
+    metacritic_showHoverInfo(url);
+  },
+  "xonegame" : function metacritic_xonegame(gamename) {
+    current.data = [gamename.trim()]
+    gamename = name2metacritic(gamename);
+    var url = baseURL_xone + gamename;
+    current.url = url;
+    current.type = "xonegame";
+    current.searchTerm = gamename;
+    metacritic_showHoverInfo(url);
+  }
+};
 
-function metacritic_music(artistname, albumname) {
-  artistname = name2metacritic(artistname);
-  albumname = name2metacritic(albumname);
-  var url = baseURL_music + albumname + "/" + artistname;
-  metacritic_showHoverInfo(url);
-}
 
-function metacritic_movie(moviename) {
-  moviename = name2metacritic(moviename);
-  var url = baseURL_movie + moviename;
-  metacritic_showHoverInfo(url);
-}
-
-function metacritic_pcgame(gamename) {
-  gamename = name2metacritic(gamename);
-  var url = baseURL_pcgame + gamename;
-  metacritic_showHoverInfo(url);
-}
-
-function metacritic_ps4game(gamename) {
-  gamename = name2metacritic(gamename);
-  var url = baseURL_ps4 + gamename;
-  metacritic_showHoverInfo(url);
-}
-
-function metacritic_xonegame(gamename) {
-  gamename = name2metacritic(gamename);
-  var url = baseURL_xone + gamename;
-  metacritic_showHoverInfo(url);
-}
-
-function metacritic_tv(seriesname) {
-  seriesname = name2metacritic(seriesname);
-  var url = baseURL_tv + seriesname;
-  metacritic_showHoverInfo(url);
-}
-
-
-
-function host_amazonMusic() {
-  var music = ["Music","Musique","Musik","Música","Musica","音楽"];
-  return music.some(function(s) {
-    if(~document.title.indexOf(s)) {
-      return true;
-    } else {
-      return false;
+var Always = () => true;
+var sites = {
+  'bandcamp' : {
+    host : ["bandcamp.com"],
+    condition : function() {
+      return unsafeWindow.TralbumData
+    },
+    products : [{
+      condition : Always,
+      type : "music",
+      data : () => [unsafeWindow.TralbumData.artist, unsafeWindow.TralbumData.current.title]
+    }]
+  },
+  'itunes' : {
+    host : ["itunes.apple.com"],
+    condition : Always,
+    products : [{
+      condition : () => ~document.location.href.indexOf("/album/") ,
+      type : "music",
+      data : () => [document.querySelector("*[itemprop=byArtist]").textContent, document.querySelector("*[itemprop=name]").textContent] 
+    }]
+  },
+  'googleplay' : {
+    host : ["play.google.com"],
+    condition : Always,
+    products : [
+    {
+      condition : () => ~document.location.href.indexOf("/album/"),
+      type : "music",
+      data : () => [document.querySelector("*[itemprop=byArtist] a").textContent, document.querySelector("*[itemprop=name]").textContent]
+    },
+    {
+      condition : () => ~document.location.href.indexOf("/movies/details/"),
+      type : "movie",
+      data : () => [document.querySelector("*[itemprop=name]").textContent]
     }
-  });
-}
+    ]
+  },
+  'imdb' : {
+    host : ["imdb.com"],
+    condition : Always,
+    products : [
+    {
+      condition : function() { 
+        var e = document.querySelector("meta[property='og:type']");
+        if(e) {
+          return document.querySelector("meta[property='og:type']").content == "video.movie"
+        }
+        return false; 
+      },
+      type : "movie",
+      data : function() {
+        if(document.querySelector(".title-extra[itemprop=name]")) {
+          return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent];
+        } else {
+          return [document.querySelector("*[itemprop=name]").textContent];
+        }
+      }
+    },
+    {
+      condition : function() { 
+        var e = document.querySelector("meta[property='og:type']");
+        if(e) {
+          return document.querySelector("meta[property='og:type']").content == "video.tv_show"
+        }
+        return false; 
+      },
+      type : "tv",
+      data : () => [document.querySelector("*[itemprop=name]").textContent]
+    }
+    ]
+  },
+  'steam' : {
+    host : ["store.steampowered.com"],
+    condition : () => document.querySelector("*[itemprop=name]"),
+    products : [{
+      condition : Always,
+      type : "pcgame",
+      data : () => [document.querySelector("*[itemprop=name]").textContent]
+    }]
+  },
+  'tv.com' : {
+    host : ["www.tv.com"],
+    condition : () => document.querySelector("h1[itemprop=name]"),
+    products : [{
+      condition : Always,
+      type : "tv",
+      data : () => [document.querySelector("h1[itemprop=name]").textContent]
+    }]
+  },
+  'rottentomatoes' : {
+    host : ["www.rottentomatoes.com"],
+    condition : Always,
+    products : [{
+      condition : () => document.location.pathname.startsWith("/m/"),
+      type : "movie",
+      data : () => [document.querySelector("h1[itemprop=name]").firstChild.textContent] 
+    },
+    {
+      condition : () =>  document.location.pathname.startsWith("/tv/") ,
+      type : "tv",
+      data : () =>  [document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent] 
+    }
+    ]
+  },
+  'serienjunkies' : {
+    host : ["www.serienjunkies.de"],
+    condition : Always,
+    products : [{
+      condition : () =>  Always,
+      type : "tv",
+      data : function() {
+        if(document.querySelector("h1[itemprop=name]")) {
+          return [document.querySelector("h1[itemprop=name]").textContent];
+        } else {
+          var n = $("a:contains(Details zur)");
+          if(n) {
+            var name = n.text().match(/Details zur Produktion der Serie (.+)/)[1];
+            return [name];
+          }
+        }
+      }
+    }]
+  },
+  
+  'gamespot' : {
+    host : ["gamespot.com"],
+    condition : () => document.querySelector("[itemprop=device]"),
+    products : [
+    {
+      condition : () => $("[itemprop=device]").text().contains("PC"),
+      type : "pcgame",
+      data : () => [document.querySelector("h1[itemprop=name]").textContent] 
+    },
+    {
+      condition : () => $("[itemprop=device]").text().contains("PS4"),
+      type : "ps4game",
+      data : () => [document.querySelector("h1[itemprop=name]").textContent]
+    },
+    {
+      condition : () => $("[itemprop=device]").text().contains("XONE"),
+      type : "xonegame",
+      data : () => [document.querySelector("h1[itemprop=name]").textContent] 
+    }
+    ]
+  },
+  'amazon' : {
+    host : ["amazon."],
+    condition : Always,
+    products : [
+    {
+      condition : function() {
+        var music = ["Music","Musique","Musik","Música","Musica","音楽"];
+        return music.some(function(s) {
+          if(~document.title.indexOf(s)) {
+            return true;
+          } else {
+            return false;
+          }
+        });
+      },
+      type : "music",
+      data : function() {
+        var artist = document.querySelector("#byline .author a").textContent;
+        var title = document.getElementById("productTitle").textContent;
+        title = title.replace(/\[([^\]]*)\]/g,""); // Remove [brackets] and their content
+        return [artist, title];
+      }
+    },
+    {
+      condition : () => (document.getElementById("aiv-content-title") && document.getElementsByClassName("season-single-dark").length),
+      type : "tv",
+      data : () => [document.getElementById("aiv-content-title").firstChild.data.trim()]
+    },
+    {
+      condition : () => document.getElementById("aiv-content-title"),
+      type : "movie",
+      data : () => [document.getElementById("aiv-content-title").firstChild.data.trim()] 
+    }
+    ]
+  },
+};
 
 
 function main() {
-
-  if(~document.location.host.indexOf("bandcamp.com") && unsafeWindow.TralbumData) {
-    metacritic_music(unsafeWindow.TralbumData.artist, unsafeWindow.TralbumData.current.title);
-  }
-  else if(~document.location.host.indexOf("itunes.apple.com") && ~document.location.href.indexOf("/album/")) {
-    metacritic_music(document.querySelector("*[itemprop=byArtist]").textContent, document.querySelector("*[itemprop=name]").textContent);
-  }
-  else if(~document.location.host.indexOf("play.google.com")) {
-    if(~document.location.href.indexOf("/album/")) {
-      metacritic_music(document.querySelector("*[itemprop=byArtist] a").textContent, document.querySelector("*[itemprop=name]").textContent);
-    } else if(~document.location.href.indexOf("/movies/details/")) {
-      metacritic_movie(document.querySelector("*[itemprop=name]").textContent);
-    }
-  }
-  else if(~document.location.host.indexOf("amazon")) {
-    if(host_amazonMusic()) {
-      var artist = document.querySelector("#byline .author a").textContent;
-      var title = document.getElementById("productTitle").textContent;
-      title = title.replace(/\[([^\]]*)\]/g,""); // Remove [brackets] and their content
-      metacritic_music(artist, title);
-    } else if(document.getElementById("aiv-content-title") && document.getElementsByClassName("season-single-dark").length) {
-      metacritic_tv(document.getElementById("aiv-content-title").firstChild.data.trim());
-    } else if(document.getElementById("aiv-content-title")) {
-      metacritic_movie(document.getElementById("aiv-content-title").firstChild.data.trim());
-    }
-  }
-  else if(~document.location.host.indexOf("imdb.com")) {
-    metacritic_movie(document.querySelector("*[itemprop=name]").textContent);
-  }
-  else if(~document.location.host.indexOf("store.steampowered.com")) {
-    metacritic_pcgame(document.querySelector("*[itemprop=name]").textContent);
-  }
-  else if(~document.location.host.indexOf("gamespot.com")) {
-    if($("[itemprop=device]").text().contains("PC")) {
-      metacritic_pcgame(document.querySelector("h1[itemprop=name]").textContent);
-    } else if($("[itemprop=device]").text().contains("PS4")) {
-      metacritic_ps4game(document.querySelector("h1[itemprop=name]").textContent);
-    } else if($("[itemprop=device]").text().contains("XONE")) {
-      metacritic_xonegame(document.querySelector("h1[itemprop=name]").textContent);
-    }
-  }
-  else if(~document.location.host.indexOf("www.serienjunkies.de")) {
-    if(document.querySelector("h1[itemprop=name]")) {
-      metacritic_tv(document.querySelector("h1[itemprop=name]").textContent);
-    } else {
-      var n = $("a:contains(Details zur)");
-      if(n) {
-        var name = n.text().match(/Details zur Produktion der Serie (.+)/)[1];
-        metacritic_tv(name);
+  for(var name in sites) {
+    var site = sites[name];
+    if(site.host.some(function(e) {return ~this.indexOf(e)}, document.location.hostname) && site.condition()) {
+      for(var i = 0; i < site.products.length; i++) {
+        if(site.products[i].condition()) {
+          var data;
+          try {
+            data = site.products[i].data();
+          } catch(e) {
+            data = false;
+            console.log(e);
+          }
+          if(data !== false) {
+            metacritic[site.products[i].type].apply(null, data);
+          }
+          break;
+        }
       }
+      break;
     }
   }
-  else if(~document.location.host.indexOf("www.tv.com")) {
-    metacritic_tv(document.querySelector("h1[itemprop=name]").textContent);
-  }
-  else if(~document.location.host.indexOf("www.rottentomatoes.com")) {
-    if(~document.location.href.indexOf(".com/m/")) {
-      metacritic_movie(document.querySelector("h1[itemprop=name]").firstChild.textContent);
-    } else if(~document.location.href.indexOf(".com/tv/")) {
-      metacritic_tv(document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent);
-    }
-  }
-  
 }
-
 
 
 
