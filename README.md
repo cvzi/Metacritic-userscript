@@ -1,0 +1,1 @@
+# Metacritic-userscript
