@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -52,6 +52,10 @@
 // @include     https://www.rottentomatoes.com/m/*
 // @include     http://www.rottentomatoes.com/tv/*
 // @include     https://www.rottentomatoes.com/tv/*
+// @include     http://www.boxofficemojo.com/movies/*
+// @include     http://www.allmovie.com/movie/*
+// @include     https://en.wikipedia.org/*
+// @include     http://www.movies.com/*/m*
 // ==/UserScript==
 
 var baseURL = "http://www.metacritic.com/";
@@ -545,7 +549,9 @@ function metacritic_showHoverInfo(url) {
           // One result, let's show it
           metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
         } else {
-          // More than one result            
+          // More than one result
+          console.log("Multiple results for search_term="+current.searchTerm);
+          return; //TODO
           var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
           div.css({
             position:"fixed", 
@@ -804,7 +810,7 @@ var sites = {
     {
       condition : () => ~document.location.href.indexOf("/movies/details/"),
       type : "movie",
-      data : () => [document.querySelector("*[itemprop=name]").textContent]
+      data : () => document.querySelector("*[itemprop=name]").textContent
     }
     ]
   },
@@ -825,7 +831,7 @@ var sites = {
         if(document.querySelector(".title-extra[itemprop=name]")) {
           return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent];
         } else {
-          return [document.querySelector("*[itemprop=name]").textContent];
+          return document.querySelector("*[itemprop=name]").textContent;
         }
       }
     },
@@ -838,7 +844,7 @@ var sites = {
         return false; 
       },
       type : "tv",
-      data : () => [document.querySelector("*[itemprop=name]").textContent]
+      data : () => document.querySelector("*[itemprop=name]").textContent
     }
     ]
   },
@@ -848,7 +854,7 @@ var sites = {
     products : [{
       condition : Always,
       type : "pcgame",
-      data : () => [document.querySelector("*[itemprop=name]").textContent]
+      data : () => document.querySelector("*[itemprop=name]").textContent
     }]
   },
   'tv.com' : {
@@ -857,7 +863,7 @@ var sites = {
     products : [{
       condition : Always,
       type : "tv",
-      data : () => [document.querySelector("h1[itemprop=name]").textContent]
+      data : () => document.querySelector("h1[itemprop=name]").textContent
     }]
   },
   'rottentomatoes' : {
@@ -866,12 +872,12 @@ var sites = {
     products : [{
       condition : () => document.location.pathname.startsWith("/m/"),
       type : "movie",
-      data : () => [document.querySelector("h1[itemprop=name]").firstChild.textContent] 
+      data : () => document.querySelector("h1[itemprop=name]").firstChild.textContent
     },
     {
       condition : () =>  document.location.pathname.startsWith("/tv/") ,
       type : "tv",
-      data : () =>  [document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent] 
+      data : () =>  document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent
     }
     ]
   },
@@ -883,12 +889,12 @@ var sites = {
       type : "tv",
       data : function() {
         if(document.querySelector("h1[itemprop=name]")) {
-          return [document.querySelector("h1[itemprop=name]").textContent];
+          return document.querySelector("h1[itemprop=name]").textContent;
         } else {
           var n = $("a:contains(Details zur)");
           if(n) {
             var name = n.text().match(/Details zur Produktion der Serie (.+)/)[1];
-            return [name];
+            return name;
           }
         }
       }
@@ -902,17 +908,17 @@ var sites = {
     {
       condition : () => $("[itemprop=device]").text().contains("PC"),
       type : "pcgame",
-      data : () => [document.querySelector("h1[itemprop=name]").textContent] 
+      data : () => document.querySelector("h1[itemprop=name]").textContent 
     },
     {
       condition : () => $("[itemprop=device]").text().contains("PS4"),
       type : "ps4game",
-      data : () => [document.querySelector("h1[itemprop=name]").textContent]
+      data : () => document.querySelector("h1[itemprop=name]").textContent
     },
     {
       condition : () => $("[itemprop=device]").text().contains("XONE"),
       type : "xonegame",
-      data : () => [document.querySelector("h1[itemprop=name]").textContent] 
+      data : () => document.querySelector("h1[itemprop=name]").textContent
     }
     ]
   },
@@ -942,15 +948,58 @@ var sites = {
     {
       condition : () => (document.getElementById("aiv-content-title") && document.getElementsByClassName("season-single-dark").length),
       type : "tv",
-      data : () => [document.getElementById("aiv-content-title").firstChild.data.trim()]
+      data : () => document.getElementById("aiv-content-title").firstChild.data.trim()
     },
     {
       condition : () => document.getElementById("aiv-content-title"),
       type : "movie",
-      data : () => [document.getElementById("aiv-content-title").firstChild.data.trim()] 
+      data : () => document.getElementById("aiv-content-title").firstChild.data.trim()
     }
     ]
   },
+  'BoxOfficeMojo' : {
+    host : ["boxofficemojo.com"],
+    condition : () => ~document.location.search.indexOf("id="),
+    products : [{
+      condition : () => document.querySelector("#body table:nth-child(2) tr:first-child b"),
+      type : "movie",
+      data : () => document.querySelector("#body table:nth-child(2) tr:first-child b").firstChild.data
+    }]
+  },
+  'AllMovie' : {
+    host : ["allmovie.com"],
+    condition : () => document.querySelector("h2[itemprop=name].movie-title"),
+    products : [{
+      condition : () => document.querySelector("h2[itemprop=name].movie-title"),
+      type : "movie",
+      data : () => document.querySelector("h2[itemprop=name].movie-title").firstChild.data.trim()
+    }]
+  },
+  'en.wikipedia' : {
+    host : ["en.wikipedia.org"],
+    condition : function() {
+      var r = /\d\d\d\d films/;
+      return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
+    },
+    products : [{
+      condition : () => document.querySelector(".infobox .summary"),
+      type : "movie",
+      data : () => document.querySelector(".infobox .summary").firstChild.data
+    }]
+  },
+  'movies.com' : {
+    host : ["movies.com"],
+    condition : () => document.querySelector("meta[property='og:title']"),
+    products : [{
+      condition : () => Always,
+      type : "movie",
+      data : () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+  
+  
+  
+  
 };
 
 
@@ -968,7 +1017,7 @@ function main() {
             console.log(e);
           }
           if(data !== false) {
-            metacritic[site.products[i].type].apply(null, data);
+            metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
           }
           break;
         }
