@@ -20,6 +20,12 @@ Supported sites and products:
  * Gamespot (only PS4, XONE and PC games)
  * Rotten Tomatoes
  * Serienjunkies
+ * BoxOfficeMojo
+ * allmovie.com
+ * movie.com
+ * Wikipedia (en)
+ * themoviedb.org
+
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)

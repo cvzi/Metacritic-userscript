@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -9,10 +9,10 @@
 // @grant       GM_getValue
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
-// @resource    global.min.css http://www.metacritic.com/css/global.min.1445030030.css
-// @resource    base.min.css http://www.metacritic.com/css/filters/base.min.1445029958.css
+// @resource    global.min.css http://www.metacritic.com/css/global.min.1446760484.css
+// @resource    base.min.css http://www.metacritic.com/css/search/base.min.1446760407.css
 // @license     GNUGPL
-// @version     2a
+// @version     3
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -56,7 +56,10 @@
 // @include     http://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
 // @include     http://www.movies.com/*/m*
+// @include     https://www.themoviedb.org/movie/*
+// @include     https://www.themoviedb.org/tv/*
 // ==/UserScript==
+
 
 var baseURL = "http://www.metacritic.com/";
 
@@ -76,146 +79,11 @@ if(~navigator.userAgent.indexOf("Chrome")) {
 }
 
 
-var CSS =   "/* http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/*/\
-#mcdiv123 .grespinner {\
-    height:16px;\
-    width:16px;\
-    margin:0px auto;\
-    position:relative;\
-    -webkit-animation: rotation .6s infinite linear;\
-    -moz-animation: rotation .6s infinite linear;\
-    -o-animation: rotation .6s infinite linear;\
-    animation: rotation .6s infinite linear;\
-    border-left:6px solid rgba(0,174,239,.15);\
-    border-right:6px solid rgba(0,174,239,.15);\
-    border-bottom:6px solid rgba(0,174,239,.15);\
-    border-top:6px solid rgba(0,174,239,.8);\
-    border-radius:100%;\
-  }\
-  @-webkit-keyframes rotation {\
-    from {-webkit-transform: rotate(0deg);}\
-    to {-webkit-transform: rotate(359deg);}\
-  }\
-  @-moz-keyframes rotation {\
-    from {-moz-transform: rotate(0deg);}\
-    to {-moz-transform: rotate(359deg);}\
-  }\
-  @-o-keyframes rotation {\
-    from {-o-transform: rotate(0deg);}\
-    to {-o-transform: rotate(359deg);}\
-  }\
-  \
-  @keyframes rotation {\
-    from {transform: rotate(0deg);}\
-    to {transform: rotate(359deg);}\
-  }\
-\
-#mcdiv123searchresults .result {\
-  font: 12px arial,helvetica,serif;\
-  border-top-width: 1px;\
-  border-top-color:#ccc;\
-  border-top-style:solid;\
-  padding:5px;\
-}\
-#mcdiv123searchresults .result .result_type {\
-    display: inline;\
-}\
-#mcdiv123searchresults .result .result_wrap {\
-    float: left;\
-    width: 100%;\
-}\
-#mcdiv123searchresults .result .has_score {\
-    padding-left: 42px;\
-}\
-#mcdiv123searchresults .result .basic_stats {\
-    height: 1%;\
-    overflow: hidden;\
-}\
-#mcdiv123searchresults .result .basic_stat {\
-    display: inline;\
-    float: right;\
-    overflow: hidden;\
-    width: 100%;\
-}\
-#mcdiv123searchresults .result h3 {\
-    font-size: 14px;\
-    font-weight: bold;\
-}\
-#mcdiv123searchresults .result a {\
-    color: #09f;\
-    font-weight: bold;\
-    text-decoration: none;\
-}\
-#mcdiv123searchresults .metascore_w.positive, #mcdiv123searchresults .metascore_w.sixtyone, #mcdiv123searchresults .metascore_w.game.seventyfive, #mcdiv123searchresults .metascore_w.score_favorable, #mcdiv123searchresults .metascore_w.score_outstanding {\
-    background-color: #6c3;\
-}\
-#mcdiv123searchresults .metascore_w.mixed, #mcdiv123searchresults .metascore_w.forty, #mcdiv123searchresults .metascore_w.game.fifty, #mcdiv123searchresults .metascore_w.score_mixed {\
-    background-color: #fc3;\
-}\
-#mcdiv123searchresults .metascore_w.negative, #mcdiv123searchresults .metascore_w.score_terrible, #mcdiv123searchresults .metascore_w.score_unfavorable {\
-    background-color: #f00;\
-}\
-\
-#mcdiv123searchresults span.metascore_w, #mcdiv123searchresults a.metascore_w {\
-    display: inline-block;\
-}\
-#mcdiv123searchresults .result .metascore_w {\
-    color: #fff !important;\
-    font-family: Arial,Helvetica,sans-serif;\
-    font-size: 17px;\
-    font-style: normal !important;\
-    font-weight: bold !important;\
-    height: 2em;\
-    line-height: 2em;\
-    text-align: center;\
-    vertical-align: middle;\
-    width: 2em;\
-    float: left;\
-    margin: 0 0 0 -42px;\
-}\
-#mcdiv123searchresults .result .basic_stat {\
-    display: inline;\
-    float: right;\
-    overflow: hidden;\
-    width: 100%;\
-}\
-#mcdiv123searchresults .result .more_stats {\
-    font-size: 10px;\
-    color:#444;\
-}\
-#mcdiv123searchresults .result .release_date .data {\
-  font-weight: bold;\
-  color:#000;\
-}\
-#mcdiv123searchresults ol, #mcdiv123searchresults ul {\
-    list-style: outside none none;\
-}\
-#mcdiv123searchresults .result li.stat {\
-    background: transparent none repeat scroll 0 0;\
-    display: block;\
-    float: none;\
-    white-space: normal;\
-}\
-#mcdiv123searchresults .result li.stat {\
-    display: inline;\
-    float: left;\
-    margin: 0;\
-    padding: 0 6px 0 0;\
-    white-space: nowrap;\
-}\
-#mcdiv123searchresults .result .deck {\
-    margin: 3px 0 0;\
-}\
-#mcdiv123searchresults .result .basic_stat {\
-    display: inline;\
-    float: right;\
-    overflow: hidden;\
-    width: 100%;\
-}\
-";
-  
+// http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
+var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
+
 function name2metacritic(s) {
-  return s.normalize('NFKD').replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
+  return s.normalize('NFKD').replace(/\//g,"").replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
 }
 function minutesSince(time) {
   var seconds = ((new Date()).getTime() - time.getTime()) / 1000;
@@ -270,6 +138,50 @@ function metaScore(score, word) {
   
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
+
+function addToMap(url, metaurl) {
+  var data = JSON.parse(GM_getValue("map","{}"));
+  
+  var url = url.match(/http.*\d+\//)[0].replace(/https?:\/\/(www.)?/,"");
+  var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+
+  data[url] = metaurl;
+  
+  GM_setValue("map", JSON.stringify(data));
+}
+
+function addToBlacklist(url, metaurl) {
+  var data = JSON.parse(GM_getValue("black","{}"));
+  
+  var url = url.match(/http.*\d+\//)[0].replace(/https?:\/\/(www.)?/,"");
+  var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+
+  data[url] = metaurl;
+  
+  GM_setValue("black", JSON.stringify(data));
+}
+
+function isBlacklistedUrl(docurl, metaurl) { 
+  docurl = docurl.replace(/https?:\/\/(www.)?/,"");
+  
+  metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+  metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
+  
+  
+  var data = JSON.parse(GM_getValue("black","{}"));
+  if(docurl in data) {
+    if(data[docurl] == metaurl) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isBlacklisted(metaurl) {
+  return isBlacklistedUrl("" + document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search, metaurl);
+}
+
+
 
 function listenForHotkeys(code, cb) {
   // Call cb() as soon as the code sequence was typed
@@ -402,9 +314,13 @@ function metacritic_searchResults(url, cb, errorcb) {
 }
 
 function metacritic_showHoverInfo(url) {
+  if(!url) {
+    return;
+  }
   metacritic_hoverInfo(url, 
   // On Success
   function(html, time) {
+    $("#mcdiv123").remove();
     var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
     div.css({
       position:"fixed", 
@@ -517,6 +433,25 @@ function metacritic_showHoverInfo(url) {
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#128128;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
+    
+    $('<span title="This is the correct entry" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
+      var docurl = document.location.href;
+      var metaurl = $(this).data("url");
+      addToMap(docurl,metaurl);
+      alert("Saved to correct list!\n\n"+docurl+"\n"+metaurl);
+    });
+    $('<span title="This is NOT the correct entry" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
+      var docurl = document.location.href;
+      var metaurl = $(this).data("url");
+      addToBlacklist(docurl,metaurl);
+      alert("Saved to blacklist!\n\n"+docurl+"\n"+metaurl);
+      
+      // Open search
+      metacritic_searchcontainer(null, current.searchTerm);
+      metacritic_search(null, current.searchTerm);
+    });
+    
+    
 
   },
   // On error i.e. no result on metacritic.com
@@ -547,55 +482,29 @@ function metacritic_showHoverInfo(url) {
           console.log("No results (after filtering by type) for search_term="+current.searchTerm);
         } else if(data.autoComplete.length == 1) {
           // One result, let's show it
-          metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
+          if(!isBlacklisted(baseURL + data.autoComplete[0].url)) {
+            metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
+            return;
+          }
         } else {
           // More than one result
           console.log("Multiple results for search_term="+current.searchTerm);
-          return; //TODO
-          var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
-          div.css({
-            position:"fixed", 
-            bottom :0, 
-            left: 0,
-            minWidth: 300,
-            maxHeight: "80%",
-            maxWidth: 640,
-            overflow:"auto",
-            backgroundColor: "#fff",
-            border: "2px solid #bbb",
-            borderRadius:" 6px",
-            boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-            color: "#000",
-            padding:" 3px",
-            zIndex: "5010001",
-            fontFamily: "Arial,Helvetica,sans-serif"
+          var exactMatches = [];
+          data.autoComplete.forEach(function(result,i) { // Try to find the correct result by matching the search term to exactly one movie title
+            if(current.searchTerm == result.name) {
+              exactMatches.push(result);
+            }
           });
-          
-          var accept = function(ev) {
-            alert(this.parentNode.parentNode.dataset.url);
-          };
-          var deny = function(ev) {
-            alert(this.parentNode.parentNode.dataset.url);
-          };
-          
-          data.autoComplete.forEach(function(result,i) {
-            var rdiv = $('<div style="background:#'+(i%2==0?'fff':'eee')+'; padding-bottom:3px;width: 290px" data-url="'+baseURL+result.url+'"><div style="float:left;width:60px">\
-              <img src="'+result.imagePath+'">\
-            </div><div style="float:left; width: 200px">\
-              <span style="font-size:small">'+result.name + (result.itemDate?' ('+result.itemDate+')':'') + '</span>\
-              <span style="font-size:x-small"><br>'+metaScore(result.metaScore,result.scoreWord)+' '+result.refType+'</span>\
-            </div></div>').appendTo(div).append(); 
-            var cdiv = $('<div style="float:left; "></div>').appendTo(rdiv);
-            $('<div style="clear:left;"></div>').appendTo(rdiv);
-            $('<span>&check;</span>').appendTo(cdiv).css({"color":"green","cursor":"pointer"}).click(accept);
-            $('<span>&cross;</span>').appendTo(cdiv).css({"color":"crimson","cursor":"pointer"}).click(deny);
-            
-          });
-        }
-      } else {
-        // No results
-        console.log("No results for search_term="+current.searchTerm);
+          if(exactMatches.length == 1) {
+            // Only one exact match, let's show it
+            if(!isBlacklisted(baseURL + exactMatches[0].url)) {
+              metacritic_showHoverInfo(baseURL + exactMatches[0].url);
+              return;
+            }
+          } 
+        } 
       }
+      // HERE: multiple results or no result. The user may type "meta" now
     };
     var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
     for(var prop in cache) {
@@ -636,38 +545,47 @@ function metacritic_showHoverInfo(url) {
 }
 
 function metacritic_waitForHotkeys() {
-  listenForHotkeys("meta",function() {
-    var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
-    div.css({
-      position:"fixed", 
-      bottom :0, 
-      left: 0,
-      minWidth: 300,
-      maxHeight: "80%",
-      maxWidth: 640,
-      overflow:"auto",
-      backgroundColor: "#fff",
-      border: "2px solid #bbb",
-      borderRadius:" 6px",
-      boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-      color: "#000",
-      padding:" 3px",
-      zIndex: "5010001",
-    });
-    var query = $('<input type="text" size="60" id="mcisearchquery">').appendTo(div).focus().val(current.data.join(" ")).on('keypress', function(e) {
-      var code = e.keyCode || e.which;
-      if(code == 13) { // Enter key
-        metacritic_search.call(this,e);
-      }
-    });
-    $('<button id="mcisearchbutton">').text("Search").appendTo(div).click(metacritic_search);
-  });
+  listenForHotkeys("meta",metacritic_searchcontainer);
 }
 
-function metacritic_search() {
-  var query = $("#mcisearchquery").val();
-  var type = searchType2metacritic(current.type);
-  
+function metacritic_searchcontainer(ev, query) {
+  if(!query) {
+    query = current.data.join(" ");
+  }
+  $("#mcdiv123").remove();
+  var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
+  div.css({
+    position:"fixed", 
+    bottom :0, 
+    left: 0,
+    minWidth: 300,
+    maxHeight: "80%",
+    maxWidth: 640,
+    overflow:"auto",
+    backgroundColor: "#fff",
+    border: "2px solid #bbb",
+    borderRadius:" 6px",
+    boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
+    color: "#000",
+    padding:" 3px",
+    zIndex: "5010001",
+  });
+  var query = $('<input type="text" size="60" id="mcisearchquery">').appendTo(div).focus().val(query).on('keypress', function(e) {
+    var code = e.keyCode || e.which;
+    if(code == 13) { // Enter key
+      metacritic_search.call(this,e);
+    }
+  });
+  $('<button id="mcisearchbutton">').text("Search").appendTo(div).click(metacritic_search);
+}
+
+
+function metacritic_search(ev, query) {
+  if(!query) { // Use values from search form
+    query = $("#mcisearchquery").val();
+  }
+  var type = current.type;
+
   var style = document.createElement('style');
   style.type = 'text/css';
   style.innerHTML = CSS;
@@ -681,9 +599,29 @@ function metacritic_search() {
   // On success
   function(results, time) {
     loader.remove();
+    
+    var accept = function(ev) {
+      var a = $(this.parentNode).find("a[href*='metacritic.com']");
+      var metaurl = a.attr("href");
+      
+      var docurl = document.location.href;
+
+      addToMap(docurl,metaurl);
+      
+      metacritic_showHoverInfo(metaurl);
+    };
+    var denyAll = function(ev) {
+      var urls = [];
+      var docurl = document.location.href;
+      $("#mcdiv123searchresults").find("div.result a[href*='metacritic.com']").each(function() {
+        addToBlacklist(docurl, this.href);
+      });
+    };
+    
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').css("max-width","95%").appendTo(div);
     results.forEach(function(html) {
-      $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
+      var singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
+      $('<span title="This is the correct entry" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
     });
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
@@ -691,6 +629,7 @@ function metacritic_search() {
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#128128;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
+    $('<span title="None of the above is the correct item" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function() {if(confirm("None of the above is the correct item\nConfirm?")) denyAll()});
   },
   // On error i.e. no results
   function(results, time) {
@@ -713,11 +652,28 @@ var current = {
   url : null,
   type : null,
   data : null, // Array of raw search keys 
-  searchTerm : null 
+  searchTerm : null
 };
 
 
+function showURL(url) {
+  if(!isBlacklisted(url)) {
+    metacritic_showHoverInfo(url);
+  } else {
+    console.log(url +" is blacklisted!");
+  }
+}
+
+
 var metacritic = {
+  "mapped" : function metacritic_mapped(url, type) {
+    // url was in the map/whitelist
+    current.data = [url]
+    current.url = url;
+    current.type = type;
+    current.searchTerm = url;
+    showURL(url);
+  },
   "music" : function metacritic_music(artistname, albumname) {
     current.data = [albumname.trim(),artistname.trim()]
     artistname = name2metacritic(artistname);
@@ -726,7 +682,7 @@ var metacritic = {
     current.url = url;
     current.type = "music";
     current.searchTerm = albumname + "/" + artistname;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   },
   "movie" : function metacritic_movie(moviename) {
     current.data = [moviename.trim()]
@@ -735,7 +691,7 @@ var metacritic = {
     current.url = url;
     current.type = "movie";
     current.searchTerm = moviename;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   },
   "tv" : function metacritic_tv(seriesname) {
     current.data = [seriesname.trim()]
@@ -744,7 +700,7 @@ var metacritic = {
     current.url = url;
     current.type = "tv";
     current.searchTerm = seriesname;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   },
   "pcgame" : function metacritic_pcgame(gamename) {
     current.data = [gamename.trim()]
@@ -753,7 +709,7 @@ var metacritic = {
     current.url = url;
     current.type = "pcgame";
     current.searchTerm = gamename;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   },
   "ps4game" : function metacritic_ps4game(gamename) {
     current.data = [gamename.trim()]
@@ -762,7 +718,7 @@ var metacritic = {
     current.url = url;
     current.type = "ps4game";
     current.searchTerm = gamename;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   },
   "xonegame" : function metacritic_xonegame(gamename) {
     current.data = [gamename.trim()]
@@ -771,7 +727,7 @@ var metacritic = {
     current.url = url;
     current.type = "xonegame";
     current.searchTerm = gamename;
-    metacritic_showHoverInfo(url);
+    showURL(url);
   }
 };
 
@@ -822,14 +778,14 @@ var sites = {
       condition : function() { 
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
-          return document.querySelector("meta[property='og:type']").content == "video.movie"
+          return e.content == "video.movie"
         }
         return false; 
       },
       type : "movie",
       data : function() {
         if(document.querySelector(".title-extra[itemprop=name]")) {
-          return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent];
+          return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"")];
         } else {
           return document.querySelector("*[itemprop=name]").textContent;
         }
@@ -839,7 +795,7 @@ var sites = {
       condition : function() { 
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
-          return document.querySelector("meta[property='og:type']").content == "video.tv_show"
+          return e.content == "video.tv_show"
         }
         return false; 
       },
@@ -977,13 +933,27 @@ var sites = {
   },
   'en.wikipedia' : {
     host : ["en.wikipedia.org"],
-    condition : function() {
-      var r = /\d\d\d\d films/;
-      return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
-    },
+    condition : Always,
     products : [{
-      condition : () => document.querySelector(".infobox .summary"),
+      condition : function() {
+        if(!document.querySelector(".infobox .summary")) {
+          return false;
+        }
+        var r = /\d\d\d\d films/;
+        return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
+      },
       type : "movie",
+      data : () => document.querySelector(".infobox .summary").firstChild.data
+    },
+    {
+      condition : function() {
+        if(!document.querySelector(".infobox .summary")) {
+          return false;
+        }
+        var r = /television series/;
+        return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
+      },
+      type : "tv",
       data : () => document.querySelector(".infobox .summary").firstChild.data
     }]
   },
@@ -996,19 +966,46 @@ var sites = {
       data : () => document.querySelector("meta[property='og:title']").content
     }]
   },
-  
-  
-  
-  
+  'themoviedb' : {
+    host : ["themoviedb.org"],
+    condition : () => document.querySelector("meta[property='og:type']"),
+    products : [{
+      condition : () => document.querySelector("meta[property='og:type']").content == "movie",
+      type : "movie",
+      data : () => document.querySelector("meta[property='og:title']").content
+    },
+    {
+      condition : () => document.querySelector("meta[property='og:type']").content == "tv_series",
+      type : "tv",
+      data : () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+
+
 };
 
 
 function main() {
+
+  var map = false;
+
   for(var name in sites) {
     var site = sites[name];
     if(site.host.some(function(e) {return ~this.indexOf(e)}, document.location.hostname) && site.condition()) {
       for(var i = 0; i < site.products.length; i++) {
         if(site.products[i].condition()) {
+          // Check map for a match
+          if(map === false) {
+            map = JSON.parse(GM_getValue("map","{}"));
+          }
+          var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
+          if(docurl in map) {
+            // Found in map, show result
+            var metaurl = map[docurl];
+            metacritic["mapped"].apply(undefined, [baseURL + metaurl, site.products[i].type]);
+            break;
+          }
+          // Try to retrieve item name from page
           var data;
           try {
             data = site.products[i].data();
