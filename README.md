@@ -25,6 +25,7 @@ Supported sites and products:
  * movie.com
  * Wikipedia (en)
  * themoviedb.org
+ * letterboxd
 
 
 Screenshot:

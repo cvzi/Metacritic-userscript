@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -58,6 +58,8 @@
 // @include     http://www.movies.com/*/m*
 // @include     https://www.themoviedb.org/movie/*
 // @include     https://www.themoviedb.org/tv/*
+// @include     http://letterboxd.com/film/*
+// @include     https://letterboxd.com/film/*
 // ==/UserScript==
 
 
@@ -980,7 +982,15 @@ var sites = {
       data : () => document.querySelector("meta[property='og:title']").content
     }]
   },
-
+  'letterboxd' : {
+    host : ["letterboxd.com"],
+    condition : () => unsafeWindow.filmData && "name" in unsafeWindow.filmData,
+    products : [{
+      condition : () => Always,
+      type : "movie",
+      data : () => unsafeWindow.filmData.name
+    }]
+  }
 
 };
 
