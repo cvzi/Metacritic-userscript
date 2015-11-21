@@ -12,7 +12,7 @@
 // @resource    global.min.css http://www.metacritic.com/css/global.min.1446760484.css
 // @resource    base.min.css http://www.metacritic.com/css/search/base.min.1446760407.css
 // @license     GNUGPL
-// @version     3
+// @version     4
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -62,7 +62,6 @@
 // @include     https://letterboxd.com/film/*
 // ==/UserScript==
 
-
 var baseURL = "http://www.metacritic.com/";
 
 var baseURL_music = "http://www.metacritic.com/music/";
@@ -90,6 +89,10 @@ function name2metacritic(s) {
 function minutesSince(time) {
   var seconds = ((new Date()).getTime() - time.getTime()) / 1000;
   return seconds>60?parseInt(seconds/60)+" min ago":"now";
+}
+function randomStringId() {
+  var id10 = () => Math.floor((1 + Math.random()) * 0x10000000000).toString(16).substring(1);
+  return id10()+id10()+id10()+id10()+id10()+id10();
 }
 function fixMetacriticURLs(html) {
   return html.replace(/<a /g,'<a target="_blank" ').replace(/href="\//g,'href="'+baseURL).replace(/src="\//g,'src="'+baseURL);
@@ -141,26 +144,40 @@ function metaScore(score, word) {
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
+function filterUniversalUrl(url) {
+  url = url.match(/http.+/)[0].replace(/https?:\/\/(www.)?/,"");
+  
+  if(url.startsWith("somehost")) {// TODO 
+     return url; // Do not remove parameters
+  } else {
+    return url.split("?")[0].split("&")[0]; // Remove parameters
+  }
+}
+
 function addToMap(url, metaurl) {
   var data = JSON.parse(GM_getValue("map","{}"));
   
-  var url = url.match(/http.*\d+\//)[0].replace(/https?:\/\/(www.)?/,"");
+  var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
   
   GM_setValue("map", JSON.stringify(data));
+  
+  (new Image()).src = "http://123.net23.net/whitelist.php?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
 }
 
 function addToBlacklist(url, metaurl) {
   var data = JSON.parse(GM_getValue("black","{}"));
   
-  var url = url.match(/http.*\d+\//)[0].replace(/https?:\/\/(www.)?/,"");
+  var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
   
   GM_setValue("black", JSON.stringify(data));
+  
+  (new Image()).src = "http://123.net23.net/blacklist.php?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
 }
 
 function isBlacklistedUrl(docurl, metaurl) { 
@@ -443,6 +460,7 @@ function metacritic_showHoverInfo(url) {
       alert("Saved to correct list!\n\n"+docurl+"\n"+metaurl);
     });
     $('<span title="This is NOT the correct entry" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
+      if(!confirm("This is NOT the correct entry!\n\nAdd to blacklist?")) return;
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
       addToBlacklist(docurl,metaurl);
@@ -858,7 +876,6 @@ var sites = {
       }
     }]
   },
-  
   'gamespot' : {
     host : ["gamespot.com"],
     condition : () => document.querySelector("[itemprop=device]"),
