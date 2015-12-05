@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -12,7 +12,7 @@
 // @resource    global.min.css http://www.metacritic.com/css/global.min.1446760484.css
 // @resource    base.min.css http://www.metacritic.com/css/search/base.min.1446760407.css
 // @license     GNUGPL
-// @version     4
+// @version     5
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -60,6 +60,9 @@
 // @include     https://www.themoviedb.org/tv/*
 // @include     http://letterboxd.com/film/*
 // @include     https://letterboxd.com/film/*
+// @include     http://www.tvmaze.com/shows/*
+// @include     http://www.tvguide.com/tvshows/*
+// @include     https://www.tvguide.com/tvshows/*
 // ==/UserScript==
 
 var baseURL = "http://www.metacritic.com/";
@@ -980,7 +983,7 @@ var sites = {
     host : ["movies.com"],
     condition : () => document.querySelector("meta[property='og:title']"),
     products : [{
-      condition : () => Always,
+      condition : Always,
       type : "movie",
       data : () => document.querySelector("meta[property='og:title']").content
     }]
@@ -1003,12 +1006,30 @@ var sites = {
     host : ["letterboxd.com"],
     condition : () => unsafeWindow.filmData && "name" in unsafeWindow.filmData,
     products : [{
-      condition : () => Always,
+      condition : Always,
       type : "movie",
       data : () => unsafeWindow.filmData.name
     }]
-  }
-
+  },
+  'TVmaze' : {
+    host : ["tvmaze.com"],
+    condition : () => document.querySelector("h1"),
+    products : [{
+      condition : Always,
+      type : "tv",
+      data : () => document.querySelector("h1").firstChild.data
+    }]
+  },
+  'TVGuide' : {
+    host : ["tvguide.com"],
+    condition : Always,
+    products : [{
+      condition : () => document.location.pathname.startsWith("/tvshows/"),
+      type : "tv",
+      data : () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+  
 };
 
 

@@ -26,6 +26,8 @@ Supported sites and products:
  * Wikipedia (en)
  * themoviedb.org
  * letterboxd
+ * TVmaze 
+ * TVGuide
 
 
 Screenshot:
