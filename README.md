@@ -28,6 +28,8 @@ Supported sites and products:
  * letterboxd
  * TVmaze 
  * TVGuide
+ * followshows.com
+ * TheTVDB
 
 
 Screenshot:

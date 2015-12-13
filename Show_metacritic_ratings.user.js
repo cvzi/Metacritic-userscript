@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -12,7 +12,7 @@
 // @resource    global.min.css http://www.metacritic.com/css/global.min.1446760484.css
 // @resource    base.min.css http://www.metacritic.com/css/search/base.min.1446760407.css
 // @license     GNUGPL
-// @version     5
+// @version     6
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -63,6 +63,10 @@
 // @include     http://www.tvmaze.com/shows/*
 // @include     http://www.tvguide.com/tvshows/*
 // @include     https://www.tvguide.com/tvshows/*
+// @include     http://followshows.com/show/*
+// @include     https://followshows.com/show/*
+// @include     http://thetvdb.com/*tab=series*
+// @include     https://thetvdb.com/*tab=series*
 // ==/UserScript==
 
 var baseURL = "http://www.metacritic.com/";
@@ -1029,7 +1033,24 @@ var sites = {
       data : () => document.querySelector("meta[property='og:title']").content
     }]
   },
-  
+  'followshows' : {
+    host : ["followshows.com"],
+    condition : Always,
+    products : [{
+      condition : () => document.querySelector("meta[property='og:type']").content == "video.tv_show",
+      type : "tv",
+      data : () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+  'TheTVDB' : {
+    host : ["thetvdb.com"],
+    condition : Always,
+    products : [{
+      condition : () => ~document.location.search.indexOf("tab=series"),
+      type : "tv",
+      data : () => document.querySelector("#content h1").firstChild.data
+    }]
+  }
 };
 
 
