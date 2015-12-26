@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -9,10 +9,10 @@
 // @grant       GM_getValue
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
-// @resource    global.min.css http://www.metacritic.com/css/global.min.1446760484.css
-// @resource    base.min.css http://www.metacritic.com/css/search/base.min.1446760407.css
+// @resource    global.min.css http://python-cuzi.rhcloud.com/getstyleGlobal
+// @resource    base.min.css http://python-cuzi.rhcloud.com/getstyleBase
 // @license     GNUGPL
-// @version     6
+// @version     7
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -67,6 +67,8 @@
 // @include     https://followshows.com/show/*
 // @include     http://thetvdb.com/*tab=series*
 // @include     https://thetvdb.com/*tab=series*
+// @include     http://consequenceofsound.net/*
+// @include     http://pitchfork.com/reviews/albums/*
 // ==/UserScript==
 
 var baseURL = "http://www.metacritic.com/";
@@ -1050,7 +1052,37 @@ var sites = {
       type : "tv",
       data : () => document.querySelector("#content h1").firstChild.data
     }]
-  }
+  },
+  'ConsequenceOfSound' : {
+    host : ["consequenceofsound.net"],
+    condition : () => document.querySelector("meta[property='og:title']"),
+    products : [{
+      condition : () => document.querySelector("meta[property='og:title']").content.match(/.+: (.+) - (.+)/),
+      type : "music",
+      data : function() {
+        var m = document.querySelector("meta[property='og:title']").content.match(/.+: (.+) - (.+)/);
+        m.shift();
+        return m;
+      }
+    }]
+  },
+  'Pitchfork' : {
+    host : ["pitchfork.com"],
+    condition : () => Always,
+    products : [{
+      condition : () => document.querySelector("#main .review-meta .info h1 a"),
+      type : "music",
+      data : function() {
+        var artist = document.querySelector("#main .review-meta .info h1 a").firstChild.data;
+        var album = document.querySelector("#main .review-meta .info h2").firstChild.data;
+        return [artist, album];
+      }
+    }]
+  },
+  
+  
+  
+  
 };
 
 

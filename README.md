@@ -30,6 +30,8 @@ Supported sites and products:
  * TVGuide
  * followshows.com
  * TheTVDB
+ * ConsequenceOfSound
+ * Pitchfork
 
 
 Screenshot:
