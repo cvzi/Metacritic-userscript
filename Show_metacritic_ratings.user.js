@@ -151,7 +151,13 @@ function metaScore(score, word) {
 }
 
 function filterUniversalUrl(url) {
-  url = url.match(/http.+/)[0].replace(/https?:\/\/(www.)?/,"");
+  try {
+    url = url.match(/http.+/)[0];
+  } catch(e) { }
+  
+  try {
+    url = url.replace(/https?:\/\/(www.)?/,"");
+  } catch(e) { }
   
   if(url.startsWith("somehost")) {// TODO 
      return url; // Do not remove parameters
