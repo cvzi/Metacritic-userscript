@@ -9,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
 // @license     GNUGPL
-// @version     8
+// @version     9
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -820,7 +820,7 @@ var sites = {
         if(document.querySelector(".title-extra[itemprop=name]")) {
           return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"")];
         } else {
-          return document.querySelector("*[itemprop=name]").textContent;
+          return document.querySelector("*[itemprop=name]").firstChild.textContent;
         }
       }
     },
