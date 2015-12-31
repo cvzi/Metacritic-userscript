@@ -9,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
 // @license     GNUGPL
-// @version     9
+// @version     10
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -1135,7 +1135,7 @@ function main() {
             data = false;
             console.log(e);
           }
-          if(data !== false) {
+          if(!data) { // This stops errors in above try-catch as well as empty titles and stuff like this: [""] or ["",""]
             metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
           }
           break;
