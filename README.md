@@ -33,6 +33,7 @@ Supported sites and products:
  * TheTVDB
  * ConsequenceOfSound
  * Pitchfork
+ * Last.fm
 
 
 Screenshot:

@@ -1,6 +1,6 @@
 ﻿// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
@@ -9,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
 // @license     GNUGPL
-// @version     10
+// @version     11
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -66,6 +66,7 @@
 // @include     https://thetvdb.com/*tab=series*
 // @include     http://consequenceofsound.net/*
 // @include     http://pitchfork.com/reviews/albums/*
+// @include     http://www.last.fm/music/*/*
 // ==/UserScript==
 
 
@@ -350,7 +351,6 @@ function metacritic_searchResults(url, cb, errorcb) {
         handleresponse(response, false);
       },
       onerror: function(response) {
-              alert(response.responseText);
         console.log("Show metacritic ratings: Search error: "+response.status+"\n"+url);
         handleresponse({
           time : (new Date()).toJSON(),
@@ -1099,7 +1099,19 @@ var sites = {
       }
     }]
   },
-  
+  'Last.fm' : {
+    host : ["last.fm"],
+    condition : () => document.querySelector("*[data-page-type]") && document.querySelector("*[data-page-type]").dataset.pageType == "album_door",
+    products : [{
+      condition : () => document.querySelector("*[data-page-type]").dataset.musicAlbumName,
+      type : "music",
+      data : function() {
+        var artist = document.querySelector(".header-crumb").firstChild.data;
+        var album = document.querySelector("*[data-page-type]").dataset.musicAlbumName;
+        return [artist, album];
+      }
+    }]
+  },
   
   
   
@@ -1135,7 +1147,7 @@ function main() {
             data = false;
             console.log(e);
           }
-          if(!data) { // This stops errors in above try-catch as well as empty titles and stuff like this: [""] or ["",""]
+          if(data) {
             metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
           }
           break;
