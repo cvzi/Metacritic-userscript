@@ -1128,9 +1128,9 @@ var sites = {
   },
   'Last.fm' : {
     host : ["last.fm"],
-    condition : () => document.querySelector("*[data-page-type]") && document.querySelector("*[data-page-type]").dataset.pageType == "album_door",
+    condition :function() {return document.querySelector("*[data-page-type]") && document.querySelector("*[data-page-type]").dataset.pageType == "album_door" },
     products : [{
-      condition : () => document.querySelector("*[data-page-type]").dataset.musicAlbumName,
+    condition : function() { return document.querySelector("*[data-page-type]").dataset.musicAlbumName },
       type : "music",
       data : function() {
         var artist = document.querySelector(".header-crumb").firstChild.data;
