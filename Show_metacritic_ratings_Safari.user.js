@@ -9,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
 // @license     GNUGPL
-// @version     11
+// @version     12
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -97,15 +97,24 @@ var baseURL_tv = "http://www.metacritic.com/tv/";
 var baseURL_search = "http://www.metacritic.com/search/{type}/{query}/results";
 var baseURL_autosearch = "http://www.metacritic.com/autosearch";
 
+var baseURL_database = "https://php-cuzi.rhcloud.com/r.php";
+var baseURL_whitelist = "https://php-cuzi.rhcloud.com/whitelist.php";
+var baseURL_blacklist = "https://php-cuzi.rhcloud.com/blacklist.php";
+
 var mybrowser = "other";
 if(~navigator.userAgent.indexOf("Chrome") || ~navigator.userAgent.indexOf("Safari")) {
   mybrowser = "chrome";
 }
 
-
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
 
+function getHostname(url) {
+  with(document.createElement("a")) {
+    href = url;
+    return hostname;
+  }
+}
 function name2metacritic(s) {
   return s.normalize('NFKD').replace(/\//g,"").replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
 }
@@ -193,7 +202,8 @@ function addToMap(url, metaurl) {
   
   GM_setValue("map", JSON.stringify(data));
   
-  (new Image()).src = "http://123.net23.net/whitelist.php?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
+  (new Image()).src = baseURL_whitelist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
+  return [url, metaurl];
 }
 
 function addToBlacklist(url, metaurl) {
@@ -206,7 +216,8 @@ function addToBlacklist(url, metaurl) {
   
   GM_setValue("black", JSON.stringify(data));
   
-  (new Image()).src = "http://123.net23.net/blacklist.php?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
+  (new Image()).src = baseURL_blacklist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
+  return [url, metaurl];
 }
 
 function isBlacklistedUrl(docurl, metaurl) {
@@ -252,14 +263,16 @@ function listenForHotkeys(code, cb) {
 }
 
 
-function metacritic_hoverInfo(url, cb, errorcb) {
+function metacritic_hoverInfo(url, docurl, cb, errorcb) {
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
+    
     if(response.status == 200 && cb) {
       if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
         var j = JSON.parse(response.responseText);
         current.url = baseURL + j["jsonRedirect"];
-        metacritic_hoverInfo(baseURL + j["jsonRedirect"], cb, errorcb);
+        delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
+        metacritic_hoverInfo(baseURL + j["jsonRedirect"], false, cb, errorcb);
       } else {
         cb(response.responseText, new Date(response.time));
       }
@@ -281,24 +294,36 @@ function metacritic_hoverInfo(url, cb, errorcb) {
   if(url in cache) {
     handleresponse(cache[url], true);
   } else {
+    var requestURL = url;
+    var requestParams = "hoverinfo=1";
+    
+    if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
+      // Ask database for correct metacritic entry:
+      requestURL = baseURL_database;
+      requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
+    }
+      
     GM_xmlhttpRequest({
       method: "POST",
-      url: url,
-      data: "hoverinfo=1",
+      url: requestURL,
+      data: requestParams,
       headers: {
         "Referer" : url,
         "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-        "Host" : "www.metacritic.com",
+        "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
         "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
         "X-Requested-With" : "XMLHttpRequest"
       },
-      onload: function(response) { 
+      onload: function(response) {
         response.time = (new Date()).toJSON();
         cache[url] = response;
         
         GM_setValue("hovercache",JSON.stringify(cache));
         handleresponse(response, false);
-      }
+      },
+      onerror: function(response) { 
+        console.log("Show metacritic ratings: Hover info error: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+      },
     });
   }
 }
@@ -361,11 +386,11 @@ function metacritic_searchResults(url, cb, errorcb) {
   }
 }
 
-function metacritic_showHoverInfo(url) {
+function metacritic_showHoverInfo(url, docurl) {
   if(!url) {
     return;
   }
-  metacritic_hoverInfo(url, 
+  metacritic_hoverInfo(url, docurl?docurl:false,
   // On Success
   function(html, time) {
     $("#mcdiv123").remove();
@@ -485,15 +510,15 @@ function metacritic_showHoverInfo(url) {
     $('<span title="This is the correct entry" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
-      addToMap(docurl,metaurl);
-      alert("Saved to correct list!\n\n"+docurl+"\n"+metaurl);
+      var r = addToMap(docurl,metaurl);
+      alert("Saved to correct list!\n\n"+r[0]+"\n"+r[1]);
     });
     $('<span title="This is NOT the correct entry" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
       if(!confirm("This is NOT the correct entry!\n\nAdd to blacklist?")) return;
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
-      addToBlacklist(docurl,metaurl);
-      alert("Saved to blacklist!\n\n"+docurl+"\n"+metaurl);
+      var r = addToBlacklist(docurl,metaurl);
+      alert("Saved to blacklist!\n\n"+r[0]+"\n"+r[1]);
       
       // Open search
       metacritic_searchcontainer(null, current.searchTerm);
@@ -707,7 +732,9 @@ var current = {
 
 function showURL(url) {
   if(!isBlacklisted(url)) {
-    metacritic_showHoverInfo(url);
+    var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
+    docurl = filterUniversalUrl(docurl);
+    metacritic_showHoverInfo(url, docurl);
   } else {
     console.log(url +" is blacklisted!");
   }
