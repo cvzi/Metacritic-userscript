@@ -1,15 +1,15 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Show Metacritic.com ratings
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     12
+// @version     14
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -67,6 +67,7 @@
 // @include     http://consequenceofsound.net/*
 // @include     http://pitchfork.com/reviews/albums/*
 // @include     http://www.last.fm/music/*/*
+// @include     http://www.tvrage.com/*
 // ==/UserScript==
 
 var baseURL = "http://www.metacritic.com/";
@@ -169,10 +170,12 @@ function filterUniversalUrl(url) {
     url = url.replace(/https?:\/\/(www.)?/,"");
   } catch(e) { }
   
-  if(url.startsWith("somehost")) {// TODO 
-     return url; // Do not remove parameters
+  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) { 
+     // Remove movie subpage from imdb url
+     return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1];
   } else {
-    return url.split("?")[0].split("&")[0]; // Remove parameters
+    // Default: Remove parameters
+    return url.split("?")[0].split("&")[0]; 
   }
 }
 
@@ -847,11 +850,14 @@ var sites = {
       },
       type : "movie",
       data : function() {
-
-        if(document.querySelector(".title-extra[itemprop=name]")) {
-          return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"")];
-        } else {
-          return document.querySelector("*[itemprop=name]").firstChild.textContent;
+        if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
+          return document.querySelector("h1[itemprop=name]").firstChild.textContent.trim();
+        } else if(document.querySelector("*[itemprop=name] a") && document.querySelector("*[itemprop=name] a").firstChild.data) { // Subpage of a move
+          return document.querySelector("*[itemprop=name] a").firstChild.data.trim();
+        } else if(document.querySelector(".title-extra[itemprop=name]")) { // Movie homepage: sub-/alternative-/original title
+          return document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"").trim();
+        } else { // Movie homepage (old design)
+          return document.querySelector("*[itemprop=name]").firstChild.textContent.trim();
         }
       }
     },
@@ -1127,7 +1133,15 @@ var sites = {
       }
     }]
   },
-  
+  'TVRage' : {
+    host : ["tvrage.com"],
+    condition : () => document.querySelector(".content_title"),
+    products : [{
+      condition : Always,
+      type : "tv",
+      data : () => document.querySelector(".content_title").textContent
+    }]
+  },
   
   
   

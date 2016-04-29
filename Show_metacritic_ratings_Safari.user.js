@@ -1,15 +1,15 @@
 ﻿// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
 // @oujs:author cuzi
 // @grant       GM_xmlhttpRequest
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     12
+// @version     14
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -67,6 +67,7 @@
 // @include     http://consequenceofsound.net/*
 // @include     http://pitchfork.com/reviews/albums/*
 // @include     http://www.last.fm/music/*/*
+// @include     http://www.tvrage.com/*
 // ==/UserScript==
 
 
@@ -1139,7 +1140,15 @@ var sites = {
       }
     }]
   },
-  
+  'TVRage' : {
+    host : ["tvrage.com"],
+    condition : function() {return document.querySelector(".content_title") },
+    products : [{
+      condition : Always,
+      type : "tv",
+      data : function() {return document.querySelector(".content_title").textContent }
+    }]
+  },
   
   
 };
