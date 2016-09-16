@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     15
+// @version     16
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -70,6 +70,16 @@
 // @include     http://www.last.fm/music/*/*
 // @include     http://www.tvrage.com/*
 // ==/UserScript==
+
+
+  
+// ########## Conversion from Script Version 15 to 16+ ######
+// Type of "black" value changed from {} to []
+if(!("length" in JSON.parse(GM_getValue("black","[]")))) {
+  GM_setValue("black","[]");
+}
+// ##########                                          ######
+
 
 var baseURL = "http://www.metacritic.com/";
 
@@ -195,12 +205,12 @@ function addToMap(url, metaurl) {
 }
 
 function addToBlacklist(url, metaurl) {
-  var data = JSON.parse(GM_getValue("black","{}"));
+  var data = JSON.parse(GM_getValue("black","[]"));
   
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
 
-  data[url] = metaurl;
+  data.push([url,metaurl]);
   
   GM_setValue("black", JSON.stringify(data));
   
@@ -212,16 +222,17 @@ function addToBlacklist(url, metaurl) {
 
 
 function isBlacklistedUrl(docurl, metaurl) {
+
   docurl = filterUniversalUrl(docurl);  
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
   
   metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
   metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
+  metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
   
-  
-  var data = JSON.parse(GM_getValue("black","{}"));
-  if(docurl in data) {
-    if(data[docurl] == metaurl) {
+  var data = JSON.parse(GM_getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  for(var i = 0; i < data.length; i++) {
+    if(data[i][0] == docurl && data[i][1] == metaurl) {
       return true;
     }
   }
@@ -260,24 +271,35 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     
     if(response.status == 200 && cb) {
       if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
+        var blacklistedredirect = false;
         var j = JSON.parse(response.responseText);
         current.url = baseURL + j["jsonRedirect"];
         delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
         
+
         // Blacklist items from database received?
         if("blacklist" in j && j.blacklist && j.blacklist.length) {
           // Save new blacklist items
-          var data = JSON.parse(GM_getValue("black","{}"));
+          var data = JSON.parse(GM_getValue("black","[]"));
           for(var i = 0; i < j.blacklist.length; i++) {
             var save_docurl = j.blacklist[i].docurl;
             var save_metaurl = j.blacklist[i].metaurl;
             
-            data[save_docurl] = save_metaurl;          
+            data.push([save_docurl,save_metaurl]); 
+            if(j["jsonRedirect"] == "/"+save_metaurl) {
+              // Redirect is blacklisted!
+              blacklistedredirect = true;
+            }
           }
           GM_setValue("black", JSON.stringify(data));
         }
-        
-        metacritic_hoverInfo(baseURL + j["jsonRedirect"], false, cb, errorcb);
+        if(blacklistedredirect && errorcb) {
+          // Redirect was blacklisted, show nothing
+          errorcb(response.responseText, new Date(response.time));
+        } else {
+          // Load redirect
+          metacritic_hoverInfo(baseURL + j["jsonRedirect"], false, cb, errorcb);
+        }
       } else {
         cb(response.responseText, new Date(response.time));
       }
