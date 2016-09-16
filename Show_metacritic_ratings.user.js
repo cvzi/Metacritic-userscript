@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Show Metacritic.com ratings
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     14
+// @version     15
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -208,6 +208,9 @@ function addToBlacklist(url, metaurl) {
   return [url, metaurl];
 }
 
+
+
+
 function isBlacklistedUrl(docurl, metaurl) {
   docurl = filterUniversalUrl(docurl);  
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
@@ -260,6 +263,20 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
         var j = JSON.parse(response.responseText);
         current.url = baseURL + j["jsonRedirect"];
         delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
+        
+        // Blacklist items from database received?
+        if("blacklist" in j && j.blacklist && j.blacklist.length) {
+          // Save new blacklist items
+          var data = JSON.parse(GM_getValue("black","{}"));
+          for(var i = 0; i < j.blacklist.length; i++) {
+            var save_docurl = j.blacklist[i].docurl;
+            var save_metaurl = j.blacklist[i].metaurl;
+            
+            data[save_docurl] = save_metaurl;          
+          }
+          GM_setValue("black", JSON.stringify(data));
+        }
+        
         metacritic_hoverInfo(baseURL + j["jsonRedirect"], false, cb, errorcb);
       } else {
         cb(response.responseText, new Date(response.time));
