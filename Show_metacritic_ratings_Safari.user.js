@@ -8,7 +8,7 @@
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
 // @license     GNUGPL
 // @version     17
 // @include     https://*.bandcamp.com/*
@@ -946,7 +946,7 @@ var sites = {
     {
       condition : function() { return   document.location.pathname.startsWith("/tv/")} ,
       type : "tv",
-      data : function() { return document.querySelector("meta[property='og:title']").content}
+      data : function() { return unsafeWindow.BK.TvSeriesTitle}
     }
     ]
   },
