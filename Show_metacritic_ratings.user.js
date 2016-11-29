@@ -8,7 +8,7 @@
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
 // @license     GNUGPL
 // @version     17
 // @include     https://*.bandcamp.com/*
@@ -50,6 +50,8 @@
 // @include     https://www.rottentomatoes.com/m/*
 // @include     http://www.rottentomatoes.com/tv/*
 // @include     https://www.rottentomatoes.com/tv/*
+// @include     http://www.rottentomatoes.com/tv/*/s*/
+// @include     https://www.rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
 // @include     http://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
@@ -943,7 +945,7 @@ var sites = {
     {
       condition : () =>  document.location.pathname.startsWith("/tv/") ,
       type : "tv",
-      data : () => document.querySelector("meta[property='og:title']").content
+      data : () => unsafeWindow.BK.TvSeriesTitle
     }
     ]
   },
