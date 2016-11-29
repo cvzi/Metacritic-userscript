@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     16
+// @version     17
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -72,7 +72,7 @@
 // ==/UserScript==
 
 
-  
+
 // ########## Conversion from Script Version 15 to 16+ ######
 // Type of "black" value changed from {} to []
 if(!("length" in JSON.parse(GM_getValue("black","[]")))) {
@@ -938,12 +938,12 @@ var sites = {
     products : [{
       condition : () => document.location.pathname.startsWith("/m/"),
       type : "movie",
-      data : () => document.querySelector("h1[itemprop=name]").firstChild.textContent
+      data : () => document.querySelector("h1").firstChild.textContent
     },
     {
       condition : () =>  document.location.pathname.startsWith("/tv/") ,
       type : "tv",
-      data : () =>  document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent
+      data : () => document.querySelector("meta[property='og:title']").content
     }
     ]
   },
