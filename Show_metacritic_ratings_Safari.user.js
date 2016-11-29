@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js
 // @license     GNUGPL
-// @version     16
+// @version     17
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -941,12 +941,12 @@ var sites = {
     products : [{
       condition : function() { return  document.location.pathname.startsWith("/m/")},
       type : "movie",
-      data : function() { return  document.querySelector("h1[itemprop=name]").firstChild.textContent}
+      data : function() { return document.querySelector("h1").firstChild.textContent}
     },
     {
       condition : function() { return   document.location.pathname.startsWith("/tv/")} ,
       type : "tv",
-      data : function() { return   document.querySelector("*[itemprop=partOfSeries] *[itemprop=name]").textContent}
+      data : function() { return document.querySelector("meta[property='og:title']").content}
     }
     ]
   },
