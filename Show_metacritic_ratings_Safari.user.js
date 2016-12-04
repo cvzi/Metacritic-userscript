@@ -1,4 +1,4 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
 // @license     GNUGPL
-// @version     17
+// @version     18
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -187,6 +187,41 @@ function metaScore(score, word) {
   }
   
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
+}
+
+function balloonAlert(message, timeout, title) {
+  var header;
+  if(title) {
+    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title +"</div>";
+  } else {
+    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">Userscript alert</div>';
+  }
+  var div = $("<div>" + header + '<div style="padding:5px">' + message.split("\n").join("<br>") + "</div></div>");
+  div.css({
+    position : "fixed",
+    top : 10,
+    left : 10,
+    maxWidth: 200,
+    zIndex : "5010002",
+    background : "rgb(240,240,240)",
+    border : "2px solid yellow",
+    borderRadius :"6px",
+    boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
+    fontFamily: "sans-serif",
+    color: "black"
+  });
+  div.appendTo(document.body);
+  
+  var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
+  close.click(function(){
+    $(this.parentNode).hide(1000);
+  });
+  
+  if(timeout && timeout > 0) {
+    window.setTimeout(function() {
+      div.hide(3000);
+    }, timeout);
+  }
 }
 
 function filterUniversalUrl(url) {
@@ -540,22 +575,22 @@ function metacritic_showHoverInfo(url, docurl) {
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#128128;</span>').appendTo(sub).click(function() {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
     
-    $('<span title="This is the correct entry" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
+    $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
       var r = addToMap(docurl,metaurl);
-      alert("Saved to correct list!\n\n"+r[0]+"\n"+r[1]);
+      balloonAlert("Thanks for your submission!\n\nSaved as a correct entry.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
     });
-    $('<span title="This is NOT the correct entry" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
+    $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
       if(!confirm("This is NOT the correct entry!\n\nAdd to blacklist?")) return;
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
       var r = addToBlacklist(docurl,metaurl);
-      alert("Saved to blacklist!\n\n"+r[0]+"\n"+r[1]);
+      balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
       
       // Open search
       metacritic_searchcontainer(null, current.searchTerm);
@@ -732,15 +767,15 @@ function metacritic_search(ev, query) {
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').css("max-width","95%").appendTo(div);
     results.forEach(function(html) {
       var singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
-      $('<span title="This is the correct entry" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
+      $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
     });
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#128128;</span>').appendTo(sub).click(function() {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
-    $('<span title="None of the above is the correct item" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function() {if(confirm("None of the above is the correct item\nConfirm?")) denyAll()});
+    $('<span title="Assist us: None of the above is the correct item!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function() {if(confirm("None of the above is the correct item\nConfirm?")) denyAll()});
   },
   // On error i.e. no results
   function(results, time) {
@@ -751,7 +786,7 @@ function metacritic_search(ev, query) {
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#128128;</span>').appendTo(sub).click(function() {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
     
