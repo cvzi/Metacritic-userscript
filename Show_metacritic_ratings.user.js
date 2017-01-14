@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Show Metacritic.com ratings
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com
 // @namespace   cuzi
@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
 // @license     GNUGPL
-// @version     18
+// @version     19
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -222,6 +222,9 @@ function filterUniversalUrl(url) {
   if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) { 
      // Remove movie subpage from imdb url
      return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1];
+  } else if(url.startsWith("thetvdb.com/")) { 
+     // Do nothing with thetvdb.com urls
+     return url;
   } else {
     // Default: Remove parameters
     return url.split("?")[0].split("&")[0]; 
@@ -732,7 +735,7 @@ function metacritic_search(ev, query) {
   style.type = 'text/css';
   style.innerHTML = CSS;
   document.head.appendChild(style);
-  
+
   var div = $("#mcdiv123");
   var loader = $('<div style="width:20px; height:20px;" class="grespinner"></div>').appendTo($("#mcisearchbutton"));
   
