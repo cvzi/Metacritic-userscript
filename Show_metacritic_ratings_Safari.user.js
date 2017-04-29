@@ -632,6 +632,7 @@ function metacritic_showHoverInfo(url, docurl) {
     
     var handleresponse = function(response) {
       var data;
+      var multiple = false;
       try {
         data = JSON.parse(response.responseText);
       } catch(e) {
@@ -662,6 +663,7 @@ function metacritic_showHoverInfo(url, docurl) {
           }
         } else {
           // More than one result
+          multiple = true;
           console.log("Multiple results for search_term="+current.searchTerm);
           var exactMatches = [];
           data.autoComplete.forEach(function(result,i) { // Try to find the correct result by matching the search term to exactly one movie title
@@ -681,8 +683,9 @@ function metacritic_showHoverInfo(url, docurl) {
         console.log("No results (at all) for search_term="+current.searchTerm);
       }
       // HERE: multiple results or no result. The user may type "meta" now
-      balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
-     
+      if(multiple) {
+        balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
+      }
     };
     var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
     for(var prop in cache) {
