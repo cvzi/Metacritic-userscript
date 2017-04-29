@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
 // @license     GNUGPL
-// @version     19
+// @version     20
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -50,6 +50,8 @@
 // @include     https://www.rottentomatoes.com/m/*
 // @include     http://www.rottentomatoes.com/tv/*
 // @include     https://www.rottentomatoes.com/tv/*
+// @include     http://www.rottentomatoes.com/tv/*/s*/
+// @include     https://www.rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
 // @include     http://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
@@ -69,6 +71,8 @@
 // @include     http://pitchfork.com/reviews/albums/*
 // @include     http://www.last.fm/music/*/*
 // @include     http://www.tvrage.com/*
+// @include     http://rateyourmusic.com/release/album/*
+// @include     https://rateyourmusic.com/release/album/*
 // ==/UserScript==
 
 
@@ -189,10 +193,12 @@ function metaScore(score, word) {
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
-function balloonAlert(message, timeout, title) {
+function balloonAlert(message, timeout, title, css, click) {
   var header;
   if(title) {
     header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title +"</div>";
+  } else if(title === false) {
+    header = '';
   } else {
     header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">Userscript alert</div>';
   }
@@ -210,18 +216,31 @@ function balloonAlert(message, timeout, title) {
     fontFamily: "sans-serif",
     color: "black"
   });
+  if(css) {
+    div.css(css);
+  }
   div.appendTo(document.body);
   
-  var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
-  close.click(function(){
-    $(this.parentNode).hide(1000);
-  });
+  if(click) {
+    div.click(function(ev) { 
+      $(this).hide(500); 
+      click.call(this,ev); 
+    });
+  }
+  
+  if(!click) {
+    var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
+    close.click(function(){
+      $(this.parentNode).hide(1000);
+    });
+  }
   
   if(timeout && timeout > 0) {
     window.setTimeout(function() {
       div.hide(3000);
     }, timeout);
   }
+  return div;
 }
 
 function filterUniversalUrl(url) {
@@ -619,8 +638,11 @@ function metacritic_showHoverInfo(url, docurl) {
         console.log("Error in JSON: search_term="+current.searchTerm);
         console.log(e);
       }
-      if(data && data.autoComplete && data.autoComplete.length) {
+      if(data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
         // Remove data with wrong type
+        
+        data.autoComplete = data.autoComplete.results;
+        
         var newdata = [];
         data.autoComplete.forEach(function(result) {
           if(metacritic2searchType(result.refType) == current.type) {
@@ -633,6 +655,7 @@ function metacritic_showHoverInfo(url, docurl) {
           console.log("No results (after filtering by type) for search_term="+current.searchTerm);
         } else if(data.autoComplete.length == 1) {
           // One result, let's show it
+          console.log("Only one exact match for search_term="+current.searchTerm);
           if(!isBlacklisted(baseURL + data.autoComplete[0].url)) {
             metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
             return;
@@ -654,8 +677,12 @@ function metacritic_showHoverInfo(url, docurl) {
             }
           } 
         } 
+      } else {
+        console.log("No results (at all) for search_term="+current.searchTerm);
       }
       // HERE: multiple results or no result. The user may type "meta" now
+      balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
+     
     };
     var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
     for(var prop in cache) {
@@ -665,14 +692,19 @@ function metacritic_showHoverInfo(url, docurl) {
       }
     }
     
-    current.searchTerm = current.data.join(" ");
+    if(current.type == "music") {
+      current.searchTerm = current.data[0];
+    } else {
+      current.searchTerm = current.data.join(" ");
+    }
+
     if(current.searchTerm in cache) {
       handleresponse(cache[current.searchTerm], true);
     } else {
       GM_xmlhttpRequest({
         method: "POST",
         url: baseURL_autosearch,
-        data: "search_term="+encodeURIComponent(current.searchTerm),
+        data: "search_term="+encodeURIComponent(current.searchTerm)+"&image_size=98&search_each=1&sort_type=popular",
         headers: {
           "Referer" : url,
           "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
@@ -701,7 +733,11 @@ function metacritic_waitForHotkeys() {
 
 function metacritic_searchcontainer(ev, query) {
   if(!query) {
-    query = current.data.join(" ");
+    if(current.type == "music") {
+      query = current.data[0];
+    } else {
+      query = current.data.join(" ");
+    }
   }
   $("#mcdiv123").remove();
   var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
@@ -735,7 +771,7 @@ function metacritic_search(ev, query) {
   if(!query) { // Use values from search form
     query = $("#mcisearchquery").val();
   }
-  var type = current.type;
+  var type = searchType2metacritic(current.type);
 
   var style = document.createElement('style');
   style.type = 'text/css';
@@ -830,6 +866,7 @@ var metacritic = {
   "music" : function metacritic_music(artistname, albumname) {
     current.data = [albumname.trim(),artistname.trim()]
     artistname = name2metacritic(artistname);
+    albumname = albumname.replace("&"," ");
     albumname = name2metacritic(albumname);
     var url = baseURL_music + albumname + "/" + artistname;
     current.url = url;
@@ -1225,7 +1262,19 @@ var sites = {
       data : function() {return document.querySelector(".content_title").textContent }
     }]
   },
-  
+  'rateyourmusic' : {
+    host : ["rateyourmusic.com"],
+    condition :function() {return document.querySelector("meta[property='og:type']") },
+    products : [{
+    condition : function() { return document.querySelector("meta[property='og:type']").content == "music.album" },
+      type : "music",
+      data : function() {
+        var artist = document.querySelector(".section_main_info .artist").innerText.trim();
+        var album = document.querySelector(".section_main_info .album_title").innerText.trim();
+        return [artist, album];
+      }
+    }]
+  },
   
 };
 
