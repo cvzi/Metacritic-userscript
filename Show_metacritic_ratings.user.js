@@ -175,7 +175,7 @@ function metaScore(score, word) {
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
-function balloonAlert(message, timeout, title, css) {
+function balloonAlert(message, timeout, title, css, click) {
   var header;
   if(title) {
     header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title +"</div>";
@@ -203,16 +203,26 @@ function balloonAlert(message, timeout, title, css) {
   }
   div.appendTo(document.body);
   
-  var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
-  close.click(function(){
-    $(this.parentNode).hide(1000);
-  });
+  if(click) {
+    div.click(function(ev) { 
+      $(this).hide(500); 
+      click.call(this,ev); 
+    });
+  }
+  
+  if(!click) {
+    var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
+    close.click(function(){
+      $(this.parentNode).hide(1000);
+    });
+  }
   
   if(timeout && timeout > 0) {
     window.setTimeout(function() {
       div.hide(3000);
     }, timeout);
   }
+  return div;
 }
 
 
@@ -659,7 +669,7 @@ function metacritic_showHoverInfo(url, docurl) {
         console.log("No results (at all) for search_term="+current.searchTerm);
       }
       // HERE: multiple results or no result. The user may type "meta" now
-      balloonAlert("Multiple metacritic results. Type meta for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 10});
+      balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
     };
     var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
     for(var prop in cache) {
