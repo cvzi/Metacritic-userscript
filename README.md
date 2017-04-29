@@ -34,7 +34,8 @@ Supported sites and products:
  * ConsequenceOfSound
  * Pitchfork
  * Last.fm
-
+ * TVRage.com
+ * rateyourmusic.com
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
