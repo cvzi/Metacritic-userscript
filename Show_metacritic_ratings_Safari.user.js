@@ -8,9 +8,9 @@
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.1.1/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     20
+// @version     21
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -68,8 +68,10 @@
 // @include     http://thetvdb.com/*tab=series*
 // @include     https://thetvdb.com/*tab=series*
 // @include     http://consequenceofsound.net/*
-// @include     http://pitchfork.com/reviews/albums/*
-// @include     http://www.last.fm/music/*/*
+// @include     https://consequenceofsound.net/*
+// @include     http://pitchfork.com/*
+// @include     http://www.last.fm/*
+// @include     https://www.last.fm/*
 // @include     http://www.tvrage.com/*
 // @include     http://rateyourmusic.com/release/album/*
 // @include     https://rateyourmusic.com/release/album/*
@@ -508,10 +510,22 @@ function metacritic_showHoverInfo(url, docurl) {
     // Functions for communication between page and iframe
     // Mozilla can access parent.document
     // Chrome can use postMessage()
+    var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
     var functions = {
       "other" : {
-        "parent": function() {},
+        "parent": function() {
+          var f = parent.document.getElementById('mciframe123');
+          window.addEventListener("message", function(e){
+            if(typeof e.data != "object") {
+              return;
+            } else if("mcimessage0" in e.data) {
+              frame_status = true; // Frame content was loaded successfully
+            }
+          });
+        },
         "frame" : function sizecorrection() {
+          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+          
           var f = parent.document.getElementById('mciframe123');
           for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
             f.style.width = parseInt(f.style.width)+10+"px";
@@ -519,6 +533,9 @@ function metacritic_showHoverInfo(url, docurl) {
           if(f.clientHeight < document.body.scrollHeight) {
             f.style.height = parseInt(f.style.height)+15+"px";
             f.style.width = "300px";
+            if(parseInt(f.style.height) > 500) {
+              return;
+            }
             sizecorrection();
           }
         }
@@ -527,7 +544,11 @@ function metacritic_showHoverInfo(url, docurl) {
         "parent" : function() {
           var f = parent.document.getElementById('mciframe123');
           window.addEventListener("message", function(e){
-            if("mcimessage1" in e.data) {
+            if(typeof e.data != "object") {
+              return;
+            } else if("mcimessage0" in e.data) {
+              frame_status = true;  // Frame content was loaded successfully
+            } else if("mcimessage1" in e.data) {
               f.style.width = parseInt(f.style.width)+10+"px";
             } else if("mcimessage2" in e.data) {
               f.style.height = parseInt(f.style.height)+15+"px";
@@ -543,6 +564,8 @@ function metacritic_showHoverInfo(url, docurl) {
           });
         },
         "frame" : function() {
+          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+          
           var i = 0;
           window.addEventListener("message", function(e){
             if(!("mcimessage3" in e.data)) return; 
@@ -561,14 +584,16 @@ function metacritic_showHoverInfo(url, docurl) {
       
     };
     
+    var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer}a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;}.score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}.score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
+    
     var framesrc = 'data:text/html,';
     framesrc += encodeURIComponent('<!DOCTYPE html>\
     <html lang="en">\
       <head>\
         <meta charset="utf-8">\
         <title>Metacritic info</title>\
-        <style>body { margin:0px; padding:0px; background:white; }'+"\
-        .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;}.hoverinfo .hover_left { float: left}.hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;}.hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;}a * { cursor: pointer}a { color: #09f; font-weight: bold;}a:link, a:visited { text-decoration: none;}a:hover { text-decoration: underline;}.hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;}.hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;}.hoverinfo .product_title  a {  color:#333; font-family: georgia,serif; font-size: 24px;}.hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left}.hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;}.hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; }.hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;}.hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td { vertical-align: middle}caption, th, td { font-weight: normal; text-align: left;}.metascore_anchor, a.metascore_w { text-decoration: none !important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;}.metascore, .metascore a, .avguserscore, .avguserscore a { color: #fff}.critscore, .critscore a, .userscore, .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;}.score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}.score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}"+'\
+        <style>body { margin:0px; padding:0px; background:white; }' + css
+        +'\
         </style>\
         <script>\
         function on_load() {\
@@ -582,8 +607,7 @@ function metacritic_showHoverInfo(url, docurl) {
         </div>\
       </body>\
     </html>');    
-
-      
+    
     var frame = $("<iframe></iframe>").appendTo(div);
     frame.attr("id","mciframe123");
     frame.attr("src",framesrc);
@@ -593,6 +617,19 @@ function metacritic_showHoverInfo(url, docurl) {
       height: 170,
       border: "none"
     });
+    
+    window.setTimeout(function() {
+      if(!frame_status) { // Loading frame content failed.
+        //  Directly inject the html without an iframe (this may break the site or the metacritic)
+        console.log("Loading iframe content failed. Injecting directly.");
+        $("head").append("<style>"+css+"</style>");
+        var noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
+          <div class="hover_content">'+fixMetacriticURLs(html)+'</div>\
+          </div>');
+        frame.replaceWith(noframe);
+      }
+            
+    },2000);
     
     functions[mybrowser].parent();
        
@@ -1008,11 +1045,11 @@ var sites = {
   },
   'tv.com' : {
     host : ["www.tv.com"],
-    condition : function() { return  document.querySelector("h1[itemprop=name]")},
+    condition : function() { return document.querySelector("meta[property='og:type']") },
     products : [{
-      condition : Always,
+      condition : function() { return document.querySelector("meta[property='og:type']").content == "tv_show" && document.querySelector("h1[data-name]") },
       type : "tv",
-      data : function() { return  document.querySelector("h1[itemprop=name]").textContent}
+      data : function() { return document.querySelector("h1[data-name]").dataset.name }
     }]
   },
   'rottentomatoes' : {
@@ -1054,17 +1091,17 @@ var sites = {
     condition : function() { return  document.querySelector("[itemprop=device]")},
     products : [
     {
-      condition : function() { return  $("[itemprop=device]").text().contains("PC")},
+      condition : function() { return  ~$("[itemprop=device]").text().indexOf("PC")},
       type : "pcgame",
       data : function() { return  document.querySelector("h1[itemprop=name]").textContent }
     },
     {
-      condition : function() { return  $("[itemprop=device]").text().contains("PS4")},
+      condition : function() { return  ~$("[itemprop=device]").text().indexOf("PS4")},
       type : "ps4game",
       data : function() { return  document.querySelector("h1[itemprop=name]").textContent}
     },
     {
-      condition : function() { return  $("[itemprop=device]").text().contains("XONE")},
+      condition : function() { return  ~$("[itemprop=device]").text().indexOf("XONE")},
       type : "xonegame",
       data : function() { return  document.querySelector("h1[itemprop=name]").textContent}
     }
@@ -1221,10 +1258,10 @@ var sites = {
     host : ["consequenceofsound.net"],
     condition : function() { return  document.querySelector("meta[property='og:title']")},
     products : [{
-      condition : function() { return  document.querySelector("meta[property='og:title']").content.match(/.+: (.+) - (.+)/)},
+      condition : function() { return  document.querySelector("meta[property='og:title']").content.match(/.+: (.+) [-–] (.+)/)},
       type : "music",
       data : function() {
-        var m = document.querySelector("meta[property='og:title']").content.match(/.+: (.+) - (.+)/);
+        var m = document.querySelector("meta[property='og:title']").content.match(/.+: (.+) [-–] (.+)/);
         m.shift();
         return m;
       }
@@ -1232,26 +1269,26 @@ var sites = {
   },
   'Pitchfork' : {
     host : ["pitchfork.com"],
-    condition : Always,
+    condition : function() { return ~document.location.href.indexOf("/reviews/albums/") },
     products : [{
-      condition : function() { return  document.querySelector("#main .review-meta .info h1 a")},
+      condition : function() { return document.querySelector(".review-article .tombstone .score")},
       type : "music",
       data : function() {
-        var artist = document.querySelector("#main .review-meta .info h1 a").firstChild.data;
-        var album = document.querySelector("#main .review-meta .info h2").firstChild.data;
+        var artist = document.querySelector(".review-article .tombstone h2.artists").innerText.trim();
+        var album = document.querySelector(".review-article .tombstone h1.review-title").innerText.trim();
         return [artist, album];
       }
     }]
   },
   'Last.fm' : {
     host : ["last.fm"],
-    condition :function() {return document.querySelector("*[data-page-type]") && document.querySelector("*[data-page-type]").dataset.pageType == "album_door" },
+    condition :function() {return document.querySelector("*[data-page-resource-type]") && document.querySelector("*[data-page-resource-type]").dataset.pageResourceType == "album" },
     products : [{
-    condition : function() { return document.querySelector("*[data-page-type]").dataset.musicAlbumName },
+    condition : function() { return document.querySelector("*[data-page-resource-type]").dataset.pageResourceName },
       type : "music",
       data : function() {
-        var artist = document.querySelector(".header-crumb").firstChild.data;
-        var album = document.querySelector("*[data-page-type]").dataset.musicAlbumName;
+        var artist = document.querySelector("*[data-page-resource-type]").dataset.pageResourceArtistName;
+        var album = document.querySelector("*[data-page-resource-type]").dataset.pageResourceName;
         return [artist, album];
       }
     }]
@@ -1330,6 +1367,6 @@ window.setInterval(function() {
   if(document.location.href != lastLoc) {
     lastLoc = document.location.href;
     $("#mcdiv123").remove();
-    window.setTimeout(main,500);
+    window.setTimeout(main,1000);
   }
 },500);
