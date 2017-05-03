@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     21
+// @version     22
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -1363,10 +1363,23 @@ function main() {
 
 main();
 var lastLoc = document.location.href;
+var lastContent = document.body.innerText;
+var lastCounter = 0;
+function newpage() {
+  if(lastContent == document.body.innerText && lastCounter < 15) {
+    window.setTimeout(newpage, 500);
+    lastCounter++;
+  } else {
+    lastCounter = 0;
+    main();
+  }
+}
 window.setInterval(function() {
   if(document.location.href != lastLoc) {
     lastLoc = document.location.href;
     $("#mcdiv123").remove();
-    window.setTimeout(main,1000);
+      
+    window.setTimeout(newpage,1000);
   }
 },500);
+
