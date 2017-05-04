@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     23
+// @version     24
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -75,6 +75,7 @@
 // @include     http://www.tvrage.com/*
 // @include     http://rateyourmusic.com/release/album/*
 // @include     https://rateyourmusic.com/release/album/*
+// @include     https://open.spotify.com/*
 // ==/UserScript==
 
 
@@ -691,9 +692,9 @@ function metacritic_showHoverInfo(url, docurl) {
     functions[mybrowser].parent();
        
     var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
+    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
     
@@ -1369,6 +1370,19 @@ var sites = {
       data : function() {
         var artist = document.querySelector(".section_main_info .artist").innerText.trim();
         var album = document.querySelector(".section_main_info .album_title").innerText.trim();
+        return [artist, album];
+      }
+    }]
+  },
+  'spotify' : {
+    host : ["open.spotify.com"],
+    condition : () => document.querySelector("#main .main-view-container .content.album"),
+    products : [{
+      condition : () => document.querySelector("#main .main-view-container .content.album"),
+      type : "music",
+      data : function() {
+        var artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent;
+        var album = document.querySelector("#main .media-bd h2").textContent;
         return [artist, album];
       }
     }]
