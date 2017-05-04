@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     22
+// @version     23
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -498,6 +498,21 @@ function metacritic_showHoverInfo(url, docurl) {
     // Mozilla can access parent.document
     // Chrome can use postMessage()
     var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
+    function loadExternalImage(url, myframe) {  
+      // Load external image, bypass CSP
+      GM_xmlhttpRequest({
+        method: "GET",
+        url: url,
+        responseType : "arraybuffer",
+        onload: function(response) {          
+          myframe.contentWindow.postMessage({
+              "mcimessage_imgLoaded" : true,
+              "mcimessage_imgData" : response.response,
+              "mcimessage_imgOrgSrc" : url
+          },'*');
+        }
+      });
+    }
     var functions = {
       "other" : {
         "parent": function() {
@@ -507,11 +522,25 @@ function metacritic_showHoverInfo(url, docurl) {
               return;
             } else if("mcimessage0" in e.data) {
               frame_status = true; // Frame content was loaded successfully
-            }
+            } else if("mcimessage_loadImg" in e.data) {
+              loadExternalImage(e.data.mcimessage_imgUrl, f);
+            } 
           });
         },
         "frame" : function sizecorrection() {
           parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+          
+          window.addEventListener("message", function(e){
+            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+              // Load external image
+              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+              var urlCreator = window.URL || window.webkitURL;
+              var imageUrl = urlCreator.createObjectURL( blob );
+              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+              img.src = imageUrl;
+            } 
+          });  
           
           var f = parent.document.getElementById('mciframe123');
           for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
@@ -540,6 +569,8 @@ function metacritic_showHoverInfo(url, docurl) {
             } else if("mcimessage2" in e.data) {
               f.style.height = parseInt(f.style.height)+15+"px";
               f.style.width = "300px";
+            } else if("mcimessage_loadImg" in e.data) {
+              loadExternalImage(e.data.mcimessage_imgUrl, f);
             } else {
               return;
             }
@@ -555,6 +586,16 @@ function metacritic_showHoverInfo(url, docurl) {
           
           var i = 0;
           window.addEventListener("message", function(e){
+            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+              // Load external image
+              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+              var urlCreator = window.URL || window.webkitURL;
+              var imageUrl = urlCreator.createObjectURL( blob );
+              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+              img.src = imageUrl;
+            } 
+            
             if(!("mcimessage3" in e.data)) return; 
             if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
               parent.postMessage({"mcimessage1":1},'*');
@@ -571,8 +612,10 @@ function metacritic_showHoverInfo(url, docurl) {
       
     };
     
-    var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer}a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;}.score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}.score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
+
     
+    var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer}a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;}.score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}.score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
+    console.log(html);
     var framesrc = 'data:text/html,';
     framesrc += encodeURIComponent('<!DOCTYPE html>\
     <html lang="en">\
@@ -583,8 +626,35 @@ function metacritic_showHoverInfo(url, docurl) {
         +'\
         </style>\
         <script>\
+        var failedImages = {};\
+        function detectCSP(img) {\
+          var h = img.width;\
+          img.width = img.width + 10;\
+          var nh = img.width;\
+          img.width = h;\
+          if(img.complete && h == nh) {\
+            img.removeAttribute("width");\
+            return true;\
+          }\
+          return false;\
+        }\
+        function findCSPerrors() {\
+          var imgs = document.querySelectorAll("img");\
+          for(var i = 0; i < imgs.length; i++) {\
+            if(imgs[i].complete && detectCSP(imgs[i])) {\
+              fixCSP(imgs[i]);\
+            }\
+          }\
+        }\
+        function fixCSP(img) {\
+          console.log("Loading image failed. Bypassing CSP...");\
+          failedImages[img.src] = img;\
+          parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
+        }\
         function on_load() {\
           ('+functions[mybrowser].frame.toString()+')();\
+          window.setTimeout(findCSPerrors, 500);\
+          \
         }\
         </script>\
       </head>\
