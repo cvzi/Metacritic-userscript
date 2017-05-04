@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     22
+// @version     23
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -511,6 +511,21 @@ function metacritic_showHoverInfo(url, docurl) {
     // Mozilla can access parent.document
     // Chrome can use postMessage()
     var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
+    function loadExternalImage(url, myframe) {  
+      // Load external image, bypass CSP
+      GM_xmlhttpRequest({
+        method: "GET",
+        url: url,
+        responseType : "arraybuffer",
+        onload: function(response) {          
+          myframe.contentWindow.postMessage({
+              "mcimessage_imgLoaded" : true,
+              "mcimessage_imgData" : response.response,
+              "mcimessage_imgOrgSrc" : url
+          },'*');
+        }
+      });
+    }
     var functions = {
       "other" : {
         "parent": function() {
@@ -520,11 +535,25 @@ function metacritic_showHoverInfo(url, docurl) {
               return;
             } else if("mcimessage0" in e.data) {
               frame_status = true; // Frame content was loaded successfully
+            } else if("mcimessage_loadImg" in e.data) {
+              loadExternalImage(e.data.mcimessage_imgUrl, f);
             }
           });
         },
         "frame" : function sizecorrection() {
           parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+          
+          window.addEventListener("message", function(e){
+            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+              // Load external image
+              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+              var urlCreator = window.URL || window.webkitURL;
+              var imageUrl = urlCreator.createObjectURL( blob );
+              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+              img.src = imageUrl;
+            } 
+          }); 
           
           var f = parent.document.getElementById('mciframe123');
           for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
@@ -553,6 +582,8 @@ function metacritic_showHoverInfo(url, docurl) {
             } else if("mcimessage2" in e.data) {
               f.style.height = parseInt(f.style.height)+15+"px";
               f.style.width = "300px";
+            } else if("mcimessage_loadImg" in e.data) {
+              loadExternalImage(e.data.mcimessage_imgUrl, f);
             } else {
               return;
             }
@@ -568,6 +599,16 @@ function metacritic_showHoverInfo(url, docurl) {
           
           var i = 0;
           window.addEventListener("message", function(e){
+            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+              // Load external image
+              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+              var urlCreator = window.URL || window.webkitURL;
+              var imageUrl = urlCreator.createObjectURL( blob );
+              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+              img.src = imageUrl;
+            } 
+            
             if(!("mcimessage3" in e.data)) return; 
             if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
               parent.postMessage({"mcimessage1":1},'*');
@@ -596,8 +637,34 @@ function metacritic_showHoverInfo(url, docurl) {
         +'\
         </style>\
         <script>\
+        var failedImages = {};\
+        function detectCSP(img) {\
+          var h = img.width;\
+          img.width = img.width + 10;\
+          var nh = img.width;\
+          img.width = h;\
+          if(img.complete && h == nh) {\
+            img.removeAttribute("width");\
+            return true;\
+          }\
+          return false;\
+        }\
+        function findCSPerrors() {\
+          var imgs = document.querySelectorAll("img");\
+          for(var i = 0; i < imgs.length; i++) {\
+            if(imgs[i].complete && detectCSP(imgs[i])) {\
+              fixCSP(imgs[i]);\
+            }\
+          }\
+        }\
+        function fixCSP(img) {\
+          console.log("Loading image failed. Bypassing CSP...");\
+          failedImages[img.src] = img;\
+          parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
+        }\
         function on_load() {\
           ('+functions[mybrowser].frame.toString()+')();\
+          window.setTimeout(findCSPerrors, 500);\
         }\
         </script>\
       </head>\
