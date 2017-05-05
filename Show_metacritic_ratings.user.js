@@ -629,12 +629,7 @@ function metacritic_showHoverInfo(url, docurl) {
         <script>\
         var failedImages = {};\
         function detectCSP(img) {\
-          var h = img.width;\
-          img.width = img.width + 10;\
-          var nh = img.width;\
-          img.width = h;\
-          if(img.complete && h == nh) {\
-            img.removeAttribute("width");\
+          if(img.complete && (!img.naturalWidth || !img.naturalHeight)) {\
             return true;\
           }\
           return false;\
