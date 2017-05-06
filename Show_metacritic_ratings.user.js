@@ -1389,7 +1389,7 @@ var sites = {
       }
     },
     {
-      condition : () => document.querySelector("meta[property='og:type']").content == "music.album",
+      condition : () => document.location.pathname.startsWith("/album/") && document.querySelector("meta[property='og:type']").content == "music.album",
       type : "music",
       data : function() {
         var artist = "";
