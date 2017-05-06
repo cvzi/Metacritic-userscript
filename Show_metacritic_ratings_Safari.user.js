@@ -1398,7 +1398,7 @@ var sites = {
       }
     },
     {
-      condition : function() {return document.querySelector("meta[property='og:type']").content == "music.album" },
+      condition : function() {return document.location.pathname.startsWith("/album/") && document.querySelector("meta[property='og:type']").content == "music.album" },
       type : "music",
       data : function() {
         var artist = "";
