@@ -12,7 +12,7 @@
 // @license     GNUGPL
 // @version     25
 // @connect     metacritic.com
-// @connect     php-cuzi.rhcloud.com
+// @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
@@ -120,9 +120,9 @@ var baseURL_tv = "http://www.metacritic.com/tv/";
 var baseURL_search = "http://www.metacritic.com/search/{type}/{query}/results";
 var baseURL_autosearch = "http://www.metacritic.com/autosearch";
 
-var baseURL_database = "https://php-cuzi.rhcloud.com/r.php";
-var baseURL_whitelist = "https://php-cuzi.rhcloud.com/whitelist.php";
-var baseURL_blacklist = "https://php-cuzi.rhcloud.com/blacklist.php";
+var baseURL_database = "https://php-cuzi.herokuapp.com/r.php";
+var baseURL_whitelist = "https://php-cuzi.herokuapp.com/whitelist.php";
+var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
 
 var mybrowser = "other";
 if(~navigator.userAgent.indexOf("Chrome") || ~navigator.userAgent.indexOf("Safari")) {
