@@ -34,7 +34,7 @@ Supported sites and products:
  * ConsequenceOfSound
  * Pitchfork
  * Last.fm
- * TVRage.com
+ * TVNfo
  * rateyourmusic.com
 
 Screenshot:
