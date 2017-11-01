@@ -1,6 +1,6 @@
-// ==UserScript==
+﻿// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
-// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVRage.com, rateyourmusic.com
+// @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVNfo, rateyourmusic.com
 // @namespace   cuzi
 // @oujs:author cuzi
 // @updateURL   https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings_(Safari).meta.js
@@ -10,7 +10,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GNUGPL
-// @version     25
+// @version     26
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -56,6 +56,7 @@
 // @include     https://www.rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
 // @include     http://www.allmovie.com/movie/*
+// @include     https://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
 // @include     http://www.movies.com/*/m*
 // @include     https://www.themoviedb.org/movie/*
@@ -69,12 +70,15 @@
 // @include     https://followshows.com/show/*
 // @include     http://thetvdb.com/*tab=series*
 // @include     https://thetvdb.com/*tab=series*
+// @include     http://www.thetvdb.com/*tab=series*
+// @include     https://www.thetvdb.com/*tab=series*
 // @include     http://consequenceofsound.net/*
 // @include     https://consequenceofsound.net/*
 // @include     http://pitchfork.com/*
+// @include     https://pitchfork.com/*
 // @include     http://www.last.fm/*
 // @include     https://www.last.fm/*
-// @include     http://www.tvrage.com/*
+// @include     http://tvnfo.com/s/*
 // @include     http://rateyourmusic.com/release/album/*
 // @include     https://rateyourmusic.com/release/album/*
 // @include     https://open.spotify.com/*
@@ -264,6 +268,16 @@ function filterUniversalUrl(url) {
   } else if(url.startsWith("thetvdb.com/")) { 
      // Do nothing with thetvdb.com urls
      return url;
+  } else if(url.startsWith("boxofficemojo.com/")) { 
+     // Keep the important id= on 
+     try {
+       var parts = url.split("?");
+       var page = url[0] + "?";
+       var idparam = url[1].match(/(id=.+?)(\.|&)/)[1];
+       return page+idparam;
+     } catch(e) {
+       return url;
+     }
   } else {
     // Default: Remove parameters
     return url.split("?")[0].split("&")[0]; 
@@ -1051,7 +1065,7 @@ var sites = {
     products : [{
       condition : function() { return  ~document.location.href.indexOf("/album/") },
       type : "music",
-      data : function() { return  [document.querySelector("*[itemprop=byArtist]").textContent, document.querySelector("*[itemprop=name]").textContent] }
+      data : function() { return  [document.querySelector("h2.t-hero-subheadline").textContent.trim(), document.querySelector("h1.t-hero-headline").textContent.trim()] }
     }]
   },
   'googleplay' : {
@@ -1183,6 +1197,11 @@ var sites = {
     products : [
     {
       condition : function() {
+        try {
+          if(document.querySelector(".nav-categ-image").alt.toLowerCase().indexOf("musi") != -1) {
+            return true;
+          }
+        } catch(e) {}
         var music = ["Music","Musique","Musik","Música","Musica","&#38899;&#27005;"];
         return music.some(function(s) {
           if(~document.title.indexOf(s)) {
@@ -1363,13 +1382,13 @@ var sites = {
       }
     }]
   },
-  'TVRage' : {
-    host : ["tvrage.com"],
-    condition : function() {return document.querySelector(".content_title") },
+  'TVNfo' : {
+    host : ["tvnfo.com"],
+    condition : function() {return document.querySelector("#tvsign")},
     products : [{
       condition : Always,
       type : "tv",
-      data : function() {return document.querySelector(".content_title").textContent }
+      data : function() {return document.querySelector(".heading h1").textContent.trim()}
     }]
   },
   'rateyourmusic' : {
