@@ -1,4 +1,4 @@
-﻿// ==UserScript==
+// ==UserScript==
 // @name        Show Metacritic.com ratings (Safari)
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVNfo, rateyourmusic.com
 // @namespace   cuzi
@@ -9,7 +9,7 @@
 // @grant       GM_getValue
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
-// @license     GNUGPL
+// @license     GPL-3.0
 // @version     26
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
