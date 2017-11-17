@@ -8,9 +8,13 @@
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
+// @grant       GM.xmlHttpRequest
+// @grant       GM.setValue
+// @grant       GM.getValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
+// @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0
-// @version     26
+// @version     27
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -86,14 +90,6 @@
 // ==/UserScript==
 
 
-// ########## Conversion from Script Version 15 to 16+ ######
-// Type of "black" value changed from {} to []
-if(!("length" in JSON.parse(GM_getValue("black","[]")))) {
-  GM_setValue("black","[]");
-}
-// ##########                                          ######
-
-
 var baseURL = "http://www.metacritic.com/";
 
 var baseURL_music = "http://www.metacritic.com/music/";
@@ -109,11 +105,6 @@ var baseURL_autosearch = "http://www.metacritic.com/autosearch";
 var baseURL_database = "https://php-cuzi.herokuapp.com/r.php";
 var baseURL_whitelist = "https://php-cuzi.herokuapp.com/whitelist.php";
 var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
-
-var mybrowser = "other";
-if(~navigator.userAgent.indexOf("Chrome")) {
-  mybrowser = "chrome";
-}
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
@@ -267,29 +258,29 @@ function filterUniversalUrl(url) {
   }
 }
 
-function addToMap(url, metaurl) {
-  var data = JSON.parse(GM_getValue("map","{}"));
+async function addToMap(url, metaurl) {
+  var data = JSON.parse(await GM.getValue("map","{}"));
   
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
   
-  GM_setValue("map", JSON.stringify(data));
+  await GM.setValue("map", JSON.stringify(data));
   
   (new Image()).src = baseURL_whitelist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
 }
 
-function addToBlacklist(url, metaurl) {
-  var data = JSON.parse(GM_getValue("black","[]"));
+async function addToBlacklist(url, metaurl) {
+  var data = JSON.parse(await GM.getValue("black","[]"));
   
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
 
   data.push([url,metaurl]);
   
-  GM_setValue("black", JSON.stringify(data));
+  await GM.setValue("black", JSON.stringify(data));
   
   (new Image()).src = baseURL_blacklist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
@@ -298,7 +289,7 @@ function addToBlacklist(url, metaurl) {
 
 
 
-function isBlacklistedUrl(docurl, metaurl) {
+async function isBlacklistedUrl(docurl, metaurl) {
 
   docurl = filterUniversalUrl(docurl);  
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
@@ -307,7 +298,7 @@ function isBlacklistedUrl(docurl, metaurl) {
   metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
   metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
   
-  var data = JSON.parse(GM_getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  var data = JSON.parse(await GM.getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
   for(var i = 0; i < data.length; i++) {
     if(data[i][0] == docurl && data[i][1] == metaurl) {
       return true;
@@ -316,8 +307,8 @@ function isBlacklistedUrl(docurl, metaurl) {
   return false;
 }
 
-function isBlacklisted(metaurl) {
-  return isBlacklistedUrl("" + document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search, metaurl);
+async function isBlacklisted(metaurl) {
+  return await isBlacklistedUrl("" + document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search, metaurl);
 }
 
 
@@ -342,7 +333,7 @@ function listenForHotkeys(code, cb) {
 }
 
 
-function metacritic_hoverInfo(url, docurl, cb, errorcb) {
+async function metacritic_hoverInfo(url, docurl, cb, errorcb) {
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
     
@@ -357,18 +348,22 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
         // Blacklist items from database received?
         if("blacklist" in j && j.blacklist && j.blacklist.length) {
           // Save new blacklist items
-          var data = JSON.parse(GM_getValue("black","[]"));
-          for(var i = 0; i < j.blacklist.length; i++) {
-            var save_docurl = j.blacklist[i].docurl;
-            var save_metaurl = j.blacklist[i].metaurl;
-            
-            data.push([save_docurl,save_metaurl]); 
-            if(j["jsonRedirect"] == "/"+save_metaurl) {
-              // Redirect is blacklisted!
-              blacklistedredirect = true;
-            }
-          }
-          GM_setValue("black", JSON.stringify(data));
+
+          GM.getValue("black","[]").then(function(json_data) {
+            var data = JSON.parse(json_data);
+              for(var i = 0; i < j.blacklist.length; i++) {
+                var save_docurl = j.blacklist[i].docurl;
+                var save_metaurl = j.blacklist[i].metaurl;
+                
+                data.push([save_docurl,save_metaurl]); 
+                if(j["jsonRedirect"] == "/"+save_metaurl) {
+                  // Redirect is blacklisted!
+                  blacklistedredirect = true;
+                }
+              }
+              GM.setValue("black", JSON.stringify(data));
+          });
+        
         }
         if(blacklistedredirect && errorcb) {
           // Redirect was blacklisted, show nothing
@@ -391,7 +386,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     }
   };
   
-  var cache = JSON.parse(GM_getValue("hovercache","{}"));
+  var cache = JSON.parse(await GM.getValue("hovercache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
     if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
@@ -411,7 +406,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
       requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
     }
       
-    GM_xmlhttpRequest({
+    GM.xmlHttpRequest({
       method: "POST",
       url: requestURL,
       data: requestParams,
@@ -426,7 +421,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
         response.time = (new Date()).toJSON();
         cache[url] = response;
         
-        GM_setValue("hovercache",JSON.stringify(cache));
+        GM.setValue("hovercache",JSON.stringify(cache));
         handleresponse(response, false);
       },
       onerror: function(response) { 
@@ -435,7 +430,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     });
   }
 }
-function metacritic_searchResults(url, cb, errorcb) {
+async function metacritic_searchResults(url, cb, errorcb) {
   // Get metacritic search results. Requests are cached.
   var handleresponse = function(response, cached) {
     if(response.results.length && cb) {
@@ -445,7 +440,7 @@ function metacritic_searchResults(url, cb, errorcb) {
     }
   };
   
-  var cache = JSON.parse(GM_getValue("searchcache","{}"));
+  var cache = JSON.parse(await GM.getValue("searchcache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
     if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
@@ -456,7 +451,7 @@ function metacritic_searchResults(url, cb, errorcb) {
   if(url in cache) {
     handleresponse(cache[url], true);
   } else {
-    GM_xmlhttpRequest({
+    GM.xmlHttpRequest({
       method: "GET",
       url: url,
       headers: {
@@ -479,7 +474,7 @@ function metacritic_searchResults(url, cb, errorcb) {
           results : results,
         };
         cache[url] = response;
-        GM_setValue("searchcache",JSON.stringify(cache));
+        GM.setValue("searchcache",JSON.stringify(cache));
         handleresponse(response, false);
       },
       onerror: function(response) {
@@ -522,7 +517,7 @@ function metacritic_showHoverInfo(url, docurl) {
     var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
     function loadExternalImage(url, myframe) {  
       // Load external image, bypass CSP
-      GM_xmlhttpRequest({
+      GM.xmlHttpRequest({
         method: "GET",
         url: url,
         responseType : "arraybuffer",
@@ -536,102 +531,65 @@ function metacritic_showHoverInfo(url, docurl) {
       });
     }
     var functions = {
-      "other" : {
-        "parent": function() {
-          var f = parent.document.getElementById('mciframe123');
-          window.addEventListener("message", function(e){
-            if(typeof e.data != "object") {
-              return;
-            } else if("mcimessage0" in e.data) {
-              frame_status = true; // Frame content was loaded successfully
-            } else if("mcimessage_loadImg" in e.data) {
-              loadExternalImage(e.data.mcimessage_imgUrl, f);
-            } 
-          });
-        },
-        "frame" : function sizecorrection() {
-          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-          
-          window.addEventListener("message", function(e){
-            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
-              // Load external image
-              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
-              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-              var urlCreator = window.URL || window.webkitURL;
-              var imageUrl = urlCreator.createObjectURL( blob );
-              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
-              img.src = imageUrl;
-            } 
-          });  
-          
-          var f = parent.document.getElementById('mciframe123');
-          for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
+      "parent" : function() {
+        var f = parent.document.getElementById('mciframe123');
+        var lastdiff = -200000;
+        window.addEventListener("message", function(e){
+          if(typeof e.data != "object") {
+            return;
+          } else if("mcimessage0" in e.data) {
+            frame_status = true;  // Frame content was loaded successfully
+          } else if("mcimessage1" in e.data) {
             f.style.width = parseInt(f.style.width)+10+"px";
-          }
-          if(f.clientHeight < document.body.scrollHeight) {
-            f.style.height = parseInt(f.style.height)+15+"px";
-            f.style.width = "300px";
-            if(parseInt(f.style.height) > 500) {
-              return;
+            if(e.data.heightdiff == lastdiff) {
+              f.style.height = parseInt(f.style.height)+5+"px";
             }
-            sizecorrection();
-          }
-        }
-      },
-      "chrome" : {
-        "parent" : function() {
-          var f = parent.document.getElementById('mciframe123');
-          window.addEventListener("message", function(e){
-            if(typeof e.data != "object") {
-              return;
-            } else if("mcimessage0" in e.data) {
-              frame_status = true;  // Frame content was loaded successfully
-            } else if("mcimessage1" in e.data) {
-              f.style.width = parseInt(f.style.width)+10+"px";
-            } else if("mcimessage2" in e.data) {
-              f.style.height = parseInt(f.style.height)+15+"px";
-              f.style.width = "300px";
-            } else if("mcimessage_loadImg" in e.data) {
-              loadExternalImage(e.data.mcimessage_imgUrl, f);
-            } else {
-              return;
-            }
-            f.contentWindow.postMessage({
-              "mcimessage3" : true,
-              "mciframe123_clientHeight" : f.clientHeight,
-              "mciframe123_clientWidth" : f.clientWidth,
-            },'*');
-          });
-        },
-        "frame" : function() {
-          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-          
-          var i = 0;
-          window.addEventListener("message", function(e){
-            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
-              // Load external image
-              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
-              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-              var urlCreator = window.URL || window.webkitURL;
-              var imageUrl = urlCreator.createObjectURL( blob );
-              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
-              img.src = imageUrl;
-            } 
+            lastdiff = e.data.heightdiff;
             
-            if(!("mcimessage3" in e.data)) return; 
-            if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
-              parent.postMessage({"mcimessage1":1},'*');
-              i++;
-            }
-            if(i >= 100) {
-              parent.postMessage({"mcimessage2":1},'*')
-              i = 0;
-            } 
-          });
-          parent.postMessage({"mcimessage1":1},'*');
-        }
+          } else if("mcimessage2" in e.data) {
+            f.style.height = parseInt(f.style.height)+15+"px";
+            f.style.width = "400px";
+          } else if("mcimessage_loadImg" in e.data) {
+            loadExternalImage(e.data.mcimessage_imgUrl, f);
+          } else {
+            return;
+          }
+          f.contentWindow.postMessage({
+            "mcimessage3" : true,
+            "mciframe123_clientHeight" : f.clientHeight,
+            "mciframe123_clientWidth" : f.clientWidth,
+          },'*');
+        });
+      },
+      "frame" : function() {
+        parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+        
+        var i = 0;
+        window.addEventListener("message", function(e){
+          if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+            // Load external image
+            var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+            var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+            var urlCreator = window.URL || window.webkitURL;
+            var imageUrl = urlCreator.createObjectURL( blob );
+            var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+            img.src = imageUrl;
+          } 
+          
+          if(!("mcimessage3" in e.data)) return; 
+          
+          if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
+            parent.postMessage({"mcimessage1":1, "heightdiff":document.body.scrollHeight - e.data.mciframe123_clientHeight},'*');
+            i++;
+          }
+          if(i >= 100) {
+            parent.postMessage({"mcimessage2":1},'*')
+            i = 0;
+          } 
+        });
+        parent.postMessage({"mcimessage1":1,"heightdiff":-100000},'*');
       }
-      
+    
     };
     
 
@@ -669,7 +627,7 @@ function metacritic_showHoverInfo(url, docurl) {
           parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
         }\
         function on_load() {\
-          ('+functions[mybrowser].frame.toString()+')();\
+          ('+functions.frame.toString()+')();\
           window.setTimeout(findCSPerrors, 500);\
           \
         }\
@@ -687,7 +645,7 @@ function metacritic_showHoverInfo(url, docurl) {
     frame.attr("src",framesrc);
     frame.attr("scrolling","auto");
     frame.css({
-      width: 300,
+      width: 400,
       height: 170,
       border: "none"
     });
@@ -705,7 +663,7 @@ function metacritic_showHoverInfo(url, docurl) {
             
     },2000);
     
-    functions[mybrowser].parent();
+    functions.parent();
        
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
@@ -717,15 +675,18 @@ function metacritic_showHoverInfo(url, docurl) {
     $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
-      var r = addToMap(docurl,metaurl);
-      balloonAlert("Thanks for your submission!\n\nSaved as a correct entry.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
+      addToMap(docurl, metaurl).then(function(r) {
+        balloonAlert("Thanks for your submission!\n\nSaved as a correct entry.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
+      });
     });
     $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
       if(!confirm("This is NOT the correct entry!\n\nAdd to blacklist?")) return;
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
-      var r = addToBlacklist(docurl,metaurl);
-      balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
+      addToBlacklist(docurl,metaurl).then(function(r) {
+         balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
+      });
+
       
       // Open search
       metacritic_searchcontainer(null, current.searchTerm);
@@ -736,11 +697,11 @@ function metacritic_showHoverInfo(url, docurl) {
 
   },
   // On error i.e. no result on metacritic.com
-  function(html, time) {    
+  async function(html, time) {    
     // Make search available
     metacritic_waitForHotkeys();
     
-    var handleresponse = function(response) {
+    var handleresponse = await async function(response) {
       var data;
       var multiple = false;
       try {
@@ -765,7 +726,7 @@ function metacritic_showHoverInfo(url, docurl) {
           console.log("No results (after filtering by type) for search_term="+current.searchTerm);
         } else if(data.autoComplete.length == 1) {
           // One result, let's show it
-          if(!isBlacklisted(baseURL + data.autoComplete[0].url)) {
+          if(! await isBlacklisted(baseURL + data.autoComplete[0].url)) {
             metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
             return;
           }
@@ -782,7 +743,7 @@ function metacritic_showHoverInfo(url, docurl) {
           if(exactMatches.length == 1) {
             // Only one exact match, let's show it
             console.log("Only one exact match for search_term="+current.searchTerm);
-            if(!isBlacklisted(baseURL + exactMatches[0].url)) {
+            if(! await isBlacklisted(baseURL + exactMatches[0].url)) {
               metacritic_showHoverInfo(baseURL + exactMatches[0].url);
               return;
             }
@@ -796,7 +757,7 @@ function metacritic_showHoverInfo(url, docurl) {
         balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
       }
     };
-    var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
+    var cache = JSON.parse(await GM.getValue("autosearchcache","{}"));
     for(var prop in cache) {
       // Delete cached values, that are older than 2 hours
       if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
@@ -812,7 +773,7 @@ function metacritic_showHoverInfo(url, docurl) {
     if(current.searchTerm in cache) {
       handleresponse(cache[current.searchTerm], true);
     } else {
-      GM_xmlhttpRequest({
+      GM.xmlHttpRequest({
         method: "POST",
         url: baseURL_autosearch,
         data: "search_term="+encodeURIComponent(current.searchTerm)+"&image_size=98&search_each=1&sort_type=popular",
@@ -829,7 +790,7 @@ function metacritic_showHoverInfo(url, docurl) {
             responseText : response.responseText,
           };
           cache[current.searchTerm] = response;
-          GM_setValue("autosearchcache",JSON.stringify(cache));
+          GM.setValue("autosearchcache",JSON.stringify(cache));
           handleresponse(response, false);
         }
       });
@@ -904,9 +865,9 @@ function metacritic_search(ev, query) {
       
       var docurl = document.location.href;
 
-      addToMap(docurl,metaurl);
-      
-      metacritic_showHoverInfo(metaurl);
+      addToMap(docurl,metaurl).then(function() {
+        metacritic_showHoverInfo(metaurl);
+      });
     };
     var denyAll = function(ev) {
       var urls = [];
@@ -954,8 +915,8 @@ var current = {
 };
 
 
-function showURL(url) {
-  if(!isBlacklisted(url)) {
+async function showURL(url) {
+  if(! await isBlacklisted(url)) {
     var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
     docurl = filterUniversalUrl(docurl);
     metacritic_showHoverInfo(url, docurl);
@@ -1433,7 +1394,7 @@ var sites = {
 };
 
 
-function main() {
+async function main() {
 
   var map = false;
 
@@ -1445,7 +1406,7 @@ function main() {
         if(site.products[i].condition()) {
           // Check map for a match
           if(map === false) {
-            map = JSON.parse(GM_getValue("map","{}"));
+            map = JSON.parse(await GM.getValue("map","{}"));
           }
           var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
           docurl = filterUniversalUrl(docurl);
@@ -1477,26 +1438,28 @@ function main() {
 
 
 
+(async function() {
 
-main();
-var lastLoc = document.location.href;
-var lastContent = document.body.innerText;
-var lastCounter = 0;
-function newpage() {
-  if(lastContent == document.body.innerText && lastCounter < 15) {
-    window.setTimeout(newpage, 500);
-    lastCounter++;
-  } else {
-    lastCounter = 0;
-    main();
+  await main();
+  var lastLoc = document.location.href;
+  var lastContent = document.body.innerText;
+  var lastCounter = 0;
+  function newpage() {
+    if(lastContent == document.body.innerText && lastCounter < 15) {
+      window.setTimeout(newpage, 500);
+      lastCounter++;
+    } else {
+      lastCounter = 0;
+      main();
+    }
   }
-}
-window.setInterval(function() {
-  if(document.location.href != lastLoc) {
-    lastLoc = document.location.href;
-    $("#mcdiv123").remove();
-      
-    window.setTimeout(newpage,1000);
-  }
-},500);
+  window.setInterval(function() {
+    if(document.location.href != lastLoc) {
+      lastLoc = document.location.href;
+      $("#mcdiv123").remove();
+        
+      window.setTimeout(newpage,1000);
+    }
+  },500);
 
+})();
