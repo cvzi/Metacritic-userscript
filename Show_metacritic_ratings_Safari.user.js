@@ -2,7 +2,6 @@
 // @name        Show Metacritic.com ratings (Safari)
 // @description Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVNfo, rateyourmusic.com
 // @namespace   cuzi
-// @oujs:author cuzi
 // @updateURL   https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings_(Safari).meta.js
 // @grant       GM_xmlhttpRequest
 // @grant       GM_setValue
@@ -10,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GPL-3.0
-// @version     26
+// @version     27
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -87,16 +86,6 @@
 
 
 
-// ########## Conversion from Script Version 15 to 16+ ######
-// Type of "black" value changed from {} to []
-if(!("length" in JSON.parse(GM_getValue("black","[]")))) {
-  GM_setValue("black","[]");
-}
-// ##########                                          ######
-
-
-
-
 // ###### For Safari
 if (!String.prototype.startsWith) {
   String.prototype.startsWith = function(searchString, position) {
@@ -127,11 +116,6 @@ var baseURL_autosearch = "http://www.metacritic.com/autosearch";
 var baseURL_database = "https://php-cuzi.herokuapp.com/r.php";
 var baseURL_whitelist = "https://php-cuzi.herokuapp.com/whitelist.php";
 var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
-
-var mybrowser = "other";
-if(~navigator.userAgent.indexOf("Chrome") || ~navigator.userAgent.indexOf("Safari")) {
-  mybrowser = "chrome";
-}
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
@@ -549,102 +533,65 @@ function metacritic_showHoverInfo(url, docurl) {
       });
     }
     var functions = {
-      "other" : {
-        "parent": function() {
-          var f = parent.document.getElementById('mciframe123');
-          window.addEventListener("message", function(e){
-            if(typeof e.data != "object") {
-              return;
-            } else if("mcimessage0" in e.data) {
-              frame_status = true; // Frame content was loaded successfully
-            } else if("mcimessage_loadImg" in e.data) {
-              loadExternalImage(e.data.mcimessage_imgUrl, f);
-            }
-          });
-        },
-        "frame" : function sizecorrection() {
-          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-          
-          window.addEventListener("message", function(e){
-            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
-              // Load external image
-              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
-              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-              var urlCreator = window.URL || window.webkitURL;
-              var imageUrl = urlCreator.createObjectURL( blob );
-              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
-              img.src = imageUrl;
-            } 
-          }); 
-          
-          var f = parent.document.getElementById('mciframe123');
-          for(var i =0; f.clientHeight < document.body.scrollHeight && i < 100; i++) {
+      "parent" : function() {
+        var f = parent.document.getElementById('mciframe123');
+        var lastdiff = -200000;
+        window.addEventListener("message", function(e){
+          if(typeof e.data != "object") {
+            return;
+          } else if("mcimessage0" in e.data) {
+            frame_status = true;  // Frame content was loaded successfully
+          } else if("mcimessage1" in e.data) {
             f.style.width = parseInt(f.style.width)+10+"px";
-          }
-          if(f.clientHeight < document.body.scrollHeight) {
-            f.style.height = parseInt(f.style.height)+15+"px";
-            f.style.width = "300px";
-            if(parseInt(f.style.height) > 500) {
-              return;
+            if(e.data.heightdiff == lastdiff) {
+              f.style.height = parseInt(f.style.height)+5+"px";
             }
-            sizecorrection();
-          }
-        }
-      },
-      "chrome" : {
-        "parent" : function() {
-          var f = parent.document.getElementById('mciframe123');
-          window.addEventListener("message", function(e){
-            if(typeof e.data != "object") {
-              return;
-            } else if("mcimessage0" in e.data) {
-              frame_status = true;  // Frame content was loaded successfully
-            } else if("mcimessage1" in e.data) {
-              f.style.width = parseInt(f.style.width)+10+"px";
-            } else if("mcimessage2" in e.data) {
-              f.style.height = parseInt(f.style.height)+15+"px";
-              f.style.width = "300px";
-            } else if("mcimessage_loadImg" in e.data) {
-              loadExternalImage(e.data.mcimessage_imgUrl, f);
-            } else {
-              return;
-            }
-            f.contentWindow.postMessage({
-              "mcimessage3" : true,
-              "mciframe123_clientHeight" : f.clientHeight,
-              "mciframe123_clientWidth" : f.clientWidth,
-            },'*');
-          });
-        },
-        "frame" : function() {
-          parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-          
-          var i = 0;
-          window.addEventListener("message", function(e){
-            if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
-              // Load external image
-              var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
-              var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-              var urlCreator = window.URL || window.webkitURL;
-              var imageUrl = urlCreator.createObjectURL( blob );
-              var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
-              img.src = imageUrl;
-            } 
+            lastdiff = e.data.heightdiff;
             
-            if(!("mcimessage3" in e.data)) return; 
-            if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
-              parent.postMessage({"mcimessage1":1},'*');
-              i++;
-            }
-            if(i >= 100) {
-              parent.postMessage({"mcimessage2":1},'*')
-              i = 0;
-            } 
-          });
-          parent.postMessage({"mcimessage1":1},'*');
-        }
+          } else if("mcimessage2" in e.data) {
+            f.style.height = parseInt(f.style.height)+15+"px";
+            f.style.width = "400px";
+          } else if("mcimessage_loadImg" in e.data) {
+            loadExternalImage(e.data.mcimessage_imgUrl, f);
+          } else {
+            return;
+          }
+          f.contentWindow.postMessage({
+            "mcimessage3" : true,
+            "mciframe123_clientHeight" : f.clientHeight,
+            "mciframe123_clientWidth" : f.clientWidth,
+          },'*');
+        });
+      },
+      "frame" : function() {
+        parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+        
+        var i = 0;
+        window.addEventListener("message", function(e){
+          if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
+            // Load external image
+            var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
+            var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
+            var urlCreator = window.URL || window.webkitURL;
+            var imageUrl = urlCreator.createObjectURL( blob );
+            var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
+            img.src = imageUrl;
+          } 
+          
+          if(!("mcimessage3" in e.data)) return; 
+          
+          if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
+            parent.postMessage({"mcimessage1":1, "heightdiff":document.body.scrollHeight - e.data.mciframe123_clientHeight},'*');
+            i++;
+          }
+          if(i >= 100) {
+            parent.postMessage({"mcimessage2":1},'*')
+            i = 0;
+          } 
+        });
+        parent.postMessage({"mcimessage1":1,"heightdiff":-100000},'*');
       }
-      
+    
     };
     
     var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer}a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;}.score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}.score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
@@ -680,7 +627,7 @@ function metacritic_showHoverInfo(url, docurl) {
           parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
         }\
         function on_load() {\
-          ('+functions[mybrowser].frame.toString()+')();\
+          ('+functions.frame.toString()+')();\
           window.setTimeout(findCSPerrors, 500);\
         }\
         </script>\
@@ -715,7 +662,7 @@ function metacritic_showHoverInfo(url, docurl) {
             
     },2000);
     
-    functions[mybrowser].parent();
+    functions.parent();
        
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
