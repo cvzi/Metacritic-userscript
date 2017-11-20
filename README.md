@@ -3,10 +3,10 @@ Metacritic-userscript
 A userscript or greasemonkey script that shows the metascore of movies and games from Metacritic.com on several other websites like amazon, google play and others.
 
 
-[**Click here for install**](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/Show_metacritic_ratings.user.js) 
+[**Click here for install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings.user.js) 
 Tested with Firefox/**Greasemonkey** and Chrome/**Tampermonkey**.
 
-[**Click here for Safari install**](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/Show_metacritic_ratings_Safari.user.js) 
+[**Click here for Safari install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings_(Safari).user.js) 
 Tested with Safari/Ninjakit and Safari/Tampermonkey
 
 
