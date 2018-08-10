@@ -9,7 +9,7 @@
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GPL-3.0
-// @version     29
+// @version     30
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -1312,8 +1312,18 @@ var sites = {
       condition : function() { return document.querySelector(".review-article .tombstone .score")},
       type : "music",
       data : function() {
-        var artist = document.querySelector(".review-article .tombstone h2.artists").innerText.trim();
-        var album = document.querySelector(".review-article .tombstone h1.review-title").innerText.trim();
+        var artist, album;
+        if(document.querySelector(".single-album-tombstone .artists")) {
+        	artist = document.querySelector(".single-album-tombstone .artists").innerText.trim();
+        } else if(document.querySelector(".single-album-tombstone .artist-list")) {
+          artist = document.querySelector(".single-album-tombstone .artist-list").innerText.trim();
+        }
+        if(document.querySelector(".single-album-tombstone h1.review-title")) {
+       	  album = document.querySelector(".single-album-tombstone h1.review-title").innerText.trim();
+        } else if(document.querySelector(".single-album-tombstone h1")) {
+       	  album = document.querySelector(".single-album-tombstone h1").innerText.trim();
+        }
+          
         return [artist, album];
       }
     }]
