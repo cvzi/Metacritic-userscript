@@ -8,7 +8,7 @@
 // @grant       GM_getValue
 // @grant       unsafeWindow
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
-// @license     GPL-3.0
+// @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @version     30
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
