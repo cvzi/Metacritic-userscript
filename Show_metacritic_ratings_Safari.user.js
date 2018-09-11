@@ -7,9 +7,12 @@
 // @grant       GM_setValue
 // @grant       GM_getValue
 // @grant       unsafeWindow
+// @grant       GM.xmlHttpRequest
+// @grant       GM.setValue
+// @grant       GM.getValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     30
+// @version     32
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -101,17 +104,17 @@ if (!String.prototype.normalize) {
 }
 
 
-var baseURL = "http://www.metacritic.com/";
+var baseURL = "https://www.metacritic.com/";
 
-var baseURL_music = "http://www.metacritic.com/music/";
-var baseURL_movie = "http://www.metacritic.com/movie/";
-var baseURL_pcgame = "http://www.metacritic.com/game/pc/";
-var baseURL_ps4 = "http://www.metacritic.com/game/playstation-4/";
-var baseURL_xone = "http://www.metacritic.com/game/xbox-one/";
-var baseURL_tv = "http://www.metacritic.com/tv/";
+var baseURL_music = "https://www.metacritic.com/music/";
+var baseURL_movie = "https://www.metacritic.com/movie/";
+var baseURL_pcgame = "https://www.metacritic.com/game/pc/";
+var baseURL_ps4 = "https://www.metacritic.com/game/playstation-4/";
+var baseURL_xone = "https://www.metacritic.com/game/xbox-one/";
+var baseURL_tv = "https://www.metacritic.com/tv/";
 
-var baseURL_search = "http://www.metacritic.com/search/{type}/{query}/results";
-var baseURL_autosearch = "http://www.metacritic.com/autosearch";
+var baseURL_search = "https://www.metacritic.com/search/{type}/{query}/results";
+var baseURL_autosearch = "https://www.metacritic.com/autosearch";
 
 var baseURL_database = "https://php-cuzi.herokuapp.com/r.php";
 var baseURL_whitelist = "https://php-cuzi.herokuapp.com/whitelist.php";
@@ -125,6 +128,21 @@ function getHostname(url) {
     href = url;
     return hostname;
   }
+}
+function absoluteMetaURL(url) {
+  if(url.startsWith("https://")) {
+    return url;
+  }
+  if(url.startsWith("http://")) {
+    return "https" + url.substr(4);
+  }
+  if(url.startsWith("//")) {
+    return baseURL + url.substr(2);
+  }
+  if(url.startsWith("/")) {
+    return baseURL + url.substr(1);
+  }
+  return baseURL + url;
 }
 function name2metacritic(s) {
   return s.normalize('NFKD').replace(/\//g,"").replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
@@ -239,7 +257,7 @@ function balloonAlert(message, timeout, title, css, click) {
 
 function filterUniversalUrl(url) {
   try {
-    url = url.match(/http.+/)[0];
+    url = url.match(/https?.+/)[0];
   } catch(e) { }
   
   try {
@@ -272,7 +290,7 @@ function addToMap(url, metaurl) {
   var data = JSON.parse(GM_getValue("map","{}"));
   
   var url = filterUniversalUrl(url);
-  var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+  var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
   
@@ -286,7 +304,7 @@ function addToBlacklist(url, metaurl) {
   var data = JSON.parse(GM_getValue("black","[]"));
   
   var url = filterUniversalUrl(url);
-  var metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+  var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data.push([url,metaurl]);
   
@@ -300,7 +318,7 @@ function isBlacklistedUrl(docurl, metaurl) {
   docurl = filterUniversalUrl(docurl);  
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
   
-  metaurl = metaurl.replace(/^http:\/\/(www.)?metacritic\.com\//,"");
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
   metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
   metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
   
@@ -339,7 +357,7 @@ function listenForHotkeys(code, cb) {
 }
 
 
-function metacritic_hoverInfo(url, docurl, cb, errorcb) {
+function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
     
@@ -347,7 +365,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
       if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
         var blacklistedredirect = false;
         var j = JSON.parse(response.responseText);
-        current.url = baseURL + j["jsonRedirect"];
+        current.url = absoluteMetaURL(j["jsonRedirect"]);
         delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
         
         // Blacklist items from database received?
@@ -371,7 +389,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
           errorcb(response.responseText, new Date(response.time));
         } else {
           // Load redirect
-          metacritic_hoverInfo(baseURL + j["jsonRedirect"], false, cb, errorcb);
+          metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
         }
       } else {
         cb(response.responseText, new Date(response.time));
@@ -379,11 +397,11 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     } else if(response.status != 200 && errorcb) {
       errorcb(response.responseText, new Date(response.time));
       if(!cached)
-        console.log("Show metacritic ratings: Error:"+response.status+"\n"+url);
+        console.log("Show metacritic ratings: Error 01:"+response.status+"\n"+url);
     } else if(!response.responseText) {
       errorcb("", new Date(response.time));
       if(!cached)
-        console.log("Show metacritic ratings: Error: response empty. Status:"+response.status+"\n"+url);
+        console.log("Show metacritic ratings: Error 02: response empty. Status:"+response.status+"\n"+url);
     }
   };
   
@@ -395,7 +413,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     }
   }
   
-  if(url in cache) {
+  if(!nocache && url in cache) {
     handleresponse(cache[url], true);
   } else {
     var requestURL = url;
@@ -415,7 +433,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
         "Referer" : url,
         "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
         "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
-        "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
+        "User-Agent" : navigator.userAgent,
         "X-Requested-With" : "XMLHttpRequest"
       },
       onload: function(response) {
@@ -426,7 +444,7 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb) {
         handleresponse(response, false);
       },
       onerror: function(response) { 
-        console.log("Show metacritic ratings: Hover info error: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+        console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
       },
     });
   }
@@ -480,7 +498,7 @@ function metacritic_searchResults(url, cb, errorcb) {
         handleresponse(response, false);
       },
       onerror: function(response) {
-        console.log("Show metacritic ratings: Search error: "+response.status+"\n"+url);
+        console.log("Show metacritic ratings: Search error 04: "+response.status+"\n"+url);
         handleresponse({
           time : (new Date()).toJSON(),
           results : [],
@@ -666,7 +684,7 @@ function metacritic_showHoverInfo(url, docurl) {
        
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
@@ -704,7 +722,7 @@ function metacritic_showHoverInfo(url, docurl) {
       try {
         data = JSON.parse(response.responseText);
       } catch(e) {
-        console.log("Error in JSON: search_term="+current.searchTerm);
+        console.log("Error in JSON 05: search_term="+current.searchTerm);
         console.log(e);
       }
       if(data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
@@ -725,8 +743,8 @@ function metacritic_showHoverInfo(url, docurl) {
         } else if(data.autoComplete.length == 1) {
           // One result, let's show it
           console.log("Only one exact match for search_term="+current.searchTerm);
-          if(!isBlacklisted(baseURL + data.autoComplete[0].url)) {
-            metacritic_showHoverInfo(baseURL + data.autoComplete[0].url);
+          if(!isBlacklisted(absoluteMetaURL(data.autoComplete[0].url))) {
+            metacritic_showHoverInfo(absoluteMetaURL(data.autoComplete[0].url));
             return;
           }
         } else {
@@ -741,8 +759,8 @@ function metacritic_showHoverInfo(url, docurl) {
           });
           if(exactMatches.length == 1) {
             // Only one exact match, let's show it
-            if(!isBlacklisted(baseURL + exactMatches[0].url)) {
-              metacritic_showHoverInfo(baseURL + exactMatches[0].url);
+            if(!isBlacklisted(absoluteMetaURL(exactMatches[0].url))) {
+              metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
               return;
             }
           } 
@@ -885,7 +903,7 @@ function metacritic_search(ev, query) {
     
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
@@ -899,7 +917,7 @@ function metacritic_search(ev, query) {
     
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("http://www.","@"))+'</a>').appendTo(sub);
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
@@ -1047,10 +1065,17 @@ var sites = {
       },
       type : "movie",
       data : function() {
-        if(document.querySelector(".title-extra[itemprop=name]")) {
-          return [document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"")];
-        } else {
-          return document.querySelector("*[itemprop=name]").firstChild.textContent;
+        if(document.querySelector('script[type="application/ld+json"]')) {
+          var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText);
+          return jsonld["name"];
+        } else if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
+          return document.querySelector("h1[itemprop=name]").firstChild.textContent.trim();
+        } else if(document.querySelector("*[itemprop=name] a") && document.querySelector("*[itemprop=name] a").firstChild.data) { // Subpage of a move
+          return document.querySelector("*[itemprop=name] a").firstChild.data.trim();
+        } else if(document.querySelector(".title-extra[itemprop=name]")) { // Movie homepage: sub-/alternative-/original title
+          return document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"").trim();
+        } else { // Movie homepage (old design)
+          return document.querySelector("*[itemprop=name]").firstChild.textContent.trim();
         }
       }
     },
@@ -1063,7 +1088,15 @@ var sites = {
         return false; 
       },
       type : "tv",
-      data : function() { return  document.querySelector("*[itemprop=name]").textContent}
+      data : function() {
+        var year = null;
+        if(document.querySelector("*[itemprop=name]")) {
+          return document.querySelector("*[itemprop=name]").textContent;
+        } else {
+          var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText);
+          return jsonld["name"];
+        }
+      }
     }
     ]
   },
@@ -1419,7 +1452,7 @@ function main() {
           if(docurl in map) {
             // Found in map, show result
             var metaurl = map[docurl];
-            metacritic["mapped"].apply(undefined, [baseURL + metaurl, site.products[i].type]);
+            metacritic["mapped"].apply(undefined, [absoluteMetaURL(metaurl), site.products[i].type]);
             break;
           }
           // Try to retrieve item name from page
