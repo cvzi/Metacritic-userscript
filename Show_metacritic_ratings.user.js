@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     31
+// @version     32
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -347,22 +347,20 @@ function listenForHotkeys(code, cb) {
 }
 
 
-async function metacritic_hoverInfo(url, docurl, cb, errorcb) {
+async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
+  
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
-    
     if(response.status == 200 && response.responseText && cb) {
       if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
         var blacklistedredirect = false;
         var j = JSON.parse(response.responseText);
         current.url = absoluteMetaURL(j["jsonRedirect"]);
         delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
-        
 
         // Blacklist items from database received?
         if("blacklist" in j && j.blacklist && j.blacklist.length) {
           // Save new blacklist items
-
           GM.getValue("black","[]").then(function(json_data) {
             var data = JSON.parse(json_data);
               for(var i = 0; i < j.blacklist.length; i++) {
@@ -383,10 +381,11 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb) {
           // Redirect was blacklisted, show nothing
           errorcb(response.responseText, new Date(response.time));
         } else {
-          // Load redirect
-          metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb);
+            // Load redirect
+            metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
         }
       } else {
+         // Show
         cb(response.responseText, new Date(response.time));
       }
     } else if(response.status != 200 && errorcb) {
@@ -400,6 +399,8 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb) {
     }
   };
   
+
+  
   var cache = JSON.parse(await GM.getValue("hovercache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
@@ -407,8 +408,8 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb) {
       delete cache[prop];
     }
   }
-
-  if(false && url in cache) {
+  
+  if(!nocache && url in cache) {
     handleresponse(cache[url], true);
   } else {
     var requestURL = url;
