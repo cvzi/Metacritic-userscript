@@ -10,10 +10,10 @@
 // @grant       GM.xmlHttpRequest
 // @grant       GM.setValue
 // @grant       GM.getValue
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     32
+// @version     33
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -58,6 +58,7 @@
 // @include     http://www.rottentomatoes.com/tv/*/s*/
 // @include     https://www.rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
+// @include     https://www.boxofficemojo.com/movies/*
 // @include     http://www.allmovie.com/movie/*
 // @include     https://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
@@ -75,6 +76,7 @@
 // @include     https://thetvdb.com/*tab=series*
 // @include     http://www.thetvdb.com/*tab=series*
 // @include     https://www.thetvdb.com/*tab=series*
+// @include     https://www.thetvdb.com/series/*
 // @include     http://consequenceofsound.net/*
 // @include     https://consequenceofsound.net/*
 // @include     http://pitchfork.com/*
@@ -82,6 +84,7 @@
 // @include     http://www.last.fm/*
 // @include     https://www.last.fm/*
 // @include     http://tvnfo.com/s/*
+// @include     https://tvnfo.com/s/*
 // @include     http://rateyourmusic.com/release/album/*
 // @include     https://rateyourmusic.com/release/album/*
 // @include     https://open.spotify.com/*
@@ -129,6 +132,47 @@ function absoluteMetaURL(url) {
   }
   return baseURL + url;
 }
+
+function parseLDJSON(condition, keys) {
+  if(document.querySelector('script[type="application/ld+json"]')) {
+    var data = [];
+    var scripts = document.querySelectorAll('script[type="application/ld+json"]');
+    for(let i = 0; i < scripts.length; i++) {
+      try {
+        var jsonld = JSON.parse(scripts[i].innerText);
+      } catch(e) {
+        continue;
+      }
+      if(jsonld) {
+        if(Array.isArray(jsonld)) {
+          data.push(...jsonld)
+        } else {
+          data.push(jsonld);
+        }
+      }
+    }
+    for(let i = 0; i < data.length; i++) {
+      try {
+        if(data[i] && data[i] && condition(data[i])) {
+          if(Array.isArray(keys)) {
+            let r = [];
+            for(let j = 0; j < keys.length; j++) {
+              r.push(data[i][keys[j]]);
+            }
+            return r;
+          } else {
+            return data[i][keys];
+          }
+        }
+      } catch(e) {
+        continue;
+      }
+    }
+  }
+  return null;
+}
+
+
 function name2metacritic(s) {
   return s.normalize('NFKD').replace(/\//g,"").replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
 }
@@ -1139,17 +1183,7 @@ var sites = {
     products : [{
       condition : () =>  Always,
       type : "tv",
-      data : function() {
-        if(document.querySelector("h1[itemprop=name]")) {
-          return document.querySelector("h1[itemprop=name]").textContent;
-        } else {
-          var n = $("a:contains(Details zur)");
-          if(n) {
-            var name = n.text().match(/Details zur Produktion der Serie (.+)/)[1];
-            return name;
-          }
-        }
-      }
+      data : () => parseLDJSON((j) => (j["@type"] == "TVSeries"), "name")
     }]
   },
   'gamespot' : {
@@ -1159,17 +1193,17 @@ var sites = {
     {
       condition : () => ~$("[itemprop=device]").text().indexOf("PC"),
       type : "pcgame",
-      data : () => document.querySelector("h1[itemprop=name]").textContent 
+      data : () => parseLDJSON((j) => (j["@type"] == "VideoGame"), "name")
     },
     {
       condition : () => ~$("[itemprop=device]").text().indexOf("PS4"),
       type : "ps4game",
-      data : () => document.querySelector("h1[itemprop=name]").textContent
+      data : () => parseLDJSON((j) => (j["@type"] == "VideoGame"), "name")
     },
     {
       condition : () => ~$("[itemprop=device]").text().indexOf("XONE"),
       type : "xonegame",
-      data : () => document.querySelector("h1[itemprop=name]").textContent
+      data : () => parseLDJSON((j) => (j["@type"] == "VideoGame"), "name")
     }
     ]
   },
@@ -1304,7 +1338,13 @@ var sites = {
     products : [{
       condition : () => document.location.pathname.startsWith("/tvshows/"),
       type : "tv",
-      data : () => document.querySelector("meta[property='og:title']").content
+      data : function() {
+        if(document.querySelector("meta[itemprop=name]")) {
+          return document.querySelector("meta[itemprop=name]").content;
+        } else {
+          return document.querySelector("meta[property='og:title']").content.split("|")[0];
+        }
+      }
     }]
   },
   'followshows' : {
@@ -1320,21 +1360,22 @@ var sites = {
     host : ["thetvdb.com"],
     condition : Always,
     products : [{
-      condition : () => ~document.location.search.indexOf("tab=series"),
+      condition : () => document.location.pathname.startsWith("/series/") || ~document.location.search.indexOf("tab=series"),
       type : "tv",
-      data : () => document.querySelector("#content h1").firstChild.data
+      data : () => document.getElementById("series_title").firstChild.data.trim()
     }]
   },
   'ConsequenceOfSound' : {
     host : ["consequenceofsound.net"],
-    condition : () => document.querySelector("meta[property='og:title']"),
+    condition : () => document.querySelector("#main-content .review-summary"),
     products : [{
-      condition : () => document.querySelector("meta[property='og:title']").content.match(/.+: (.+) [-–] (.+)/),
+      condition : () => document.querySelector("#main-content .review-summary .artwork"),
       type : "music",
       data : function() {
-        var m = document.querySelector("meta[property='og:title']").content.match(/.+: (.+) [-–] (.+)/);
-        m.shift();
-        return m;
+        var d = document.querySelector("#main-content .review-summary")
+        var artist = d.querySelector("a[href*='/artist/']").innerText.toLowerCase();
+        var album = d.querySelector("img").alt.toLowerCase().replace(artist,"").replace("-","").trim();
+        return [artist, album];
       }
     }]
   },
