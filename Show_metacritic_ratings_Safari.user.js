@@ -12,7 +12,7 @@
 // @grant       GM.getValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     35
+// @version     36
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -89,6 +89,7 @@
 // @include     https://open.spotify.com/*
 // @include     https://play.spotify.com/album/*
 // @include     https://www.nme.com/reviews/*
+// @include     https://www.albumoftheyear.org/album/*
 // ==/UserScript==
 
 
@@ -1497,6 +1498,19 @@ var sites = {
       condition : function() {return document.location.pathname.startsWith("/reviews/album/") },
       type : "music",
       data : function() {return document.querySelector(".title-primary").textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1) }
+    }]
+  },
+  'albumoftheyear' : {
+    host : ["albumoftheyear.org"],
+    condition : Always,
+    products : [{
+      condition : function() {return document.location.pathname.startsWith("/album/") },
+      type : "music",
+      data : function() {
+        var artist = document.querySelector("*[itemprop=byArtist] *[itemprop=name]").textContent;
+        var album = document.querySelector(".albumTitle *[itemprop=name]").textContent;
+        return [artist, album];
+      }
     }]
   },
   
