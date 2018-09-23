@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     33
+// @version     34
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -89,6 +89,7 @@
 // @include     https://rateyourmusic.com/release/album/*
 // @include     https://open.spotify.com/*
 // @include     https://play.spotify.com/album/*
+// @include     https://www.nme.com/reviews/*
 // ==/UserScript==
 
 
@@ -1472,6 +1473,28 @@ var sites = {
       }
     }]
   },
+  'nme' : {
+    host : ["nme.com"],
+    condition : () => document.location.pathname.startsWith("/reviews/"),
+    products : [
+    {
+      condition : () => document.location.pathname.startsWith("/reviews/movie/"),
+      type : "movie",
+      data : function() {
+        try {
+          return document.querySelector(".title-primary").textContent.match(/‘(.+?)’/)[1];
+        } catch(e) {
+          return document.querySelector("h1").textContent.match(/:\s*(.+)/)[1].trim();
+        }
+      }
+    },
+    {
+      condition : () => document.location.pathname.startsWith("/reviews/album/"),
+      type : "music",
+      data : () => document.querySelector(".title-primary").textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
+    }]
+  },
+  
 };
 
 
