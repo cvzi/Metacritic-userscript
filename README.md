@@ -36,6 +36,7 @@ Supported sites and products:
  * Last.fm
  * TVNfo
  * rateyourmusic.com
+ * nme.com - New Musical Express
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
