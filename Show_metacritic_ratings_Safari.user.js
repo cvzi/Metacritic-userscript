@@ -12,7 +12,7 @@
 // @grant       GM.getValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     34
+// @version     35
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -149,7 +149,7 @@ function absoluteMetaURL(url) {
   return baseURL + url;
 }
 
-function parseLDJSON(condition, keys) {
+function parseLDJSON(keys, condition) {
   if(document.querySelector('script[type="application/ld+json"]')) {
     var data = [];
     var scripts = document.querySelectorAll('script[type="application/ld+json"]');
@@ -169,21 +169,24 @@ function parseLDJSON(condition, keys) {
     }
     for(let i = 0; i < data.length; i++) {
       try {
-        if(data[i] && data[i] && condition(data[i])) {
+        if(data[i] && data[i] && (typeof condition != 'function' || condition(data[i]))) {
           if(Array.isArray(keys)) {
             let r = [];
             for(let j = 0; j < keys.length; j++) {
               r.push(data[i][keys[j]]);
             }
             return r;
-          } else {
+          } else if(keys) {
             return data[i][keys];
+          } else if(typeof condition === 'function') {
+            return data[i]; // Return whole object
           }
         }
       } catch(e) {
         continue;
       }
     }
+    return data;
   }
   return null;
 }
@@ -1109,9 +1112,10 @@ var sites = {
       },
       type : "movie",
       data : function() {
-        if(document.querySelector('script[type="application/ld+json"]')) {
-          var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText);
-          return jsonld["name"];
+        if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
+           return document.querySelector(".title_wrapper h1").firstChild.data.trim(); 
+        } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
+          return parseLDJSON("name");
         } else if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
           return document.querySelector("h1[itemprop=name]").firstChild.textContent.trim();
         } else if(document.querySelector("*[itemprop=name] a") && document.querySelector("*[itemprop=name] a").firstChild.data) { // Subpage of a move
@@ -1184,7 +1188,7 @@ var sites = {
       condition : Always,
       type : "tv",
       data : function() {
-        return parseLDJSON(function(j) { return j["@type"] == "TVSeries"; }, "name");
+        return parseLDJSON("name", function(j) { return j["@type"] == "TVSeries"; });
       }
     }]
   },
@@ -1195,17 +1199,17 @@ var sites = {
     {
       condition : function() { return  ~$("[itemprop=device]").text().indexOf("PC")},
       type : "pcgame",
-      data : function() { return parseLDJSON(function(j) { return j["@type"] == "VideoGame"; }, "name"); }
+      data : function() { return parseLDJSON("name", function(j) { return j["@type"] == "VideoGame"; }); }
     },
     {
       condition : function() { return  ~$("[itemprop=device]").text().indexOf("PS4")},
       type : "ps4game",
-      data : function() { return parseLDJSON(function(j) { return j["@type"] == "VideoGame"; }, "name"); }
+      data : function() { return parseLDJSON("name", function(j) { return j["@type"] == "VideoGame"; }); }
     },
     {
       condition : function() { return  ~$("[itemprop=device]").text().indexOf("XONE")},
       type : "xonegame",
-      data : function() { return parseLDJSON(function(j) { return j["@type"] == "VideoGame"; }, "name"); }
+      data : function() { return parseLDJSON("name", function(j) { return j["@type"] == "VideoGame"; }); }
     }
     ]
   },
