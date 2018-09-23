@@ -37,6 +37,7 @@ Supported sites and products:
  * TVNfo
  * rateyourmusic.com
  * nme.com - New Musical Express
+ * albumoftheyear.org 
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
