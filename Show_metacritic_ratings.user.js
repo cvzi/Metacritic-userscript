@@ -13,13 +13,14 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     36
+// @version     37
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
 // @include     https://play.google.com/store/movies/details/*
+// @include     https://music.amazon.com/*
 // @include     http://www.amazon.com/*
 // @include     https://www.amazon.com/*
 // @include     http://www.amazon.co.uk/*
@@ -1218,7 +1219,20 @@ var sites = {
     condition : Always,
     products : [
     {
-      condition : function() {
+      condition : () => document.location.hostname == "music.amazon.com" && document.location.pathname.startsWith("/albums/") && document.querySelector(".viewTitle"), // "Amazon Music Unlimited" page
+      type : "music",
+      data : function() {
+        var artist = document.querySelector(".artistLink").textContent.trim();
+        var title = document.querySelector(".viewTitle").textContent.trim();
+        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
+        if(artist && title) {
+          return [artist, title];
+        }
+        return false;
+      }
+    },  
+    {
+      condition : function() { // "Normal amazon" page
         try {
           if(document.querySelector(".nav-categ-image").alt.toLowerCase().indexOf("musi") != -1) {
             return true;
@@ -1237,7 +1251,7 @@ var sites = {
       data : function() {
         var artist = document.querySelector("#ProductInfoArtistLink").textContent.trim();
         var title = document.querySelector("#title_feature_div").textContent.trim();
-        title = title.replace(/\[([^\]]*)\]/g,""); // Remove [brackets] and their content
+        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
         return [artist, title];
       }
     },
@@ -1517,6 +1531,8 @@ var sites = {
 
 
 async function main() {
+  
+  var dataFound = false;
 
   var map = false;
 
@@ -1547,6 +1563,7 @@ async function main() {
           }
           if(data) {
             metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
+            dataFound = true;
           }
           break;
         }
@@ -1554,6 +1571,7 @@ async function main() {
       break;
     }
   }
+  return dataFound;
 }
 
 
@@ -1565,13 +1583,16 @@ async function main() {
   var lastLoc = document.location.href;
   var lastContent = document.body.innerText;
   var lastCounter = 0;
-  function newpage() {
+  async function newpage() {
     if(lastContent == document.body.innerText && lastCounter < 15) {
       window.setTimeout(newpage, 500);
       lastCounter++;
     } else {
       lastCounter = 0;
-      main();
+      var re = await main();
+      if(!re) { // No page matched or no data found
+        window.setTimeout(newpage, 1000);
+      }
     }
   }
   window.setInterval(function() {
