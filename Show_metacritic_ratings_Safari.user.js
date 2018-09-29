@@ -12,13 +12,14 @@
 // @grant       GM.getValue
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     36
+// @version     37
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
 // @include     https://play.google.com/store/movies/details/*
+// @include     https://music.amazon.com/*
 // @include     http://www.amazon.com/*
 // @include     https://www.amazon.com/*
 // @include     http://www.amazon.co.uk/*
@@ -1219,6 +1220,19 @@ var sites = {
     condition : Always,
     products : [
     {
+      condition : function() { return  document.location.hostname == "music.amazon.com" && document.location.pathname.startsWith("/albums/") && document.querySelector(".viewTitle") }, // "Amazon Music Unlimited" page
+      type : "music",
+      data : function() {
+        var artist = document.querySelector(".artistLink").textContent.trim();
+        var title = document.querySelector(".viewTitle").textContent.trim();
+        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
+        if(artist && title) {
+          return [artist, title];
+        }
+        return false;
+      }
+    },
+    {
       condition : function() {
         try {
           if(document.querySelector(".nav-categ-image").alt.toLowerCase().indexOf("musi") != -1) {
@@ -1238,7 +1252,7 @@ var sites = {
       data : function() {
         var artist = document.querySelector("#byline .author a").textContent;
         var title = document.getElementById("productTitle").textContent;
-        title = title.replace(/\[([^\]]*)\]/g,""); // Remove [brackets] and their content
+        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
         return [artist, title];
       }
     },
@@ -1519,6 +1533,8 @@ var sites = {
 
 function main() {
 
+  var dataFound = false;
+
   var map = false;
 
   for(var name in sites) {
@@ -1548,6 +1564,7 @@ function main() {
           }
           if(data) {
             metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
+            dataFound = true;
           }
           break;
         }
@@ -1555,6 +1572,7 @@ function main() {
       break;
     }
   }
+  return dataFound;
 }
 
 
@@ -1569,7 +1587,10 @@ function newpage() {
     lastCounter++;
   } else {
     lastCounter = 0;
-    main();
+    var re = main();
+    if(!re) { // No page matched or no data found
+      window.setTimeout(newpage, 1000);
+    }
   }
 }
 window.setInterval(function() {
