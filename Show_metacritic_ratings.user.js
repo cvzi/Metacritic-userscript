@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     37
+// @version     38
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -952,7 +952,7 @@ function metacritic_search(ev, query) {
     resultdiv.find(".metascore_w.album").removeClass("album");  // Remove some classes
     
     var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
+    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
@@ -966,7 +966,7 @@ function metacritic_search(ev, query) {
     resultdiv.html("No search results.");
     
     var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleFormat()+'">'+minutesSince(time)+'</time>').appendTo(sub);
+    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
