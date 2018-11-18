@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     38
+// @version     39
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -1103,7 +1103,7 @@ var sites = {
   },
   'imdb' : {
     host : ["imdb.com"],
-    condition : Always,
+    condition : () => !~document.location.pathname.indexOf("/mediaviewer") && !~document.location.pathname.indexOf("/mediaindex") && !~document.location.pathname.indexOf("/videoplayer"),
     products : [
     {
       condition : function() { 
