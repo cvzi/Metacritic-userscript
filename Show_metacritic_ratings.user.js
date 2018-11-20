@@ -492,7 +492,7 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
         for(var key in response) {
           newobj[key] = response[key];
         }
-        newobj.responseText = response.responseText.substr(0); // Create a copy of the string
+        newobj.responseText = response.responseText;
 
         
         
@@ -865,7 +865,7 @@ function metacritic_showHoverInfo(url, docurl) {
         onload: async function(response) {
           response = {
             time : (new Date()).toJSON(),
-            responseText : response.responseText.substr(0), // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+            responseText : response.responseText, 
           };
           cache[current.searchTerm] = response;
           await GM.setValue("autosearchcache",JSON.stringify(cache));
