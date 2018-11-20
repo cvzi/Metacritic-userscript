@@ -822,7 +822,11 @@ function metacritic_showHoverInfo(url, docurl) {
             // Only one exact match, let's show it
             console.log("Only one exact match for search_term="+current.searchTerm);
             if(! await isBlacklisted(absoluteMetaURL(exactMatches[0].url))) {
-              metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
+              if( url != absoluteMetaURL(exactMatches[0].url)) {
+                metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
+              } else {
+                console.log("Loop detected for: "+url);
+              }
               return;
             }
           } 
