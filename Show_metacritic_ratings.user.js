@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     39
+// @version     40
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -484,11 +484,22 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
         "User-Agent" : navigator.userAgent,
         "X-Requested-With" : "XMLHttpRequest"
       },
-      onload: function(response) {
+      onload: async function(response) {
         response.time = (new Date()).toJSON();
-        cache[url] = response;
         
-        GM.setValue("hovercache",JSON.stringify(cache));
+        // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+        var newobj = {};
+        for(var key in response) {
+          newobj[key] = response[key];
+        }
+        newobj.responseText = JSON.parse(JSON.stringify(response.responseText));
+
+        
+        
+        cache[url] = newobj;
+        
+        await GM.setValue("hovercache",JSON.stringify(cache));
+        
         handleresponse(response, false);
       },
       onerror: function(response) { 
@@ -527,7 +538,7 @@ async function metacritic_searchResults(url, cb, errorcb) {
         "Host" : "www.metacritic.com",
         "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
       },
-      onload: function(response) { 
+      onload: async function(response) { 
         var results = [];
         if(!~response.responseText.indexOf("No search results found.")) {
           var d = $('<html>').html(response.responseText);
@@ -541,7 +552,7 @@ async function metacritic_searchResults(url, cb, errorcb) {
           results : results,
         };
         cache[url] = response;
-        GM.setValue("searchcache",JSON.stringify(cache));
+        await GM.setValue("searchcache",JSON.stringify(cache));
         handleresponse(response, false);
       },
       onerror: function(response) {
@@ -768,7 +779,7 @@ function metacritic_showHoverInfo(url, docurl) {
     // Make search available
     metacritic_waitForHotkeys();
     
-    var handleresponse = await async function(response) {
+    var handleresponse = await async function(response, fromcache) {
       var data;
       var multiple = false;
       try {
@@ -851,13 +862,13 @@ function metacritic_showHoverInfo(url, docurl) {
           "User-Agent" : "MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0",
           "X-Requested-With" : "XMLHttpRequest"
         },
-        onload: function(response) {
+        onload: async function(response) {
           response = {
             time : (new Date()).toJSON(),
-            responseText : response.responseText,
+            responseText : JSON.parse(JSON.stringify(response.responseText)), // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
           };
           cache[current.searchTerm] = response;
-          GM.setValue("autosearchcache",JSON.stringify(cache));
+          await GM.setValue("autosearchcache",JSON.stringify(cache));
           handleresponse(response, false);
         }
       });
