@@ -9,6 +9,8 @@ Tested with Firefox/**Greasemonkey** and Chrome/**Tampermonkey**.
 [**Click here for Safari install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings_(Safari).user.js) 
 Tested with Safari/Ninjakit and Safari/Tampermonkey
 
+I develop a similar script for the [Rotten Tomatoes](https://www.rottentomatoes.com/) score, see [cvzi/Rottentomatoes-userscript](https://github.com/cvzi/Rottentomatoes-userscript)
+
 
 Supported sites and products:
  * Bandcamp
