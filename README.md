@@ -40,6 +40,7 @@ Supported sites and products:
  * rateyourmusic.com
  * nme.com - New Musical Express
  * albumoftheyear.org 
+ * itunes.apple.com
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
