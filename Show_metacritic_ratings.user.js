@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     41
+// @version     42
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -1098,9 +1098,12 @@ var sites = {
     host : ["itunes.apple.com"],
     condition : Always,
     products : [{
-      condition : () => ~document.location.href.indexOf("/album/") ,
+      condition : () => ~document.location.href.indexOf("/album/"),
       type : "music",
-      data : () => [document.querySelector("h2.t-hero-subheadline").textContent.trim(), document.querySelector("h1.t-hero-headline").textContent.trim()] 
+      data : () => function() {
+        let [title, artistObj] = parseLDJSON(["name", "byArtist"], (j) => (j["@type"] == "MusicAlbum"))
+        return [artistObj["name"], title]
+      }
     }]
   },
   'googleplay' : {
@@ -1110,7 +1113,7 @@ var sites = {
     {
       condition : () => ~document.location.href.indexOf("/album/"),
       type : "music",
-      data : () => [document.querySelector("*[itemprop=byArtist] a").textContent, document.querySelector("*[itemprop=name]").textContent]
+      data : () => [document.querySelector('[itemprop="byArtist"] meta[itemprop="name"]').content, document.querySelector('[itemtype="https://schema.org/MusicAlbum"] meta[itemprop="name"]').content]
     },
     {
       condition : () => ~document.location.href.indexOf("/movies/details/"),
@@ -1196,7 +1199,7 @@ var sites = {
       data : () => document.querySelector("h1").firstChild.textContent
     },
     {
-      condition : () =>  document.location.pathname.startsWith("/tv/") ,
+      condition : () => document.location.pathname.startsWith("/tv/") ,
       type : "tv",
       data : () => unsafeWindow.BK.TvSeriesTitle
     }
@@ -1268,20 +1271,20 @@ var sites = {
       type : "music",
       data : function() {
         var artist = document.querySelector("#ProductInfoArtistLink").textContent.trim();
-        var title = document.querySelector("#title_feature_div").textContent.trim();
+        var title = document.querySelector("#dmusicProductTitle_feature_div").textContent.trim();
         title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
         return [artist, title];
       }
     },
     {
-      condition : () => (document.getElementById("aiv-content-title") && document.getElementsByClassName("season-single-dark").length),
+      condition : () => (document.querySelector('[data-automation-id=title]') && (document.getElementsByClassName("av-season-single").length || document.querySelector('[data-automation-id="num-of-seasons-badge"]'))),
       type : "tv",
-      data : () => document.getElementById("aiv-content-title").firstChild.data.trim()
+      data : () => document.querySelector('[data-automation-id=title]').textContent.trim()
     },
     {
-      condition : () => document.getElementById("aiv-content-title"),
+      condition : () => document.querySelector('[data-automation-id=title]'),
       type : "movie",
-      data : () => document.getElementById("aiv-content-title").firstChild.data.trim()
+      data : () => document.querySelector('[data-automation-id=title]').textContent.trim()
     }
     ]
   },
@@ -1347,7 +1350,7 @@ var sites = {
       data : () => document.querySelector("meta[property='og:title']").content
     },
     {
-      condition : () => document.querySelector("meta[property='og:type']").content == "tv_series",
+      condition : () => document.querySelector("meta[property='og:type']").content == "tv" || document.querySelector("meta[property='og:type']").content == "tv_series",
       type : "tv",
       data : () => document.querySelector("meta[property='og:title']").content
     }]
@@ -1407,13 +1410,11 @@ var sites = {
     host : ["consequenceofsound.net"],
     condition : () => document.querySelector("#main-content .review-summary"),
     products : [{
-      condition : () => document.querySelector("#main-content .review-summary .artwork"),
+      condition : () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
       type : "music",
       data : function() {
-        var d = document.querySelector("#main-content .review-summary")
-        var artist = d.querySelector("a[href*='/artist/']").innerText.toLowerCase();
-        var album = d.querySelector("img").alt.toLowerCase().replace(artist,"").replace("-","").trim();
-        return [artist, album];
+        let m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
+        return [m[1], m[2]]
       }
     }]
   },
