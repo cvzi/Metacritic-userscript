@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     43
+// @version     44
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -96,6 +96,9 @@
 // @include     https://itunes.apple.com/*/movie/*
 // @include     https://itunes.apple.com/*/album/*
 // @include     https://itunes.apple.com/*/tv-season/*
+// @include     http://epguides.com/*
+// @include     http://www.epguides.com/*
+// @include     https://sharetv.com/shows/*
 // ==/UserScript==
 
 
@@ -1576,7 +1579,25 @@ var sites = {
       }
     }]
   },
-  
+  'epguides' : {
+    host : ['epguides.com'],
+    condition : () => document.getElementById('TVHeader'),
+    products : [{
+      condition : () => document.getElementById('TVHeader') && document.querySelector('body>div#header h1'),
+      type : 'tv',
+      data : () => document.querySelector('body>div#header h1').textContent.trim()
+    }]
+  },
+  'ShareTV' : {
+    host : ['sharetv.com'],
+    condition : () => document.location.pathname.startsWith("/shows/"),
+    products : [{
+      condition : () => document.location.pathname.split("/").length === 3 && document.querySelector("meta[property='og:title']"),
+      type : 'tv',
+      data : () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+
 };
 
 
