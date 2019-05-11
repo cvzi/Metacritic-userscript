@@ -243,7 +243,7 @@ function metaScore(score, word) {
     bg = "#fc3";
     t = parseInt(score);
   }
-  
+
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
@@ -274,21 +274,21 @@ function balloonAlert(message, timeout, title, css, click) {
     div.css(css);
   }
   div.appendTo(document.body);
-  
+
   if(click) {
-    div.click(function(ev) { 
-      $(this).hide(500); 
-      click.call(this,ev); 
+    div.click(function(ev) {
+      $(this).hide(500);
+      click.call(this,ev);
     });
   }
-  
+
   if(!click) {
     var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
     close.click(function(){
       $(this.parentNode).hide(1000);
     });
   }
-  
+
   if(timeout && timeout > 0) {
     window.setTimeout(function() {
       div.hide(3000);
@@ -302,19 +302,19 @@ function filterUniversalUrl(url) {
   try {
     url = url.match(/http.+/)[0];
   } catch(e) { }
-  
+
   try {
     url = url.replace(/https?:\/\/(www.)?/,"");
   } catch(e) { }
-  
-  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) { 
+
+  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) {
      // Remove movie subpage from imdb url
      return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1];
-  } else if(url.startsWith("thetvdb.com/")) { 
+  } else if(url.startsWith("thetvdb.com/")) {
      // Do nothing with thetvdb.com urls
      return url;
-  } else if(url.startsWith("boxofficemojo.com/")) { 
-     // Keep the important id= on 
+  } else if(url.startsWith("boxofficemojo.com/")) {
+     // Keep the important id= on
      try {
        var parts = url.split("?");
        var page = url[0] + "?";
@@ -325,34 +325,34 @@ function filterUniversalUrl(url) {
      }
   } else {
     // Default: Remove parameters
-    return url.split("?")[0].split("&")[0]; 
+    return url.split("?")[0].split("&")[0];
   }
 }
 
 async function addToMap(url, metaurl) {
   var data = JSON.parse(await GM.getValue("map","{}"));
-  
+
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
-  
+
   await GM.setValue("map", JSON.stringify(data));
-  
+
   (new Image()).src = baseURL_whitelist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
 }
 
 async function addToBlacklist(url, metaurl) {
   var data = JSON.parse(await GM.getValue("black","[]"));
-  
+
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data.push([url,metaurl]);
-  
+
   await GM.setValue("black", JSON.stringify(data));
-  
+
   (new Image()).src = baseURL_blacklist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
 }
@@ -362,13 +362,13 @@ async function addToBlacklist(url, metaurl) {
 
 async function isBlacklistedUrl(docurl, metaurl) {
 
-  docurl = filterUniversalUrl(docurl);  
+  docurl = filterUniversalUrl(docurl);
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
-  
+
   metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
   metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
   metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
-  
+
   var data = JSON.parse(await GM.getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
   for(var i = 0; i < data.length; i++) {
     if(data[i][0] == docurl && data[i][1] == metaurl) {
@@ -405,7 +405,7 @@ function listenForHotkeys(code, cb) {
 
 
 async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
-  
+
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
     if(response.status == 200 && response.responseText && cb) {
@@ -423,8 +423,8 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
               for(var i = 0; i < j.blacklist.length; i++) {
                 var save_docurl = j.blacklist[i].docurl;
                 var save_metaurl = j.blacklist[i].metaurl;
-                
-                data.push([save_docurl,save_metaurl]); 
+
+                data.push([save_docurl,save_metaurl]);
                 if(j["jsonRedirect"] == "/"+save_metaurl) {
                   // Redirect is blacklisted!
                   blacklistedredirect = true;
@@ -432,7 +432,7 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
               }
               GM.setValue("black", JSON.stringify(data));
           });
-        
+
         }
         if(blacklistedredirect && errorcb) {
           // Redirect was blacklisted, show nothing
@@ -455,25 +455,25 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
         console.log("Show metacritic ratings: Error 02: response empty. Status:"+response.status+"\n"+url);
     }
   };
-  
 
-  
+
+
   var cache = JSON.parse(await GM.getValue("hovercache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
       delete cache[prop];
     }
   }
-  
+
   if(!nocache && url in cache) {
     handleresponse(cache[url], true);
-  } else {    
+  } else {
     if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
       // Ask database for correct metacritic entry:
       let requestURL = baseURL_database;
       let requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
-      
+
       GM.xmlHttpRequest({
         method: "POST",
         url: requestURL,
@@ -486,7 +486,7 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
         },
         onload: async function(response) {
           response.time = (new Date()).toJSON();
-          
+
           // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
           var newobj = {};
           for(var key in response) {
@@ -498,10 +498,10 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           cache[url] = newobj;
 
           await GM.setValue("hovercache",JSON.stringify(cache));
-          
+
           handleresponse(response, false);
         },
-        onerror: function(response) { 
+        onerror: function(response) {
           console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
         },
       });
@@ -553,10 +553,10 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           cache[url] = newobj;
 
           await GM.setValue("hovercache",JSON.stringify(cache));
-          
+
           handleresponse(newobj, false);
         },
-        onerror: function(response) { 
+        onerror: function(response) {
           console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
         },
       });
@@ -572,15 +572,15 @@ async function metacritic_searchResults(url, cb, errorcb) {
       errorcb(response.results, new Date(response.time));
     }
   };
-  
+
   var cache = JSON.parse(await GM.getValue("searchcache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
       delete cache[prop];
     }
   }
-  
+
   if(url in cache) {
     handleresponse(cache[url], true);
   } else {
@@ -593,7 +593,7 @@ async function metacritic_searchResults(url, cb, errorcb) {
         "Host" : "www.metacritic.com",
         "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
       },
-      onload: async function(response) { 
+      onload: async function(response) {
         var results = [];
         if(!~response.responseText.indexOf("No search results found.")) {
           var d = $('<html>').html(response.responseText);
@@ -631,8 +631,8 @@ function metacritic_showHoverInfo(url, docurl) {
     $("#mcdiv123").remove();
     var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
     div.css({
-      position:"fixed", 
-      bottom :0, 
+      position:"fixed",
+      bottom :0,
       left: 0,
       minWidth: 300,
       backgroundColor: "#fff",
@@ -643,18 +643,18 @@ function metacritic_showHoverInfo(url, docurl) {
       padding:" 3px",
       zIndex: "5010001",
     });
-    
+
     // Functions for communication between page and iframe
     // Mozilla can access parent.document
     // Chrome can use postMessage()
     var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
-    function loadExternalImage(url, myframe) {  
+    function loadExternalImage(url, myframe) {
       // Load external image, bypass CSP
       GM.xmlHttpRequest({
         method: "GET",
         url: url,
         responseType : "arraybuffer",
-        onload: function(response) {          
+        onload: function(response) {
           myframe.contentWindow.postMessage({
               "mcimessage_imgLoaded" : true,
               "mcimessage_imgData" : response.response,
@@ -678,7 +678,7 @@ function metacritic_showHoverInfo(url, docurl) {
               f.style.height = parseInt(f.style.height)+5+"px";
             }
             lastdiff = e.data.heightdiff;
-            
+
           } else if("mcimessage2" in e.data) {
             f.style.height = parseInt(f.style.height)+15+"px";
             f.style.width = "400px";
@@ -696,7 +696,7 @@ function metacritic_showHoverInfo(url, docurl) {
       },
       "frame" : function() {
         parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-        
+
         var i = 0;
         window.addEventListener("message", function(e){
           if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
@@ -707,10 +707,10 @@ function metacritic_showHoverInfo(url, docurl) {
             var imageUrl = urlCreator.createObjectURL( blob );
             var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
             img.src = imageUrl;
-          } 
-          
-          if(!("mcimessage3" in e.data)) return; 
-          
+          }
+
+          if(!("mcimessage3" in e.data)) return;
+
           if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
             parent.postMessage({"mcimessage1":1, "heightdiff":document.body.scrollHeight - e.data.mciframe123_clientHeight},'*');
             i++;
@@ -718,15 +718,15 @@ function metacritic_showHoverInfo(url, docurl) {
           if(i >= 100) {
             parent.postMessage({"mcimessage2":1},'*')
             i = 0;
-          } 
+          }
         });
         parent.postMessage({"mcimessage1":1,"heightdiff":-100000},'*');
       }
-    
-    };
-    
 
-    
+    };
+
+
+
     var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
 
     var framesrc = 'data:text/html,';
@@ -771,8 +771,8 @@ function metacritic_showHoverInfo(url, docurl) {
           <div class="hover_content">'+fixMetacriticURLs(html)+'</div>\
         </div>\
       </body>\
-    </html>');    
-    
+    </html>');
+
     var frame = $("<iframe></iframe>").appendTo(div);
     frame.attr("id","mciframe123");
     frame.attr("src",framesrc);
@@ -782,7 +782,7 @@ function metacritic_showHoverInfo(url, docurl) {
       height: 170,
       border: "none"
     });
-    
+
     window.setTimeout(function() {
       if(!frame_status) { // Loading frame content failed.
         //  Directly inject the html without an iframe (this may break the site or the metacritic)
@@ -793,18 +793,18 @@ function metacritic_showHoverInfo(url, docurl) {
           </div>');
         frame.replaceWith(noframe);
       }
-            
+
     },2000);
-    
+
     functions.parent();
-       
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
-    
+
     $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
@@ -820,20 +820,20 @@ function metacritic_showHoverInfo(url, docurl) {
          balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
       });
 
-      
+
       // Open search
       metacritic_searchcontainer(null, current.searchTerm);
       metacritic_search(null, current.searchTerm);
     });
-    
-    
+
+
 
   },
   // On error i.e. no result on metacritic.com
   async function(html, time) {
     // Make search available
     metacritic_waitForHotkeys();
-    
+
     var handleresponse = await async function(response, fromcache) {
       var data;
       var multiple = false;
@@ -846,7 +846,7 @@ function metacritic_showHoverInfo(url, docurl) {
       if(data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
         // Remove data with wrong type
         data.autoComplete = data.autoComplete.results;
-        
+
         var newdata = [];
         data.autoComplete.forEach(function(result) {
           if(metacritic2searchType(result.refType) == current.type) {
@@ -884,8 +884,8 @@ function metacritic_showHoverInfo(url, docurl) {
               }
               return;
             }
-          } 
-        } 
+          }
+        }
       } else {
         console.log("No results (at all) for search_term="+current.searchTerm);
       }
@@ -897,11 +897,11 @@ function metacritic_showHoverInfo(url, docurl) {
     var cache = JSON.parse(await GM.getValue("autosearchcache","{}"));
     for(var prop in cache) {
       // Delete cached values, that are older than 2 hours
-      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
         delete cache[prop];
       }
     }
-    
+
     if(current.type == "music") {
       current.searchTerm = current.data[0];
     } else {
@@ -924,7 +924,7 @@ function metacritic_showHoverInfo(url, docurl) {
         onload: async function(response) {
           response = {
             time : (new Date()).toJSON(),
-            responseText : response.responseText, 
+            responseText : response.responseText,
           };
           cache[current.searchTerm] = response;
           await GM.setValue("autosearchcache",JSON.stringify(cache));
@@ -950,8 +950,8 @@ function metacritic_searchcontainer(ev, query) {
   $("#mcdiv123").remove();
   var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
   div.css({
-    position:"fixed", 
-    bottom :0, 
+    position:"fixed",
+    bottom :0,
     left: 0,
     minWidth: 300,
     maxHeight: "80%",
@@ -988,18 +988,18 @@ function metacritic_search(ev, query) {
 
   var div = $("#mcdiv123");
   var loader = $('<div style="width:20px; height:20px;" class="grespinner"></div>').appendTo($("#mcisearchbutton"));
-  
+
   var url = baseURL_search.replace("{type}",encodeURIComponent(type)).replace("{query}",encodeURIComponent(query));
 
-  metacritic_searchResults(url, 
+  metacritic_searchResults(url,
   // On success
   function(results, time) {
     loader.remove();
-    
+
     var accept = function(ev) {
       var a = $(this.parentNode).find("a[href*='metacritic.com']");
       var metaurl = a.attr("href");
-      
+
       var docurl = document.location.href;
 
       addToMap(docurl,metaurl).then(function() {
@@ -1013,14 +1013,14 @@ function metacritic_search(ev, query) {
         addToBlacklist(docurl, this.href);
       });
     };
-    
+
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').css("max-width","95%").appendTo(div);
     results.forEach(function(html) {
       var singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
       $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
     });
     resultdiv.find(".metascore_w.album").removeClass("album");  // Remove some classes
-    
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
@@ -1034,14 +1034,14 @@ function metacritic_search(ev, query) {
     loader.remove();
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').appendTo(div);
     resultdiv.html("No search results.");
-    
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
-    
+
   }
   );
 }
@@ -1049,7 +1049,7 @@ function metacritic_search(ev, query) {
 var current = {
   url : null,
   type : null,
-  data : null, // Array of raw search keys 
+  data : null, // Array of raw search keys
   searchTerm : null
 };
 
@@ -1179,17 +1179,17 @@ var sites = {
     condition : () => !~document.location.pathname.indexOf("/mediaviewer") && !~document.location.pathname.indexOf("/mediaindex") && !~document.location.pathname.indexOf("/videoplayer"),
     products : [
     {
-      condition : function() { 
+      condition : function() {
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
           return e.content == "video.movie"
         }
-        return false; 
+        return false;
       },
       type : "movie",
       data : function() {
         if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
-           return document.querySelector(".title_wrapper h1").firstChild.data.trim(); 
+           return document.querySelector(".title_wrapper h1").firstChild.data.trim();
         } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
           return parseLDJSON("name");
         } else if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
@@ -1204,12 +1204,12 @@ var sites = {
       }
     },
     {
-      condition : function() { 
+      condition : function() {
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
           return e.content == "video.tv_show"
         }
-        return false; 
+        return false;
       },
       type : "tv",
       data : function() {
@@ -1303,7 +1303,7 @@ var sites = {
         }
         return false;
       }
-    },  
+    },
     {
       condition : function() { // "Normal amazon" page
         try {
@@ -1488,7 +1488,7 @@ var sites = {
         } else if(document.querySelector(".single-album-tombstone h1")) {
        	  album = document.querySelector(".single-album-tombstone h1").innerText.trim();
         }
-          
+
         return [artist, album];
       }
     }]
@@ -1615,12 +1615,12 @@ var sites = {
         }
         return name;
       }
-    },         
+    },
 		{
       condition : () => ~document.location.href.indexOf("/album/"),
       type : "music",
       data : function() {
-        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum")); 
+        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
         var album = ld[0];
         var artist = ld[1]["name"]
         return [artist, album];
@@ -1650,7 +1650,7 @@ var sites = {
 
 
 async function main() {
-  
+
   var dataFound = false;
 
   var map = false;
@@ -1718,7 +1718,7 @@ async function main() {
     if(document.location.href != lastLoc) {
       lastLoc = document.location.href;
       $("#mcdiv123").remove();
-        
+
       window.setTimeout(newpage,1000);
     }
   },500);
