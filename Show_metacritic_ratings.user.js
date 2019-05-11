@@ -10,10 +10,10 @@
 // @grant       GM.xmlHttpRequest
 // @grant       GM.setValue
 // @grant       GM.getValue
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     44
+// @version     45
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -438,8 +438,8 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           // Redirect was blacklisted, show nothing
           errorcb(response.responseText, new Date(response.time));
         } else {
-            // Load redirect
-            metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
+          // Load redirect
+          metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
         }
       } else {
          // Show
@@ -468,51 +468,99 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
   
   if(!nocache && url in cache) {
     handleresponse(cache[url], true);
-  } else {
-    var requestURL = url;
-    var requestParams = "hoverinfo=1";
-    
+  } else {    
     if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
       // Ask database for correct metacritic entry:
-      requestURL = baseURL_database;
-      requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
-    }
-    
-    
-    GM.xmlHttpRequest({
-      method: "POST",
-      url: requestURL,
-      data: requestParams,
-      headers: {
-        "Referer" : url,
-        "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-        "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
-        //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
-        "User-Agent" : navigator.userAgent,
-        "X-Requested-With" : "XMLHttpRequest"
-      },
-      onload: async function(response) {
-        response.time = (new Date()).toJSON();
-        
-        // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
-        var newobj = {};
-        for(var key in response) {
-          newobj[key] = response[key];
-        }
-        newobj.responseText = response.responseText;
+      let requestURL = baseURL_database;
+      let requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
+      
+      GM.xmlHttpRequest({
+        method: "POST",
+        url: requestURL,
+        data: requestParams,
+        headers: {
+          "Referer" : url,
+          "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
+          "User-Agent" : navigator.userAgent,
+          "X-Requested-With" : "XMLHttpRequest"
+        },
+        onload: async function(response) {
+          response.time = (new Date()).toJSON();
+          
+          // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+          var newobj = {};
+          for(var key in response) {
+            newobj[key] = response[key];
+          }
+          newobj.responseText = response.responseText;
 
-        
-        
-        cache[url] = newobj;
-        
-        await GM.setValue("hovercache",JSON.stringify(cache));
-        
-        handleresponse(response, false);
-      },
-      onerror: function(response) { 
-        console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
-      },
-    });
+
+          cache[url] = newobj;
+
+          await GM.setValue("hovercache",JSON.stringify(cache));
+          
+          handleresponse(response, false);
+        },
+        onerror: function(response) { 
+          console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+        },
+      });
+    } else {
+      let requestURL = url;
+      if(requestURL.indexOf('/critic-reviews') !== -1) {
+        requestURL = url.split('/critic-reviews')[0]
+      }
+      GM.xmlHttpRequest({
+        method: "GET",
+        url: requestURL,
+        headers: {
+          "Referer" : url,
+          "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
+          //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
+          "User-Agent" : navigator.userAgent
+        },
+        onload: async function(response) {
+          response.time = (new Date()).toJSON();
+
+
+          let parts = response.responseText.split('class="score_details')
+          let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
+
+
+
+
+          let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
+          title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
+
+          parts = response.responseText.split('id="nav_to_metascore"')
+          let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
+
+
+          meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
+          meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
+
+          let html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+
+          // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+          var newobj = {};
+          for(var key in response) {
+            newobj[key] = response[key];
+          }
+          newobj.responseText = html;
+
+          //alert(requestURL+'\n'+requestParams+'\nResult:\n'+response.responseText)
+
+          cache[url] = newobj;
+
+          await GM.setValue("hovercache",JSON.stringify(cache));
+          
+          handleresponse(newobj, false);
+        },
+        onerror: function(response) { 
+          console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+        },
+      });
+    }
   }
 }
 async function metacritic_searchResults(url, cb, errorcb) {
