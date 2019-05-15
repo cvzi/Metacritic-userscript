@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     45
+// @version     46
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -120,6 +120,19 @@ var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
+
+async function versionUpdate() {
+  let version = parseInt(await GM.getValue("version", 0));
+  if(version <= 45) {
+    // Reset database
+    await GM.setValue("map", "{}");
+    await GM.setValue("black", "{}");
+    await GM.setValue("hovercache", "{}");
+    await GM.setValue("searchcache", "{}");
+    await GM.setValue("autosearchcache", "{}");
+  }
+  await GM.setValue("version", 46);
+}
 
 function getHostname(url) {
   with(document.createElement("a")) {
@@ -438,8 +451,8 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           // Redirect was blacklisted, show nothing
           errorcb(response.responseText, new Date(response.time));
         } else {
-          // Load redirect
-          metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
+            // Load redirect
+            metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
         }
       } else {
          // Show
@@ -469,23 +482,91 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
   if(!nocache && url in cache) {
     handleresponse(cache[url], true);
   } else {
+    var requestURL = url;
+    var requestParams = "hoverinfo=1";
+
     if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
       // Ask database for correct metacritic entry:
-      let requestURL = baseURL_database;
-      let requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
+      requestURL = baseURL_database;
+      requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
+    }
 
-      GM.xmlHttpRequest({
-        method: "POST",
-        url: requestURL,
-        data: requestParams,
-        headers: {
-          "Referer" : url,
-          "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-          "User-Agent" : navigator.userAgent,
-          "X-Requested-With" : "XMLHttpRequest"
-        },
-        onload: async function(response) {
-          response.time = (new Date()).toJSON();
+
+    GM.xmlHttpRequest({
+      method: "POST",
+      url: requestURL,
+      data: requestParams,
+      headers: {
+        "Referer" : url,
+        "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
+        "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
+        //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
+        "User-Agent" : navigator.userAgent,
+        "X-Requested-With" : "XMLHttpRequest"
+      },
+      onload: async function(response) {
+        response.time = (new Date()).toJSON();
+
+
+        if(!response.responseText) {
+          // Temporary fix:
+          // Hover info seems to be available only for movies.
+          requestURL = url;
+          if(requestURL.indexOf('/critic-reviews') !== -1) {
+            requestURL = url.split('/critic-reviews')[0]
+          }
+          GM.xmlHttpRequest({
+            method: "GET",
+            url: requestURL,
+            headers: {
+              "Referer" : url,
+              "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
+              //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
+              "User-Agent" : navigator.userAgent
+            },
+            onload: async function(response) {
+              response.time = (new Date()).toJSON();
+
+
+              let parts = response.responseText.split('class="score_details')
+              let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
+
+
+
+
+              let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
+              title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
+
+              parts = response.responseText.split('id="nav_to_metascore"')
+              let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
+
+
+              meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
+              meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
+
+              let html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+
+              // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+              var newobj = {};
+              for(var key in response) {
+                newobj[key] = response[key];
+              }
+              newobj.responseText = html;
+
+              //alert(requestURL+'\n'+requestParams+'\nResult:\n'+response.responseText)
+
+              cache[url] = newobj;
+
+              await GM.setValue("hovercache",JSON.stringify(cache));
+
+              handleresponse(newobj, false);
+            },
+            onerror: function(response) {
+              console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+            },
+          });
+
+        } else {
 
           // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
           var newobj = {};
@@ -495,72 +576,18 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           newobj.responseText = response.responseText;
 
 
+
           cache[url] = newobj;
 
           await GM.setValue("hovercache",JSON.stringify(cache));
 
           handleresponse(response, false);
-        },
-        onerror: function(response) {
-          console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
-        },
-      });
-    } else {
-      let requestURL = url;
-      if(requestURL.indexOf('/critic-reviews') !== -1) {
-        requestURL = url.split('/critic-reviews')[0]
-      }
-      GM.xmlHttpRequest({
-        method: "GET",
-        url: requestURL,
-        headers: {
-          "Referer" : url,
-          "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
-          //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
-          "User-Agent" : navigator.userAgent
-        },
-        onload: async function(response) {
-          response.time = (new Date()).toJSON();
-
-
-          let parts = response.responseText.split('class="score_details')
-          let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
-
-
-
-
-          let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
-          title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
-
-          parts = response.responseText.split('id="nav_to_metascore"')
-          let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
-
-
-          meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
-          meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
-
-          let html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
-
-          // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
-          var newobj = {};
-          for(var key in response) {
-            newobj[key] = response[key];
-          }
-          newobj.responseText = html;
-
-          //alert(requestURL+'\n'+requestParams+'\nResult:\n'+response.responseText)
-
-          cache[url] = newobj;
-
-          await GM.setValue("hovercache",JSON.stringify(cache));
-
-          handleresponse(newobj, false);
-        },
-        onerror: function(response) {
-          console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
-        },
-      });
-    }
+        }
+      },
+      onerror: function(response) {
+        console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+      },
+    });
   }
 }
 async function metacritic_searchResults(url, cb, errorcb) {
@@ -1697,7 +1724,7 @@ async function main() {
 
 
 (async function() {
-
+  await versionUpdate();
   await main();
   var lastLoc = document.location.href;
   var lastContent = document.body.innerText;
