@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     46
+// @version     47
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -123,7 +123,7 @@ var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:r
 
 async function versionUpdate() {
   let version = parseInt(await GM.getValue("version", 0));
-  if(version <= 45) {
+  if(version <= 46) {
     // Reset database
     await GM.setValue("map", "{}");
     await GM.setValue("black", "{}");
@@ -131,7 +131,7 @@ async function versionUpdate() {
     await GM.setValue("searchcache", "{}");
     await GM.setValue("autosearchcache", "{}");
   }
-  await GM.setValue("version", 46);
+  await GM.setValue("version", 47);
 }
 
 function getHostname(url) {
@@ -545,6 +545,17 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
               meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
 
               let html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+
+              if(html.indexOf('products_module') !== -1) {
+                // Critic reviews are not available for this Series yet -> Cut the preview for other series
+                html = html.split('products_module')[0] + '"></div>'
+              }
+
+              if(html.length > 5000) {
+                // Probably something went wrong, let's cut the response to prevent overly big content
+                console.log("Show metacritic ratings: Cutting response to 5000 chars")
+                html = html.substr(0, 5000)
+              }
 
               // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
               var newobj = {};
