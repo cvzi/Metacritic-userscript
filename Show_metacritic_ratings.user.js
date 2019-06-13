@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     47
+// @version     48
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -121,6 +121,14 @@ var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
 
+var myDOMParser = null;
+function domParser() {
+  if(myDOMParser===null) {
+    myDOMParser = new DOMParser()
+  }
+  return myDOMParser;
+}
+
 async function versionUpdate() {
   let version = parseInt(await GM.getValue("version", 0));
   if(version <= 46) {
@@ -131,7 +139,9 @@ async function versionUpdate() {
     await GM.setValue("searchcache", "{}");
     await GM.setValue("autosearchcache", "{}");
   }
-  await GM.setValue("version", 47);
+  if(version < 48) {
+    await GM.setValue("version", 48);
+  }
 }
 
 function getHostname(url) {
@@ -527,34 +537,194 @@ async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
             onload: async function(response) {
               response.time = (new Date()).toJSON();
 
+              let html;
+              try {
+                // Try parsing HTML
 
-              let parts = response.responseText.split('class="score_details')
-              let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
-
-
-
-
-              let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
-              title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
-
-              parts = response.responseText.split('id="nav_to_metascore"')
-              let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
+                let doc = domParser().parseFromString(response.responseText, 'text/html');
+                doc.querySelector(".product_page_title h1")
+                doc.querySelector(".summary_img")
+                doc.querySelectorAll(".details_section")
+                doc.querySelectorAll("#nav_to_metascore .distribution")
 
 
-              meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
-              meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
 
-              let html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+                let page_url = img_src = img_alt = title = publisher = release_date = starring = critics_score = critics_class = critics_number = critics_charts = user_score = user_class = user_number = user_charts = ''
 
-              if(html.indexOf('products_module') !== -1) {
-                // Critic reviews are not available for this Series yet -> Cut the preview for other series
-                html = html.split('products_module')[0] + '"></div>'
-              }
+                page_url = requestURL + (requestURL.endsWith("/") ? "" : "/")
+                img_src = doc.querySelector(".summary_img").src
+                img_alt = doc.querySelector(".summary_img").alt
+                title = doc.querySelector(".product_page_title h1").textContent
+                if(doc.querySelector(".details_section .distributor a"))
+                  publisher = doc.querySelector(".details_section .distributor a").textContent
 
-              if(html.length > 5000) {
-                // Probably something went wrong, let's cut the response to prevent overly big content
-                console.log("Show metacritic ratings: Cutting response to 5000 chars")
-                html = html.substr(0, 5000)
+                if(doc.querySelector(".details_section .release_date span:nth-child(2)")) {
+                    let date = doc.querySelector(".details_section .release_date span:nth-child(2)").textContent
+                    release_date = `
+                        <div class="summary_detail release_data">
+                            <span class="label">Release Date:</span>
+                            <span class="data">${date}</span>
+                        </div>`
+                }
+
+                if(doc.querySelector(".details_section.summary_cast span:nth-child(2)")) {
+
+                  let stars = doc.querySelector(".details_section.summary_cast span:nth-child(2)").innerHTML
+                  starring = `
+                    <div>
+                        <div class="summary_detail product_credits">
+                            <span class="label">Starring:</span>
+                            <span class="data">
+                                ${stars}
+                            </span>
+                        </div>
+                    </div>`
+                }
+
+                critics_class = "metascore_w medium tbd"
+                critics_score = "tbd"
+                user_class = "metascore_w medium user tbd"
+                user_score = "tbd"
+
+                if(doc.querySelector(".score_details .based_on")) {
+                  critics_number = doc.querySelector(".score_details .based_on").textContent.match(/\d+/)
+                } else {
+                  critics_number = "By"
+                }
+                if(doc.querySelector(".user_score_summary .based_on")) {
+                  user_number = doc.querySelector(".user_score_summary .based_on").textContent.match(/\d+/)
+                } else {
+                  user_number = "User"
+                }
+
+                // Remove text from distribution charts:
+                let label = doc.querySelector("#nav_to_metascore .charts .label.fl")
+                while(label) {
+                  label.parentNode.title = label.textContent.trim() + " " + label.parentNode.querySelector(".count").textContent.trim()
+                  label.remove()
+                  label = doc.querySelector("#nav_to_metascore .charts .label.fl")
+                }
+                let scores = doc.querySelectorAll("#nav_to_metascore .distribution .metascore_w")
+                if(scores.length == 2) {
+                  critics_score = scores[0].innerText
+                  critics_class = scores[0].className.replace("larger", "medium")
+                  scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                  critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  user_score = scores[1].innerText
+                  user_class = scores[1].className.replace("larger", "medium")
+                  scores[1].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                  user_charts = '<td class="usr">' + scores[1].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                } else if(scores.length == 1) {
+                  if(scores[0].className.indexOf("user") === -1) {
+                    critics_score = scores[0].innerText
+                    critics_class = scores[0].className.replace("larger", "medium")
+                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                    critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  } else {
+                    user_score = scores[0].innerText
+                    user_class = scores[0].className.replace("larger", "medium")
+                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                    user_charts = '<td class="usr">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  }
+                }
+
+                html = `
+            <div class="hoverinfo">
+                <div class="hover_left">
+                    <div class="product_image_wrapper">
+                        <a target="_blank" href="${page_url}">
+                            <img class="product_image large_image" src="${img_src}" alt="${img_alt}" />
+                        </a>
+                    </div>
+                </div>
+                <div class="hover_right">
+                    <h2 class="product_title">
+                        <a target="_blank" href="${page_url}">${title}</a>
+                    </h2>
+                    <div>
+                        <div class="summary_detail publisher">
+                            <span class="data">${publisher}</span>
+                            <span>&nbsp;|&nbsp;&nbsp;</span>
+                        </div>
+                        ${release_date}
+                        <div class="clr"></div>
+                    </div>
+                    ${starring}
+                    <div class="hr">
+                        &nbsp;
+                    </div>
+
+                    <table class="hover_scores ">
+                        <tr>
+                            <td class="meta num">
+                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
+                                    <span class="${critics_class}">${critics_score}</span>
+                                </a>
+                            </td>
+                            <td class="meta txt">
+                                <div class="metascore_label">Metascore</div>
+                                <div class="metascore_review_count">
+                                    <a target="_blank" href="${page_url}#nav_to_metascore">
+                                        <span>${critics_number}</span> critics
+                                    </a>
+                                </div>
+                            </td>
+                            ${critics_charts}
+                            <td class="usr num">
+
+                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
+                                    <span class="${user_class}">${user_score}</span>
+                                </a>
+
+                            </td>
+                            <td class="usr txt">
+                                <div class="userscore_label">User Score</div>
+                                <div class="userscore_review_count">
+                                    <a target="_blank" href="${page_url}#nav_to_metascore">
+                                        <span>${user_number}</span> Ratings
+                                    </a>
+                                </div>
+                            </td>
+                            ${user_charts}
+                        </tr>
+                    </table>
+
+                </div>
+
+                <div class="clr"></div>
+            </div>
+`
+              } catch(e) {
+                console.log("Show metacritic ratings: Error parsing HTML: "+e);
+                // fallback to cutting out the relevant parts
+
+                let parts = response.responseText.split('class="score_details')
+                let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
+
+
+                let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
+                title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
+
+                parts = response.responseText.split('id="nav_to_metascore"')
+                let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
+
+
+                meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
+                meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
+
+                html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+
+                if(html.indexOf('products_module') !== -1) {
+                  // Critic reviews are not available for this Series yet -> Cut the preview for other series
+                  html = html.split('products_module')[0] + '"></div>'
+                }
+
+                if(html.length > 5000) {
+                  // Probably something went wrong, let's cut the response to prevent overly big content
+                  console.log("Show metacritic ratings: Cutting response to 5000 chars")
+                  html = html.substr(0, 5000)
+                }
+
               }
 
               // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
@@ -765,7 +935,7 @@ function metacritic_showHoverInfo(url, docurl) {
 
 
 
-    var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
+  var css = "#hover_div .clr { clear: both} #hover_div .fl{float: left} #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;} .chart{background-color:inherit!important;margin-top:-3px} .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)} .chart .bar{width:100%;height:3px} .chart .count{font-size:10px}";
 
     var framesrc = 'data:text/html,';
     framesrc += encodeURIComponent('<!DOCTYPE html>\
