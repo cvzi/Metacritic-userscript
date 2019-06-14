@@ -10,13 +10,12 @@
 // @grant       GM.xmlHttpRequest
 // @grant       GM.setValue
 // @grant       GM.getValue
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     39
+// @version     49
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
-// @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
 // @include     https://play.google.com/store/movies/details/*
 // @include     https://music.amazon.com/*
@@ -68,6 +67,7 @@
 // @include     http://letterboxd.com/film/*
 // @include     https://letterboxd.com/film/*
 // @include     http://www.tvmaze.com/shows/*
+// @include     https://www.tvmaze.com/shows/*
 // @include     http://www.tvguide.com/tvshows/*
 // @include     https://www.tvguide.com/tvshows/*
 // @include     http://followshows.com/show/*
@@ -91,6 +91,12 @@
 // @include     https://play.spotify.com/album/*
 // @include     https://www.nme.com/reviews/*
 // @include     https://www.albumoftheyear.org/album/*
+// @include     https://itunes.apple.com/*/movie/*
+// @include     https://itunes.apple.com/*/album/*
+// @include     https://itunes.apple.com/*/tv-season/*
+// @include     http://epguides.com/*
+// @include     http://www.epguides.com/*
+// @include     https://sharetv.com/shows/*
 // ==/UserScript==
 
 
@@ -128,6 +134,29 @@ var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
+
+var myDOMParser = null;
+function domParser() {
+  if(myDOMParser===null) {
+    myDOMParser = new DOMParser()
+  }
+  return myDOMParser;
+}
+
+function versionUpdate() {
+  let version = parseInt(GM_getValue("version", 0));
+  if(version <= 46) {
+    // Reset database
+    GM_setValue("map", "{}");
+    GM_setValue("black", "{}");
+    GM_setValue("hovercache", "{}");
+    GM_setValue("searchcache", "{}");
+    GM_setValue("autosearchcache", "{}");
+  }
+  if(version < 48) {
+   GM_setValue("version", 48);
+  }
+}
 
 function getHostname(url) {
   with(document.createElement("a")) {
@@ -250,7 +279,7 @@ function metaScore(score, word) {
     bg = "#fc3";
     t = parseInt(score);
   }
-  
+
  return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
 }
 
@@ -281,21 +310,21 @@ function balloonAlert(message, timeout, title, css, click) {
     div.css(css);
   }
   div.appendTo(document.body);
-  
+
   if(click) {
-    div.click(function(ev) { 
-      $(this).hide(500); 
-      click.call(this,ev); 
+    div.click(function(ev) {
+      $(this).hide(500);
+      click.call(this,ev);
     });
   }
-  
+
   if(!click) {
     var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
     close.click(function(){
       $(this.parentNode).hide(1000);
     });
   }
-  
+
   if(timeout && timeout > 0) {
     window.setTimeout(function() {
       div.hide(3000);
@@ -306,21 +335,21 @@ function balloonAlert(message, timeout, title, css, click) {
 
 function filterUniversalUrl(url) {
   try {
-    url = url.match(/https?.+/)[0];
+    url = url.match(/http?.+/)[0];
   } catch(e) { }
-  
+
   try {
     url = url.replace(/https?:\/\/(www.)?/,"");
   } catch(e) { }
-  
-  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) { 
+
+  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) {
      // Remove movie subpage from imdb url
      return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1];
-  } else if(url.startsWith("thetvdb.com/")) { 
+  } else if(url.startsWith("thetvdb.com/")) {
      // Do nothing with thetvdb.com urls
      return url;
-  } else if(url.startsWith("boxofficemojo.com/")) { 
-     // Keep the important id= on 
+  } else if(url.startsWith("boxofficemojo.com/")) {
+     // Keep the important id= on
      try {
        var parts = url.split("?");
        var page = url[0] + "?";
@@ -331,46 +360,46 @@ function filterUniversalUrl(url) {
      }
   } else {
     // Default: Remove parameters
-    return url.split("?")[0].split("&")[0]; 
+    return url.split("?")[0].split("&")[0];
   }
 }
 
 function addToMap(url, metaurl) {
   var data = JSON.parse(GM_getValue("map","{}"));
-  
+
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data[url] = metaurl;
-  
+
   GM_setValue("map", JSON.stringify(data));
-  
+
   (new Image()).src = baseURL_whitelist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
 }
 
 function addToBlacklist(url, metaurl) {
   var data = JSON.parse(GM_getValue("black","[]"));
-  
+
   var url = filterUniversalUrl(url);
   var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
 
   data.push([url,metaurl]);
-  
+
   GM_setValue("black", JSON.stringify(data));
-  
+
   (new Image()).src = baseURL_blacklist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
   return [url, metaurl];
 }
 
 function isBlacklistedUrl(docurl, metaurl) {
-  docurl = filterUniversalUrl(docurl);  
+  docurl = filterUniversalUrl(docurl);
   docurl = docurl.replace(/https?:\/\/(www.)?/,"");
-  
+
   metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
   metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
   metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
-  
+
   var data = JSON.parse(GM_getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
   for(var i = 0; i < data.length; i++) {
     if(data[i][0] == docurl && data[i][1] == metaurl) {
@@ -409,14 +438,14 @@ function listenForHotkeys(code, cb) {
 function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
   // Get the metacritic hover info. Requests are cached.
   var handleresponse = function(response, cached) {
-    
+
     if(response.status == 200 && response.responseText && cb) {
       if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
         var blacklistedredirect = false;
         var j = JSON.parse(response.responseText);
         current.url = absoluteMetaURL(j["jsonRedirect"]);
         delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
-        
+
         // Blacklist items from database received?
         if("blacklist" in j && j.blacklist && j.blacklist.length) {
           // Save new blacklist items
@@ -424,12 +453,12 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
           for(var i = 0; i < j.blacklist.length; i++) {
             var save_docurl = j.blacklist[i].docurl;
             var save_metaurl = j.blacklist[i].metaurl;
-            
-            data.push([save_docurl,save_metaurl]); 
+
+            data.push([save_docurl,save_metaurl]);
             if(j["jsonRedirect"] == "/"+save_metaurl) {
               // Redirect is blacklisted!
               blacklistedredirect = true;
-            }        
+            }
           }
           GM_setValue("black", JSON.stringify(data));
         }
@@ -453,27 +482,27 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
         console.log("Show metacritic ratings: Error 02: response empty. Status:"+response.status+"\n"+url);
     }
   };
-  
+
   var cache = JSON.parse(GM_getValue("hovercache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
       delete cache[prop];
     }
   }
-  
+
   if(!nocache && url in cache) {
     handleresponse(cache[url], true);
   } else {
     var requestURL = url;
     var requestParams = "hoverinfo=1";
-    
+
     if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
       // Ask database for correct metacritic entry:
       requestURL = baseURL_database;
       requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
     }
-      
+
     GM_xmlhttpRequest({
       method: "POST",
       url: requestURL,
@@ -488,11 +517,255 @@ function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
       onload: function(response) {
         response.time = (new Date()).toJSON();
         cache[url] = response;
-        
-        GM_setValue("hovercache",JSON.stringify(cache));
-        handleresponse(response, false);
+
+        if(!response.responseText) {
+          // Temporary fix:
+          // Hover info seems to be available only for movies.
+          requestURL = url;
+          if(requestURL.indexOf('/critic-reviews') !== -1) {
+            requestURL = url.split('/critic-reviews')[0]
+          }
+          GM_xmlhttpRequest({
+            method: "GET",
+            url: requestURL,
+            headers: {
+              "Referer" : url,
+              "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
+              //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
+              "User-Agent" : navigator.userAgent
+            },
+            onload: function(response) {
+              response.time = (new Date()).toJSON();
+
+              let html;
+              try {
+                // Try parsing HTML
+
+                let doc = domParser().parseFromString(response.responseText, 'text/html');
+                doc.querySelector(".product_page_title h1")
+                doc.querySelector(".summary_img")
+                doc.querySelectorAll(".details_section")
+                doc.querySelectorAll("#nav_to_metascore .distribution")
+
+
+
+                let page_url = img_src = img_alt = title = publisher = release_date = starring = critics_score = critics_class = critics_number = critics_charts = user_score = user_class = user_number = user_charts = ''
+
+                page_url = requestURL + (requestURL.endsWith("/") ? "" : "/")
+                img_src = doc.querySelector(".summary_img").src
+                img_alt = doc.querySelector(".summary_img").alt
+                title = doc.querySelector(".product_page_title h1").textContent
+                if(doc.querySelector(".details_section .distributor a"))
+                  publisher = doc.querySelector(".details_section .distributor a").textContent
+
+                if(doc.querySelector(".details_section .release_date span:nth-child(2)")) {
+                    let date = doc.querySelector(".details_section .release_date span:nth-child(2)").textContent
+                    release_date = `
+                        <div class="summary_detail release_data">
+                            <span class="label">Release Date:</span>
+                            <span class="data">${date}</span>
+                        </div>`
+                }
+
+                if(doc.querySelector(".details_section.summary_cast span:nth-child(2)")) {
+
+                  let stars = doc.querySelector(".details_section.summary_cast span:nth-child(2)").innerHTML
+                  starring = `
+                    <div>
+                        <div class="summary_detail product_credits">
+                            <span class="label">Starring:</span>
+                            <span class="data">
+                                ${stars}
+                            </span>
+                        </div>
+                    </div>`
+                }
+
+                critics_class = "metascore_w medium tbd"
+                critics_score = "tbd"
+                user_class = "metascore_w medium user tbd"
+                user_score = "tbd"
+
+                if(doc.querySelector(".score_details .based_on")) {
+                  critics_number = doc.querySelector(".score_details .based_on").textContent.match(/\d+/)
+                } else {
+                  critics_number = "By"
+                }
+                if(doc.querySelector(".user_score_summary .based_on")) {
+                  user_number = doc.querySelector(".user_score_summary .based_on").textContent.match(/\d+/)
+                } else {
+                  user_number = "User"
+                }
+
+                // Remove text from distribution charts:
+                let label = doc.querySelector("#nav_to_metascore .charts .label.fl")
+                while(label) {
+                  label.parentNode.title = label.textContent.trim() + " " + label.parentNode.querySelector(".count").textContent.trim()
+                  label.remove()
+                  label = doc.querySelector("#nav_to_metascore .charts .label.fl")
+                }
+                let scores = doc.querySelectorAll("#nav_to_metascore .distribution .metascore_w")
+                if(scores.length == 2) {
+                  critics_score = scores[0].innerText
+                  critics_class = scores[0].className.replace("larger", "medium")
+                  scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                  critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  user_score = scores[1].innerText
+                  user_class = scores[1].className.replace("larger", "medium")
+                  scores[1].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                  user_charts = '<td class="usr">' + scores[1].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                } else if(scores.length == 1) {
+                  if(scores[0].className.indexOf("user") === -1) {
+                    critics_score = scores[0].innerText
+                    critics_class = scores[0].className.replace("larger", "medium")
+                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                    critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  } else {
+                    user_score = scores[0].innerText
+                    user_class = scores[0].className.replace("larger", "medium")
+                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
+                    user_charts = '<td class="usr">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
+                  }
+                }
+
+                html = `
+            <div class="hoverinfo">
+                <div class="hover_left">
+                    <div class="product_image_wrapper">
+                        <a target="_blank" href="${page_url}">
+                            <img class="product_image large_image" src="${img_src}" alt="${img_alt}" />
+                        </a>
+                    </div>
+                </div>
+                <div class="hover_right">
+                    <h2 class="product_title">
+                        <a target="_blank" href="${page_url}">${title}</a>
+                    </h2>
+                    <div>
+                        <div class="summary_detail publisher">
+                            <span class="data">${publisher}</span>
+                            <span>&nbsp;|&nbsp;&nbsp;</span>
+                        </div>
+                        ${release_date}
+                        <div class="clr"></div>
+                    </div>
+                    ${starring}
+                    <div class="hr">
+                        &nbsp;
+                    </div>
+
+                    <table class="hover_scores ">
+                        <tr>
+                            <td class="meta num">
+                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
+                                    <span class="${critics_class}">${critics_score}</span>
+                                </a>
+                            </td>
+                            <td class="meta txt">
+                                <div class="metascore_label">Metascore</div>
+                                <div class="metascore_review_count">
+                                    <a target="_blank" href="${page_url}#nav_to_metascore">
+                                        <span>${critics_number}</span> critics
+                                    </a>
+                                </div>
+                            </td>
+                            ${critics_charts}
+                            <td class="usr num">
+
+                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
+                                    <span class="${user_class}">${user_score}</span>
+                                </a>
+
+                            </td>
+                            <td class="usr txt">
+                                <div class="userscore_label">User Score</div>
+                                <div class="userscore_review_count">
+                                    <a target="_blank" href="${page_url}#nav_to_metascore">
+                                        <span>${user_number}</span> Ratings
+                                    </a>
+                                </div>
+                            </td>
+                            ${user_charts}
+                        </tr>
+                    </table>
+
+                </div>
+
+                <div class="clr"></div>
+            </div>
+`
+              } catch(e) {
+                console.log("Show metacritic ratings: Error parsing HTML: "+e);
+                // fallback to cutting out the relevant parts
+
+                let parts = response.responseText.split('class="score_details')
+                let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
+
+
+                let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
+                title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
+
+                parts = response.responseText.split('id="nav_to_metascore"')
+                let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
+
+
+                meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
+                meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
+
+                html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
+
+                if(html.indexOf('products_module') !== -1) {
+                  // Critic reviews are not available for this Series yet -> Cut the preview for other series
+                  html = html.split('products_module')[0] + '"></div>'
+                }
+
+                if(html.length > 5000) {
+                  // Probably something went wrong, let's cut the response to prevent overly big content
+                  console.log("Show metacritic ratings: Cutting response to 5000 chars")
+                  html = html.substr(0, 5000)
+                }
+
+              }
+
+              // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+              var newobj = {};
+              for(var key in response) {
+                newobj[key] = response[key];
+              }
+              newobj.responseText = html;
+
+              //alert(requestURL+'\n'+requestParams+'\nResult:\n'+response.responseText)
+
+              cache[url] = newobj;
+
+              GM_setValue("hovercache",JSON.stringify(cache));
+
+              handleresponse(newobj, false);
+            },
+            onerror: function(response) {
+              console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
+            },
+          });
+
+        } else {
+
+          // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
+          var newobj = {};
+          for(var key in response) {
+            newobj[key] = response[key];
+          }
+          newobj.responseText = response.responseText;
+
+
+
+          cache[url] = newobj;
+
+          GM_setValue("hovercache",JSON.stringify(cache));
+
+          handleresponse(response, false);
+        }
       },
-      onerror: function(response) { 
+      onerror: function(response) {
         console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
       },
     });
@@ -507,15 +780,15 @@ function metacritic_searchResults(url, cb, errorcb) {
       errorcb(response.results, new Date(response.time));
     }
   };
-  
+
   var cache = JSON.parse(GM_getValue("searchcache","{}"));
   for(var prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
       delete cache[prop];
     }
   }
-  
+
   if(url in cache) {
     handleresponse(cache[url], true);
   } else {
@@ -528,8 +801,8 @@ function metacritic_searchResults(url, cb, errorcb) {
         "Host" : "www.metacritic.com",
         "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
       },
-      onload: function(response) { 
-        
+      onload: function(response) {
+
         var results = [];
         if(!~response.responseText.indexOf("No search results found.")) {
           var d = $('<html>').html(response.responseText);
@@ -567,8 +840,8 @@ function metacritic_showHoverInfo(url, docurl) {
     $("#mcdiv123").remove();
     var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
     div.css({
-      position:"fixed", 
-      bottom :0, 
+      position:"fixed",
+      bottom :0,
       left: 0,
       minWidth: 300,
       backgroundColor: "#fff",
@@ -579,18 +852,18 @@ function metacritic_showHoverInfo(url, docurl) {
       padding:" 3px",
       zIndex: "5010001",
     });
-    
+
     // Functions for communication between page and iframe
     // Mozilla can access parent.document
     // Chrome can use postMessage()
     var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
-    function loadExternalImage(url, myframe) {  
+    function loadExternalImage(url, myframe) {
       // Load external image, bypass CSP
       GM_xmlhttpRequest({
         method: "GET",
         url: url,
         responseType : "arraybuffer",
-        onload: function(response) {          
+        onload: function(response) {
           myframe.contentWindow.postMessage({
               "mcimessage_imgLoaded" : true,
               "mcimessage_imgData" : response.response,
@@ -614,7 +887,7 @@ function metacritic_showHoverInfo(url, docurl) {
               f.style.height = parseInt(f.style.height)+5+"px";
             }
             lastdiff = e.data.heightdiff;
-            
+
           } else if("mcimessage2" in e.data) {
             f.style.height = parseInt(f.style.height)+15+"px";
             f.style.width = "400px";
@@ -632,7 +905,7 @@ function metacritic_showHoverInfo(url, docurl) {
       },
       "frame" : function() {
         parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
-        
+
         var i = 0;
         window.addEventListener("message", function(e){
           if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
@@ -643,10 +916,10 @@ function metacritic_showHoverInfo(url, docurl) {
             var imageUrl = urlCreator.createObjectURL( blob );
             var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
             img.src = imageUrl;
-          } 
-          
-          if(!("mcimessage3" in e.data)) return; 
-          
+          }
+
+          if(!("mcimessage3" in e.data)) return;
+
           if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
             parent.postMessage({"mcimessage1":1, "heightdiff":document.body.scrollHeight - e.data.mciframe123_clientHeight},'*');
             i++;
@@ -654,14 +927,16 @@ function metacritic_showHoverInfo(url, docurl) {
           if(i >= 100) {
             parent.postMessage({"mcimessage2":1},'*')
             i = 0;
-          } 
+          }
         });
         parent.postMessage({"mcimessage1":1,"heightdiff":-100000},'*');
       }
-    
+
     };
-    
-    var css = "#hover_div .clr { clear: both}#hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}";
+
+
+
+  var css = "#hover_div .clr { clear: both} #hover_div .fl{float: left} #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;} .chart{background-color:inherit!important;margin-top:-3px} .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)} .chart .bar{width:100%;height:3px} .chart .count{font-size:10px}";
 
     var framesrc = 'data:text/html,';
     framesrc += encodeURIComponent('<!DOCTYPE html>\
@@ -704,18 +979,18 @@ function metacritic_showHoverInfo(url, docurl) {
           <div class="hover_content">'+fixMetacriticURLs(html)+'</div>\
         </div>\
       </body>\
-    </html>');    
-    
+    </html>');
+
     var frame = $("<iframe></iframe>").appendTo(div);
     frame.attr("id","mciframe123");
     frame.attr("src",framesrc);
     frame.attr("scrolling","auto");
     frame.css({
-      width: 300,
-      height: 170,
+      width: 380,
+      height: 150,
       border: "none"
     });
-    
+
     window.setTimeout(function() {
       if(!frame_status) { // Loading frame content failed.
         //  Directly inject the html without an iframe (this may break the site or the metacritic)
@@ -726,18 +1001,18 @@ function metacritic_showHoverInfo(url, docurl) {
           </div>');
         frame.replaceWith(noframe);
       }
-            
+
     },2000);
-    
+
     functions.parent();
-       
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
-    
+
     $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
       var docurl = document.location.href;
       var metaurl = $(this).data("url");
@@ -750,21 +1025,21 @@ function metacritic_showHoverInfo(url, docurl) {
       var metaurl = $(this).data("url");
       var r = addToBlacklist(docurl,metaurl);
       balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
-      
+
       // Open search
       metacritic_searchcontainer(null, current.searchTerm);
       metacritic_search(null, current.searchTerm);
     });
-    
-    
+
+
 
   },
   // On error i.e. no result on metacritic.com
-  function(html, time) {    
-  
+  function(html, time) {
+
     // Make search available
     metacritic_waitForHotkeys();
-    
+
     var handleresponse = function(response) {
       var data;
       var multiple = false;
@@ -776,9 +1051,9 @@ function metacritic_showHoverInfo(url, docurl) {
       }
       if(data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
         // Remove data with wrong type
-        
+
         data.autoComplete = data.autoComplete.results;
-        
+
         var newdata = [];
         data.autoComplete.forEach(function(result) {
           if(metacritic2searchType(result.refType) == current.type) {
@@ -808,12 +1083,17 @@ function metacritic_showHoverInfo(url, docurl) {
           });
           if(exactMatches.length == 1) {
             // Only one exact match, let's show it
+            console.log("Only one exact match for search_term="+current.searchTerm);
             if(!isBlacklisted(absoluteMetaURL(exactMatches[0].url))) {
-              metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
+              if( url != absoluteMetaURL(exactMatches[0].url)) {
+                metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
+              } else {
+                console.log("Loop detected for: "+url);
+              }
               return;
             }
-          } 
-        } 
+          }
+        }
       } else {
         console.log("No results (at all) for search_term="+current.searchTerm);
       }
@@ -825,11 +1105,11 @@ function metacritic_showHoverInfo(url, docurl) {
     var cache = JSON.parse(GM_getValue("autosearchcache","{}"));
     for(var prop in cache) {
       // Delete cached values, that are older than 2 hours
-      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) { 
+      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
         delete cache[prop];
       }
     }
-    
+
     if(current.type == "music") {
       current.searchTerm = current.data[0];
     } else {
@@ -851,7 +1131,7 @@ function metacritic_showHoverInfo(url, docurl) {
           "X-Requested-With" : "XMLHttpRequest"
         },
         onload: function(response) {
-          
+
           response = {
             time : (new Date()).toJSON(),
             responseText : response.responseText,
@@ -880,8 +1160,8 @@ function metacritic_searchcontainer(ev, query) {
   $("#mcdiv123").remove();
   var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
   div.css({
-    position:"fixed", 
-    bottom :0, 
+    position:"fixed",
+    bottom :0,
     left: 0,
     minWidth: 300,
     maxHeight: "80%",
@@ -915,24 +1195,24 @@ function metacritic_search(ev, query) {
   style.type = 'text/css';
   style.innerHTML = CSS;
   document.head.appendChild(style);
-  
+
   var div = $("#mcdiv123");
   var loader = $('<div style="width:20px; height:20px;" class="grespinner"></div>').appendTo($("#mcisearchbutton"));
-  
+
   var url = baseURL_search.replace("{type}",encodeURIComponent(type)).replace("{query}",encodeURIComponent(query));
-  metacritic_searchResults(url, 
+  metacritic_searchResults(url,
   // On success
   function(results, time) {
     loader.remove();
-    
+
     var accept = function(ev) {
       var a = $(this.parentNode).find("a[href*='metacritic.com']");
       var metaurl = a.attr("href");
-      
+
       var docurl = document.location.href;
 
       addToMap(docurl,metaurl);
-      
+
       metacritic_showHoverInfo(metaurl);
     };
     var denyAll = function(ev) {
@@ -942,14 +1222,14 @@ function metacritic_search(ev, query) {
         addToBlacklist(docurl, this.href);
       });
     };
-    
+
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').css("max-width","95%").appendTo(div);
     results.forEach(function(html) {
       var singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
       $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
     });
     resultdiv.find(".metascore_w.album").removeClass("album");  // Remove some classes
-    
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
@@ -963,14 +1243,14 @@ function metacritic_search(ev, query) {
     loader.remove();
     var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').appendTo(div);
     resultdiv.html("No search results.");
-    
+
     var sub = $("<div></div>").appendTo(div);
     $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
       document.body.removeChild(this.parentNode.parentNode);
     });
-    
+
   }
   );
 }
@@ -978,7 +1258,7 @@ function metacritic_search(ev, query) {
 var current = {
   url : null,
   type : null,
-  data : null, // Array of raw search keys 
+  data : null, // Array of raw search keys
   searchTerm : null
 };
 
@@ -1079,9 +1359,44 @@ var sites = {
     host : ["itunes.apple.com"],
     condition : Always,
     products : [{
-      condition : function() { return  ~document.location.href.indexOf("/album/") },
+      condition : function() { return  ~document.location.href.indexOf("/movie/")},
+      type : "movie",
+      data : function() { return  parseLDJSON("name", function(j) {return  j["@type"] == "Movie"}  )}
+    },
+    {
+      condition : function() { return  ~document.location.href.indexOf("/tv-season/")},
+      type : "tv",
+      data : function() {
+        var name = parseLDJSON("name", function(j) {return  j["@type"] == "TVSeries"});
+        if(~name.indexOf(", Season")) {
+          name = name.split(", Season")[0];
+        }
+        return name;
+      }
+    },
+    {
+      condition : function() { return  ~document.location.href.indexOf("/album/")},
       type : "music",
-      data : function() { return  [document.querySelector("h2.t-hero-subheadline").textContent.trim(), document.querySelector("h1.t-hero-headline").textContent.trim()] }
+      data : function() {
+        var ld = parseLDJSON(["name","byArtist"], function(j) {return  j["@type"] == "MusicAlbum"});
+        var album = ld[0];
+        var artist = ld[1]["name"]
+        return [artist, album];
+      }
+    }]
+  },
+  'music.apple' : {
+    host : ["music.apple.com"],
+    condition : Always,
+    products : [{
+      condition : function() { return  ~document.location.href.indexOf("/album/")},
+      type : "music",
+      data : function() {
+        var ld = parseLDJSON(["name","byArtist"], function(j) {return  j["@type"] == "MusicAlbum"});
+        var album = ld[0];
+        var artist = ld[1]["name"]
+        return [artist, album];
+      }
     }]
   },
   'googleplay' : {
@@ -1091,12 +1406,12 @@ var sites = {
     {
       condition : function() { return  ~document.location.href.indexOf("/album/")},
       type : "music",
-      data : function() { return  [document.querySelector("*[itemprop=byArtist] a").textContent, document.querySelector("*[itemprop=name]").textContent]}
+      data : function() { return  [document.querySelector('[itemprop="byArtist"] meta[itemprop="name"]').content, document.querySelector('[itemtype="https://schema.org/MusicAlbum"] meta[itemprop="name"]').content]}
     },
     {
       condition : function() { return  ~document.location.href.indexOf("/movies/details/")},
       type : "movie",
-      data : function() { return  document.querySelector("*[itemprop=name]").textContent}
+      data : function() { return  document.querySelector("*[itemprop=name]").textContentt}
     }
     ]
   },
@@ -1107,17 +1422,17 @@ var sites = {
     },
     products : [
     {
-      condition : function() { 
+      condition : function() {
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
           return e.content == "video.movie"
         }
-        return false; 
+        return false;
       },
       type : "movie",
       data : function() {
         if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
-           return document.querySelector(".title_wrapper h1").firstChild.data.trim(); 
+           return document.querySelector(".title_wrapper h1").firstChild.data.trim();
         } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
           return parseLDJSON("name");
         } else if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
@@ -1132,12 +1447,12 @@ var sites = {
       }
     },
     {
-      condition : function() { 
+      condition : function() {
         var e = document.querySelector("meta[property='og:type']");
         if(e) {
           return e.content == "video.tv_show"
         }
-        return false; 
+        return false;
       },
       type : "tv",
       data : function() {
@@ -1235,13 +1550,13 @@ var sites = {
       }
     },
     {
-      condition : function() {
+      condition : function() { // "Normal amazon" page
         try {
           if(document.querySelector(".nav-categ-image").alt.toLowerCase().indexOf("musi") != -1) {
             return true;
           }
         } catch(e) {}
-        var music = ["Music","Musique","Musik","Música","Musica","&#38899;&#27005;"];
+        var music = ["Music","Musique","Musik","Música","Musica","音楽"];
         return music.some(function(s) {
           if(~document.title.indexOf(s)) {
             return true;
@@ -1252,21 +1567,21 @@ var sites = {
       },
       type : "music",
       data : function() {
-        var artist = document.querySelector("#byline .author a").textContent;
-        var title = document.getElementById("productTitle").textContent;
+        var artist = document.querySelector("#ProductInfoArtistLink").textContent.trim();
+        var title = document.querySelector("#dmusicProductTitle_feature_div").textContent.trim();
         title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
         return [artist, title];
       }
     },
     {
-      condition : function() { return  (document.getElementById("aiv-content-title") && document.getElementsByClassName("season-single-dark").length)},
+      condition : function() { return  document.querySelector('[data-automation-id=title]') && (document.getElementsByClassName("av-season-single").length || document.querySelector('[data-automation-id="num-of-seasons-badge"]'))},
       type : "tv",
-      data : function() { return  document.getElementById("aiv-content-title").firstChild.data.trim()}
+      data : function() { return  document.querySelector('[data-automation-id=title]').textContent.trim()}
     },
     {
-      condition : function() { return  document.getElementById("aiv-content-title")},
+      condition : function() { return  document.querySelector('[data-automation-id=title]')},
       type : "movie",
-      data : function() { return  document.getElementById("aiv-content-title").firstChild.data.trim()}
+      data : function() { return  document.querySelector('[data-automation-id=title]').textContent.trim()}
     }
     ]
   },
@@ -1392,13 +1707,11 @@ var sites = {
     host : ["consequenceofsound.net"],
     condition : function() { return  document.querySelector("#main-content .review-summary") },
     products : [{
-      condition : function() { return  document.querySelector("#main-content .review-summary .artwork") },
+      condition : function() { return  document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/) },
       type : "music",
       data : function() {
-        var d = document.querySelector("#main-content .review-summary")
-        var artist = d.querySelector("a[href*='/artist/']").innerText.toLowerCase();
-        var album = d.querySelector("img").alt.toLowerCase().replace(artist,"").replace("-","").trim();
-        return [artist, album];
+        let m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
+        return [m[1], m[2]]
       }
     }]
   },
@@ -1406,7 +1719,7 @@ var sites = {
     host : ["pitchfork.com"],
     condition : function() { return ~document.location.href.indexOf("/reviews/albums/") },
     products : [{
-      condition : function() { return document.querySelector(".review-article .tombstone .score")},
+      condition : function() { return document.querySelector(".single-album-tombstone")},
       type : "music",
       data : function() {
         var artist, album;
@@ -1420,7 +1733,7 @@ var sites = {
         } else if(document.querySelector(".single-album-tombstone h1")) {
        	  album = document.querySelector(".single-album-tombstone h1").innerText.trim();
         }
-          
+
         return [artist, album];
       }
     }]
@@ -1529,7 +1842,26 @@ var sites = {
       }
     }]
   },
-  
+  'epguides' : {
+    host : ['epguides.com'],
+    condition : function() {return  document.getElementById('TVHeader')},
+    products : [{
+    condition : function() {return  document.getElementById('TVHeader') && document.querySelector('body>div#header h1')},
+      type : 'tv',
+      data : function() {return  document.querySelector('body>div#header h1').textContent.trim()}
+    }]
+  },
+  'ShareTV' : {
+    host : ['sharetv.com'],
+    condition : function() {return  document.location.pathname.startsWith("/shows/")},
+    products : [{
+      condition : function() {return  document.location.pathname.split("/").length === 3 && document.querySelector("meta[property='og:title']")},
+      type : 'tv',
+      data : function() {return  document.querySelector("meta[property='og:title']").content}
+    }]
+  },
+
+
 };
 
 
@@ -1578,7 +1910,7 @@ function main() {
 }
 
 
-
+versionUpdate();
 main();
 var lastLoc = document.location.href;
 var lastContent = document.body.innerText;
@@ -1599,7 +1931,7 @@ window.setInterval(function() {
   if(document.location.href != lastLoc) {
     lastLoc = document.location.href;
     $("#mcdiv123").remove();
-      
+
     window.setTimeout(newpage,1000);
   }
 },500);
