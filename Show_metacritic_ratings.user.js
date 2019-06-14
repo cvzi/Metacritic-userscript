@@ -13,11 +13,10 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     48
+// @version     49
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
-// @include     https://itunes.apple.com/*/album/*
 // @include     https://play.google.com/store/music/album/*
 // @include     https://play.google.com/store/movies/details/*
 // @include     https://music.amazon.com/*
@@ -95,6 +94,7 @@
 // @include     https://www.albumoftheyear.org/album/*
 // @include     https://itunes.apple.com/*/movie/*
 // @include     https://itunes.apple.com/*/album/*
+// @include     https://music.apple.com/*/album/*
 // @include     https://itunes.apple.com/*/tv-season/*
 // @include     http://epguides.com/*
 // @include     http://www.epguides.com/*
@@ -986,8 +986,8 @@ function metacritic_showHoverInfo(url, docurl) {
     frame.attr("src",framesrc);
     frame.attr("scrolling","auto");
     frame.css({
-      width: 400,
-      height: 170,
+      width: 380,
+      height: 150,
       border: "none"
     });
 
@@ -1358,11 +1358,43 @@ var sites = {
     host : ["itunes.apple.com"],
     condition : Always,
     products : [{
+      condition : () => ~document.location.href.indexOf("/movie/"),
+      type : "movie",
+      data : () => parseLDJSON("name", (j) => (j["@type"] == "Movie"))
+    },
+    {
+      condition : () => ~document.location.href.indexOf("/tv-season/"),
+      type : "tv",
+      data : function() {
+        var name = parseLDJSON("name", (j) => (j["@type"] == "TVSeries"));
+        if(~name.indexOf(", Season")) {
+          name = name.split(", Season")[0];
+        }
+        return name;
+      }
+    },
+    {
       condition : () => ~document.location.href.indexOf("/album/"),
       type : "music",
-      data : () => function() {
-        let [title, artistObj] = parseLDJSON(["name", "byArtist"], (j) => (j["@type"] == "MusicAlbum"))
-        return [artistObj["name"], title]
+      data : function() {
+        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
+        var album = ld[0];
+        var artist = ld[1]["name"]
+        return [artist, album];
+      }
+    }]
+  },
+  'music.apple' : {
+    host : ["music.apple.com"],
+    condition : Always,
+    products : [{
+      condition : () => ~document.location.href.indexOf("/album/"),
+      type : "music",
+      data : function() {
+        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
+        var album = ld[0];
+        var artist = ld[1]["name"]
+        return [artist, album];
       }
     }]
   },
@@ -1801,36 +1833,6 @@ var sites = {
       data : function() {
         var artist = document.querySelector("*[itemprop=byArtist] *[itemprop=name]").textContent;
         var album = document.querySelector(".albumTitle *[itemprop=name]").textContent;
-        return [artist, album];
-      }
-    }]
-  },
-  'itunes' : {
-    host : ["itunes.apple.com"],
-    condition : Always,
-    products : [{
-      condition : () => ~document.location.href.indexOf("/movie/"),
-      type : "movie",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "Movie"))
-    },
-    {
-      condition : () => ~document.location.href.indexOf("/tv-season/"),
-      type : "tv",
-      data : function() {
-        var name = parseLDJSON("name", (j) => (j["@type"] == "TVSeries"));
-        if(~name.indexOf(", Season")) {
-          name = name.split(", Season")[0];
-        }
-        return name;
-      }
-    },
-		{
-      condition : () => ~document.location.href.indexOf("/album/"),
-      type : "music",
-      data : function() {
-        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
-        var album = ld[0];
-        var artist = ld[1]["name"]
         return [artist, album];
       }
     }]
