@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     49
+// @version     50
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -67,6 +67,7 @@
 // @include     https://www.themoviedb.org/tv/*
 // @include     http://letterboxd.com/film/*
 // @include     https://letterboxd.com/film/*
+// @exclude     https://letterboxd.com/film/*/image*
 // @include     http://www.tvmaze.com/shows/*
 // @include     https://www.tvmaze.com/shows/*
 // @include     http://www.tvguide.com/tvshows/*
