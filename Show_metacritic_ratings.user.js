@@ -10,10 +10,10 @@
 // @grant       GM.xmlHttpRequest
 // @grant       GM.setValue
 // @grant       GM.getValue
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     50
+// @version     51
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -167,15 +167,23 @@ function absoluteMetaURL(url) {
   return baseURL + url;
 }
 
+var parseLDJSON_cache = {}
 function parseLDJSON(keys, condition) {
   if(document.querySelector('script[type="application/ld+json"]')) {
     var data = [];
     var scripts = document.querySelectorAll('script[type="application/ld+json"]');
     for(let i = 0; i < scripts.length; i++) {
-      try {
-        var jsonld = JSON.parse(scripts[i].innerText);
-      } catch(e) {
-        continue;
+      var jsonld;
+      if (scripts[i].innerText in parseLDJSON_cache) {
+        jsonld = parseLDJSON_cache[scripts[i].innerText]
+      } else {
+        try {
+          jsonld = JSON.parse(scripts[i].innerText);
+          parseLDJSON_cache[scripts[i].innerText] = jsonld
+        } catch(e) {
+          parseLDJSON_cache[scripts[i].innerText] = null
+          continue;
+        }
       }
       if(jsonld) {
         if(Array.isArray(jsonld)) {
@@ -286,7 +294,7 @@ function balloonAlert(message, timeout, title, css, click) {
     top : 10,
     left : 10,
     maxWidth: 200,
-    zIndex : "5010002",
+    zIndex : "2147483601",
     background : "rgb(240,240,240)",
     border : "2px solid yellow",
     borderRadius :"6px",
@@ -850,7 +858,7 @@ function metacritic_showHoverInfo(url, docurl) {
       boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
       color: "#000",
       padding:" 3px",
-      zIndex: "5010001",
+      zIndex: "2147483601",
     });
 
     // Functions for communication between page and iframe
@@ -1172,7 +1180,7 @@ function metacritic_searchcontainer(ev, query) {
     boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
     color: "#000",
     padding:" 3px",
-    zIndex: "5010001",
+    zIndex: "2147483601",
   });
   var query = $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function(e) {
     var code = e.keyCode || e.which;
@@ -1429,7 +1437,14 @@ var sites = {
       },
       type : "movie",
       data : function() {
-        if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
+        if(document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
+          name = document.querySelector("meta[property='og:title']").content.trim()
+          if (name.indexOf('- IMDb') !== -1) {
+            name = name.replace('- IMDb', '').trim()
+          }
+          name = name.replace(/\(\d{4}\)/, '').trim()
+          return name
+        } else if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
            return document.querySelector(".title_wrapper h1").firstChild.data.trim();
         } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
           return parseLDJSON("name");

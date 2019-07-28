@@ -10,9 +10,9 @@
 // @grant       GM.xmlHttpRequest
 // @grant       GM.setValue
 // @grant       GM.getValue
-// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.0/jquery.min.js
+// @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     50
+// @version     51
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -181,15 +181,23 @@ function absoluteMetaURL(url) {
   return baseURL + url;
 }
 
+var parseLDJSON_cache = {}
 function parseLDJSON(keys, condition) {
   if(document.querySelector('script[type="application/ld+json"]')) {
     var data = [];
     var scripts = document.querySelectorAll('script[type="application/ld+json"]');
     for(let i = 0; i < scripts.length; i++) {
-      try {
-        var jsonld = JSON.parse(scripts[i].innerText);
-      } catch(e) {
-        continue;
+      var jsonld;
+      if (scripts[i].innerText in parseLDJSON_cache) {
+        jsonld = parseLDJSON_cache[scripts[i].innerText]
+      } else {
+        try {
+          jsonld = JSON.parse(scripts[i].innerText);
+          parseLDJSON_cache[scripts[i].innerText] = jsonld
+        } catch(e) {
+          parseLDJSON_cache[scripts[i].innerText] = null
+          continue;
+        }
       }
       if(jsonld) {
         if(Array.isArray(jsonld)) {
@@ -1432,7 +1440,14 @@ var sites = {
       },
       type : "movie",
       data : function() {
-        if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
+        if(document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
+          name = document.querySelector("meta[property='og:title']").content.trim()
+          if (name.indexOf('- IMDb') !== -1) {
+            name = name.replace('- IMDb', '').trim()
+          }
+          name = name.replace(/\(\d{4}\)/, '').trim()
+          return name
+        } else if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
            return document.querySelector(".title_wrapper h1").firstChild.data.trim();
         } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
           return parseLDJSON("name");
