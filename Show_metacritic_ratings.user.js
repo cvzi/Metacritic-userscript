@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     51
+// @version     52
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -100,860 +100,1084 @@
 // @include     http://epguides.com/*
 // @include     http://www.epguides.com/*
 // @include     https://sharetv.com/shows/*
+// @include     https://www.netflix.com/*
+// @include     http://www.cc.com/*
+// @include     https://www.tvhoard.com/*
+// @include     https://www.amc.com/*
 // ==/UserScript==
 
+/* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
 
-var baseURL = "https://www.metacritic.com/";
+const baseURL = 'https://www.metacritic.com/'
 
-var baseURL_music = "https://www.metacritic.com/music/";
-var baseURL_movie = "https://www.metacritic.com/movie/";
-var baseURL_pcgame = "https://www.metacritic.com/game/pc/";
-var baseURL_ps4 = "https://www.metacritic.com/game/playstation-4/";
-var baseURL_xone = "https://www.metacritic.com/game/xbox-one/";
-var baseURL_tv = "https://www.metacritic.com/tv/";
+const baseURLmusic = 'https://www.metacritic.com/music/'
+const baseURLmovie = 'https://www.metacritic.com/movie/'
+const baseURLpcgame = 'https://www.metacritic.com/game/pc/'
+const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
+const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
+const baseURLtv = 'https://www.metacritic.com/tv/'
 
-var baseURL_search = "https://www.metacritic.com/search/{type}/{query}/results";
-var baseURL_autosearch = "https://www.metacritic.com/autosearch";
+const baseURLsearch = 'https://www.metacritic.com/search/{type}/{query}/results'
+const baseURLautosearch = 'https://www.metacritic.com/autosearch'
 
-var baseURL_database = "https://php-cuzi.herokuapp.com/r.php";
-var baseURL_whitelist = "https://php-cuzi.herokuapp.com/whitelist.php";
-var baseURL_blacklist = "https://php-cuzi.herokuapp.com/blacklist.php";
+const baseURLdatabase = 'https://php-cuzi.herokuapp.com/r.php'
+const baseURLwhitelist = 'https://php-cuzi.herokuapp.com/whitelist.php'
+const baseURLblacklist = 'https://php-cuzi.herokuapp.com/blacklist.php'
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
-var CSS = "#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;-webkit-animation:rotation .6s infinite linear;-moz-animation:rotation .6s infinite linear;-o-animation:rotation .6s infinite linear;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@-webkit-keyframes rotation{from{-webkit-transform:rotate(0)}to{-webkit-transform:rotate(359deg)}}@-moz-keyframes rotation{from{-moz-transform:rotate(0)}to{-moz-transform:rotate(359deg)}}@-o-keyframes rotation{from{-o-transform:rotate(0)}to{-o-transform:rotate(359deg)}}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}";
+const CSS = '#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}'
 
-var myDOMParser = null;
-function domParser() {
-  if(myDOMParser===null) {
+var myDOMParser = null
+function domParser () {
+  if (myDOMParser === null) {
     myDOMParser = new DOMParser()
   }
-  return myDOMParser;
+  return myDOMParser
 }
 
-async function versionUpdate() {
-  let version = parseInt(await GM.getValue("version", 0));
-  if(version <= 46) {
+async function versionUpdate () {
+  const version = parseInt(await GM.getValue('version', 0))
+  if (version <= 51) {
     // Reset database
-    await GM.setValue("map", "{}");
-    await GM.setValue("black", "{}");
-    await GM.setValue("hovercache", "{}");
-    await GM.setValue("searchcache", "{}");
-    await GM.setValue("autosearchcache", "{}");
+    await GM.setValue('map', '{}')
+    await GM.setValue('black', '[]')
+    await GM.setValue('hovercache', '{}')
+    await GM.setValue('searchcache', '{}')
+    await GM.setValue('autosearchcache', '{}')
   }
-  if(version < 48) {
-    await GM.setValue("version", 48);
+  if (version < 52) {
+    await GM.setValue('version', 52)
   }
 }
 
-function getHostname(url) {
-  with(document.createElement("a")) {
-    href = url;
-    return hostname;
-  }
+function getHostname (url) {
+  const a = document.createElement('a')
+  a.href = url
+  return a.hostname
 }
-function absoluteMetaURL(url) {
-  if(url.startsWith("https://")) {
-    return url;
+function absoluteMetaURL (url) {
+  if (url.startsWith('https://')) {
+    return url
   }
-  if(url.startsWith("http://")) {
-    return "https" + url.substr(4);
+  if (url.startsWith('http://')) {
+    return 'https' + url.substr(4)
   }
-  if(url.startsWith("//")) {
-    return baseURL + url.substr(2);
+  if (url.startsWith('//')) {
+    return baseURL + url.substr(2)
   }
-  if(url.startsWith("/")) {
-    return baseURL + url.substr(1);
+  if (url.startsWith('/')) {
+    return baseURL + url.substr(1)
   }
-  return baseURL + url;
+  return baseURL + url
 }
 
-var parseLDJSON_cache = {}
-function parseLDJSON(keys, condition) {
-  if(document.querySelector('script[type="application/ld+json"]')) {
-    var data = [];
-    var scripts = document.querySelectorAll('script[type="application/ld+json"]');
-    for(let i = 0; i < scripts.length; i++) {
-      var jsonld;
-      if (scripts[i].innerText in parseLDJSON_cache) {
-        jsonld = parseLDJSON_cache[scripts[i].innerText]
+var parseLDJSONCache = {}
+function parseLDJSON (keys, condition) {
+  if (document.querySelector('script[type="application/ld+json"]')) {
+    var data = []
+    var scripts = document.querySelectorAll('script[type="application/ld+json"]')
+    for (let i = 0; i < scripts.length; i++) {
+      var jsonld
+      if (scripts[i].innerText in parseLDJSONCache) {
+        jsonld = parseLDJSONCache[scripts[i].innerText]
       } else {
         try {
-          jsonld = JSON.parse(scripts[i].innerText);
-          parseLDJSON_cache[scripts[i].innerText] = jsonld
-        } catch(e) {
-          parseLDJSON_cache[scripts[i].innerText] = null
-          continue;
+          jsonld = JSON.parse(scripts[i].innerText)
+          parseLDJSONCache[scripts[i].innerText] = jsonld
+        } catch (e) {
+          parseLDJSONCache[scripts[i].innerText] = null
+          continue
         }
       }
-      if(jsonld) {
-        if(Array.isArray(jsonld)) {
+      if (jsonld) {
+        if (Array.isArray(jsonld)) {
           data.push(...jsonld)
         } else {
-          data.push(jsonld);
+          data.push(jsonld)
         }
       }
     }
-    for(let i = 0; i < data.length; i++) {
+    for (let i = 0; i < data.length; i++) {
       try {
-        if(data[i] && data[i] && (typeof condition != 'function' || condition(data[i]))) {
-          if(Array.isArray(keys)) {
-            let r = [];
-            for(let j = 0; j < keys.length; j++) {
-              r.push(data[i][keys[j]]);
+        if (data[i] && data[i] && (typeof condition !== 'function' || condition(data[i]))) {
+          if (Array.isArray(keys)) {
+            const r = []
+            for (let j = 0; j < keys.length; j++) {
+              r.push(data[i][keys[j]])
             }
-            return r;
-          } else if(keys) {
-            return data[i][keys];
-          } else if(typeof condition === 'function') {
-            return data[i]; // Return whole object
+            return r
+          } else if (keys) {
+            return data[i][keys]
+          } else if (typeof condition === 'function') {
+            return data[i] // Return whole object
           }
         }
-      } catch(e) {
-        continue;
+      } catch (e) {
+        continue
       }
     }
-    return data;
+    return data
   }
-  return null;
+  return null
 }
 
-
-function name2metacritic(s) {
-  return s.normalize('NFKD').replace(/\//g,"").replace(/[\u0300-\u036F]/g, '').replace(/&/g,"and").replace(/\W+/g, " ").toLowerCase().trim().replace(/\W+/g,"-");
+function name2metacritic (s) {
+  return s.normalize('NFKD').replace(/\//g, '').replace(/[\u0300-\u036F]/g, '').replace(/&/g, 'and').replace(/\W+/g, ' ').toLowerCase().trim().replace(/\W+/g, '-')
 }
-function minutesSince(time) {
-  var seconds = ((new Date()).getTime() - time.getTime()) / 1000;
-  return seconds>60?parseInt(seconds/60)+" min ago":"now";
+function minutesSince (time) {
+  var seconds = ((new Date()).getTime() - time.getTime()) / 1000
+  return seconds > 60 ? parseInt(seconds / 60) + ' min ago' : 'now'
 }
-function randomStringId() {
-  var id10 = () => Math.floor((1 + Math.random()) * 0x10000000000).toString(16).substring(1);
-  return id10()+id10()+id10()+id10()+id10()+id10();
+function randomStringId () {
+  var id10 = () => Math.floor((1 + Math.random()) * 0x10000000000).toString(16).substring(1)
+  return id10() + id10() + id10() + id10() + id10() + id10()
 }
-function fixMetacriticURLs(html) {
-  return html.replace(/<a /g,'<a target="_blank" ').replace(/href="\//g,'href="'+baseURL).replace(/src="\//g,'src="'+baseURL);
+function fixMetacriticURLs (html) {
+  return html.replace(/<a /g, '<a target="_blank" ').replace(/href="\//g, 'href="' + baseURL).replace(/src="\//g, 'src="' + baseURL)
 }
-function searchType2metacritic(type) {
+function searchType2metacritic (type) {
   return ({
-    'movie' : 'movie',
-    'pcgame' : 'game',
-    'xonegame' : 'game',
-    'ps4game' : 'game',
-    'music' : 'album',
-    'tv' : 'tv'
-  })[type];
+    movie: 'movie',
+    pcgame: 'game',
+    xonegame: 'game',
+    ps4game: 'game',
+    music: 'album',
+    tv: 'tv'
+  })[type]
 }
-function metacritic2searchType(type) {
+function metacritic2searchType (type) {
   return ({
-    "Album" : "music",
-    "TV" : "tv",
-    "Movie" : "movie",
-    "PC Game" : "pcgame",
-    "PS4 Game" : "ps4game",
-    "XONE Game" : "onegame",
-    "WIIU Game" : "xxxxx",
-    "3DS Game" : "xxxx"
-  })[type];
+    Album: 'music',
+    TV: 'tv',
+    Movie: 'movie',
+    'PC Game': 'pcgame',
+    'PS4 Game': 'ps4game',
+    'XONE Game': 'onegame',
+    'WIIU Game': 'xxxxx',
+    '3DS Game': 'xxxx'
+  })[type]
 }
 
-
-function metaScore(score, word) {
-  var fg,bg,t;
-  if(score == null) {
-    fg = "black";
-    bg = "#ccc";
-    t = "tbd";
-  } else if(score >= 75) {
-    fg = "white";
-    bg = "#6c3";
-    t = parseInt(score);
-  } else if(score < 40) {
-    fg = "white";
-    bg = "#f00";
-    t = parseInt(score);
+function balloonAlert (message, timeout, title, css, click) {
+  var header
+  if (title) {
+    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title + '</div>'
+  } else if (title === false) {
+    header = ''
   } else {
-    fg = "white";
-    bg = "#fc3";
-    t = parseInt(score);
+    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">Userscript alert</div>'
   }
-
- return '<span title="'+(word?word:'')+'" style="display: inline-block; color: '+fg+';background:'+bg+';font-family: Arial,Helvetica,sans-serif;font-size: 17px;font-style: normal;font-weight: bold;height: 2em;width: 2em;line-height: 2em;text-align: center;vertical-align: middle;">'+t+'</span>';
-}
-
-function balloonAlert(message, timeout, title, css, click) {
-  var header;
-  if(title) {
-    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title +"</div>";
-  } else if(title === false) {
-    header = '';
-  } else {
-    header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">Userscript alert</div>';
-  }
-  var div = $("<div>" + header + '<div style="padding:5px">' + message.split("\n").join("<br>") + "</div></div>");
+  var div = $('<div>' + header + '<div style="padding:5px">' + message.split('\n').join('<br>') + '</div></div>')
   div.css({
-    position : "fixed",
-    top : 10,
-    left : 10,
+    position: 'fixed',
+    top: 10,
+    left: 10,
     maxWidth: 200,
-    zIndex : "2147483601",
-    background : "rgb(240,240,240)",
-    border : "2px solid yellow",
-    borderRadius :"6px",
-    boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-    fontFamily: "sans-serif",
-    color: "black"
-  });
-  if(css) {
-    div.css(css);
+    zIndex: '2147483601',
+    background: 'rgb(240,240,240)',
+    border: '2px solid yellow',
+    borderRadius: '6px',
+    boxShadow: '0 0 3px 3px rgba(100, 100, 100, 0.2)',
+    fontFamily: 'sans-serif',
+    color: 'black'
+  })
+  if (css) {
+    div.css(css)
   }
-  div.appendTo(document.body);
+  div.appendTo(document.body)
 
-  if(click) {
-    div.click(function(ev) {
-      $(this).hide(500);
-      click.call(this,ev);
-    });
-  }
-
-  if(!click) {
-    var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div);
-    close.click(function(){
-      $(this.parentNode).hide(1000);
-    });
+  if (click) {
+    div.click(function (ev) {
+      $(this).hide(500)
+      click.call(this, ev)
+    })
   }
 
-  if(timeout && timeout > 0) {
-    window.setTimeout(function() {
-      div.hide(3000);
-    }, timeout);
+  if (!click) {
+    var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div)
+    close.click(function () {
+      $(this.parentNode).hide(1000)
+    })
   }
-  return div;
+
+  if (timeout && timeout > 0) {
+    window.setTimeout(function () {
+      div.hide(3000)
+    }, timeout)
+  }
+  return div
 }
 
-
-function filterUniversalUrl(url) {
+function filterUniversalUrl (url) {
   try {
-    url = url.match(/http.+/)[0];
-  } catch(e) { }
+    url = url.match(/http.+/)[0]
+  } catch (e) { }
 
   try {
-    url = url.replace(/https?:\/\/(www.)?/,"");
-  } catch(e) { }
+    url = url.replace(/https?:\/\/(www.)?/, '')
+  } catch (e) { }
 
-  if(url.startsWith("imdb.com/") && url.match(/(imdb\.com\/\w+\/\w+\/)/)) {
-     // Remove movie subpage from imdb url
-     return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1];
-  } else if(url.startsWith("thetvdb.com/")) {
-     // Do nothing with thetvdb.com urls
-     return url;
-  } else if(url.startsWith("boxofficemojo.com/")) {
-     // Keep the important id= on
-     try {
-       var parts = url.split("?");
-       var page = url[0] + "?";
-       var idparam = url[1].match(/(id=.+?)(\.|&)/)[1];
-       return page+idparam;
-     } catch(e) {
-       return url;
-     }
+  if (url.indexOf('#') !== -1) {
+    url = url.split('#')[0]
+  }
+
+  if (url.startsWith('imdb.com/') && url.match(/(imdb\.com\/\w+\/\w+\/)/)) {
+    // Remove movie subpage from imdb url
+    return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1]
+  } else if (url.startsWith('thetvdb.com/')) {
+    // Do nothing with thetvdb.com urls
+    return url
+  } else if (url.startsWith('boxofficemojo.com/')) {
+    // Keep the important id= on
+    try {
+      var parts = url.split('?')
+      var page = parts[0] + '?'
+      var idparam = parts[1].match(/(id=.+?)(\.|&)/)[1]
+      return page + idparam
+    } catch (e) {
+      return url
+    }
   } else {
     // Default: Remove parameters
-    return url.split("?")[0].split("&")[0];
+    return url.split('?')[0].split('&')[0]
   }
 }
 
-async function addToMap(url, metaurl) {
-  var data = JSON.parse(await GM.getValue("map","{}"));
+async function addToMap (url, metaurl) {
+  var data = JSON.parse(await GM.getValue('map', '{}'))
 
-  var url = filterUniversalUrl(url);
-  var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
+  url = filterUniversalUrl(url)
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
 
-  data[url] = metaurl;
+  data[url] = metaurl
 
-  await GM.setValue("map", JSON.stringify(data));
+  await GM.setValue('map', JSON.stringify(data));
 
-  (new Image()).src = baseURL_whitelist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
-  return [url, metaurl];
+  (new Image()).src = baseURLwhitelist + '?docurl=' + encodeURIComponent(url) + '&metaurl=' + encodeURIComponent(metaurl) + '&ref=' + encodeURIComponent(randomStringId())
+  return [url, metaurl]
 }
 
-async function addToBlacklist(url, metaurl) {
-  var data = JSON.parse(await GM.getValue("black","[]"));
+async function removeFromMap (url) {
+  var data = JSON.parse(await GM.getValue('map', '{}'))
 
-  var url = filterUniversalUrl(url);
-  var metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
-
-  data.push([url,metaurl]);
-
-  await GM.setValue("black", JSON.stringify(data));
-
-  (new Image()).src = baseURL_blacklist + "?docurl="+encodeURIComponent(url)+"&metaurl="+encodeURIComponent(metaurl)+"&ref="+encodeURIComponent(randomStringId());
-  return [url, metaurl];
+  url = filterUniversalUrl(url)
+  if (url in data) {
+    delete data[url]
+    await GM.setValue('map', JSON.stringify(data))
+  }
 }
 
+async function addToBlacklist (url, metaurl) {
+  var data = JSON.parse(await GM.getValue('black', '[]'))
 
+  url = filterUniversalUrl(url)
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
 
+  data.push([url, metaurl])
 
-async function isBlacklistedUrl(docurl, metaurl) {
+  await GM.setValue('black', JSON.stringify(data));
 
-  docurl = filterUniversalUrl(docurl);
-  docurl = docurl.replace(/https?:\/\/(www.)?/,"");
+  (new Image()).src = baseURLblacklist + '?docurl=' + encodeURIComponent(url) + '&metaurl=' + encodeURIComponent(metaurl) + '&ref=' + encodeURIComponent(randomStringId())
+  return [url, metaurl]
+}
 
-  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//,"");
-  metaurl = metaurl.replace(/\/\//g,"/").replace(/\/\//g,"/");; // remove double slash
-  metaurl = metaurl.replace(/^\/+/,""); // remove starting slash
+async function removeFromBlacklist (docurl, metaurl) {
+  docurl = filterUniversalUrl(docurl)
+  docurl = docurl.replace(/https?:\/\/(www.)?/, '')
 
-  var data = JSON.parse(await GM.getValue("black","[]"));  // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
-  for(var i = 0; i < data.length; i++) {
-    if(data[i][0] == docurl && data[i][1] == metaurl) {
-      return true;
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
+  metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/') // remove double slash
+  metaurl = metaurl.replace(/^\/+/, '') // remove starting slash
+
+  var data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  var found = []
+  for (let i = 0; i < data.length; i++) {
+    if (data[i][0] === docurl && data[i][1] === metaurl) {
+      found.push(i)
     }
   }
-  return false;
+  for (let i = found.length - 1; i >= 0; i--) {
+    data.pop(i)
+  }
+
+  await GM.setValue('black', JSON.stringify(data))
 }
 
-async function isBlacklisted(metaurl) {
-  return await isBlacklistedUrl("" + document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search, metaurl);
+async function isBlacklistedUrl (docurl, metaurl) {
+  docurl = filterUniversalUrl(docurl)
+  docurl = docurl.replace(/https?:\/\/(www.)?/, '')
+
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
+  metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/') // remove double slash
+  metaurl = metaurl.replace(/^\/+/, '') // remove starting slash
+
+  var data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  for (var i = 0; i < data.length; i++) {
+    if (data[i][0] === docurl && data[i][1] === metaurl) {
+      return true
+    }
+  }
+  return false
 }
 
-
-
-function listenForHotkeys(code, cb) {
+let listenForHotkeysActive = false
+function listenForHotkeys (code, cb) {
   // Call cb() as soon as the code sequence was typed
-  var i = 0;
-  $(document).bind("keydown.listenForHotkeys",function(ev) {
-    if(document.activeElement == document.body) {
-      if(ev.key != code[i]) {
-        i = 0;
+  if (listenForHotkeysActive) {
+    return
+  }
+  listenForHotkeysActive = true
+  var i = 0
+  $(document).bind('keydown.listenForHotkeys', function (ev) {
+    if (document.activeElement === document.body) {
+      if (ev.key !== code[i]) {
+        i = 0
       } else {
-        i++;
-        if(i == code.length) {
-          ev.preventDefault();
-          $(document).unbind("keydown.listenForHotkeys");
-          cb();
+        i++
+        if (i === code.length) {
+          ev.preventDefault()
+          $(document).unbind('keydown.listenForHotkeys')
+          cb()
         }
       }
     }
-  });
+  })
 }
 
+function waitForHotkeysMETA () {
+  listenForHotkeys('meta', (ev) => openSearchBox())
+}
 
-async function metacritic_hoverInfo(url, docurl, cb, errorcb, nocache) {
+function asyncRequest (data) {
+  // TODO cache all requests for a few minutes
+  return new Promise(function (resolve, reject) {
+    const defaultHeaders = {
+      Referer: data.url,
+      Host: getHostname(data.url),
+      'User-Agent': navigator.userAgent
+    }
+    const defaultData = {
+      method: 'GET',
+      onload: (response) => resolve(response),
+      onerror: (response) => reject(response)
+    }
+    if ('headers' in data) {
+      data.headers = Object.assign(defaultHeaders, data.headers)
+    } else {
+      data.headers = defaultHeaders
+    }
 
-  // Get the metacritic hover info. Requests are cached.
-  var handleresponse = function(response, cached) {
-    if(response.status == 200 && response.responseText && cb) {
-      if(~response.responseText.indexOf('"jsonRedirect"')) { // {"viewer":{},"mixpanelToken":"6e219fd....","mixpanelDistinctId":"255.255.255.255","omnitureDebug":0,"jsonRedirect":"\/movie\/national-lampoons-vacation"}
-        var blacklistedredirect = false;
-        var j = JSON.parse(response.responseText);
-        current.url = absoluteMetaURL(j["jsonRedirect"]);
-        delete cache[url]; // Delete original url from cache. The redirect URL will then be saved in metacritic_hoverInfo(...)
+    data = Object.assign(defaultData, data)
+    console.log('Show Metacritic ratings: asyncRequest(' + data.method + ': ' + data.url + ('data' in data ? (', ' + data.data) : '') + ')')
+    GM.xmlHttpRequest(data)
+  })
+}
 
-        // Blacklist items from database received?
-        if("blacklist" in j && j.blacklist && j.blacklist.length) {
-          // Save new blacklist items
-          GM.getValue("black","[]").then(function(json_data) {
-            var data = JSON.parse(json_data);
-              for(var i = 0; i < j.blacklist.length; i++) {
-                var save_docurl = j.blacklist[i].docurl;
-                var save_metaurl = j.blacklist[i].metaurl;
+async function handleJSONredirect (response) {
+  var blacklistedredirect = false
+  var j = JSON.parse(response.responseText)
 
-                data.push([save_docurl,save_metaurl]);
-                if(j["jsonRedirect"] == "/"+save_metaurl) {
-                  // Redirect is blacklisted!
-                  blacklistedredirect = true;
-                }
-              }
-              GM.setValue("black", JSON.stringify(data));
-          });
+  // Blacklist items from database received?
+  if ('blacklist' in j && j.blacklist && j.blacklist.length) {
+    // Save new blacklist items
+    var data = JSON.parse(await GM.getValue('black', '[]'))
+    for (var i = 0; i < j.blacklist.length; i++) {
+      var saveDocurl = j.blacklist[i].docurl
+      var saveMetaurl = j.blacklist[i].metaurl
 
-        }
-        if(blacklistedredirect && errorcb) {
-          // Redirect was blacklisted, show nothing
-          errorcb(response.responseText, new Date(response.time));
-        } else {
-            // Load redirect
-            metacritic_hoverInfo(absoluteMetaURL(j["jsonRedirect"]), false, cb, errorcb, true);
-        }
-      } else {
-         // Show
-        cb(response.responseText, new Date(response.time));
+      data.push([saveDocurl, saveMetaurl])
+      if (j.jsonRedirect === '/' + saveMetaurl) {
+        // Redirect is blacklisted!
+        blacklistedredirect = true
       }
-    } else if(response.status != 200 && errorcb) {
-      errorcb(response.responseText, new Date(response.time));
-      if(!cached)
-        console.log("Show metacritic ratings: Error 01:"+response.status+"\n"+url);
-    } else if(!response.responseText) {
-      errorcb("", new Date(response.time));
-      if(!cached)
-        console.log("Show metacritic ratings: Error 02: response empty. Status:"+response.status+"\n"+url);
     }
-  };
-
-
-
-  var cache = JSON.parse(await GM.getValue("hovercache","{}"));
-  for(var prop in cache) {
-    // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
-      delete cache[prop];
-    }
+    await GM.setValue('black', JSON.stringify(data))
   }
-
-  if(!nocache && url in cache) {
-    handleresponse(cache[url], true);
+  // TODO cache() redirect
+  if (blacklistedredirect) {
+    // Redirect was blacklisted, show nothing
+    // errorcb(response.responseText, new Date(response.time));
+    alert('Error 02: blacklisted')
+    return null
   } else {
-    var requestURL = url;
-    var requestParams = "hoverinfo=1";
+    // Load redirect
+    current.metaurl = absoluteMetaURL(j.jsonRedirect)
+    response = await asyncRequest({
+      method: 'POST',
+      url: current.metaurl,
+      data: 'hoverinfo=1',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    }).catch(function (response) { alert('error 04: ' + response.status) })
+    return response
+  }
+}
 
-    if(docurl && docurl.indexOf("metacritic.com") == -1 && docurl.indexOf(baseURL_database) == -1) {
-      // Ask database for correct metacritic entry:
-      requestURL = baseURL_database;
-      requestParams = "m=" + encodeURIComponent(docurl) + "&a=" + encodeURIComponent(url);
+function extractHoverFromFullPage (response) {
+  let html = 'Error occured in extractHoverFromFullPage()'
+  try {
+    // Try parsing HTML
+    const doc = domParser().parseFromString(response.responseText, 'text/html')
+    doc.querySelector('.product_page_title h1')
+    doc.querySelector('.summary_img')
+    doc.querySelectorAll('.details_section')
+    doc.querySelectorAll('#nav_to_metascore .distribution')
+
+    let pageUrl = ''
+    let imgSrc = ''
+    let imgAlt = ''
+    let title = ''
+    let publisher = ''
+    let releaseDate = ''
+    let starring = ''
+    let criticsScore = ''
+    let criticsClass = ''
+    let criticsNumber = ''
+    let criticsCharts = ''
+    let userScore = ''
+    let userClass = ''
+    let userNumber = ''
+    let userCharts = ''
+
+    pageUrl = response.finalUrl + (response.finalUrl.endsWith('/') ? '' : '/')
+    imgSrc = doc.querySelector('.summary_img').src
+    imgAlt = doc.querySelector('.summary_img').alt
+    title = doc.querySelector('.product_page_title h1').textContent
+    if (doc.querySelector('.details_section .distributor a')) { publisher = doc.querySelector('.details_section .distributor a').textContent }
+
+    if (doc.querySelector('.details_section .release_date span:nth-child(2)')) {
+      const date = doc.querySelector('.details_section .release_date span:nth-child(2)').textContent
+      releaseDate = `
+            <div class="summary_detail release_data">
+                <span class="label">Release Date:</span>
+                <span class="data">${date}</span>
+            </div>`
     }
 
+    if (doc.querySelector('.details_section.summary_cast span:nth-child(2)')) {
+      const stars = doc.querySelector('.details_section.summary_cast span:nth-child(2)').innerHTML
+      starring = `
+        <div>
+            <div class="summary_detail product_credits">
+                <span class="label">Starring:</span>
+                <span class="data">
+                    ${stars}
+                </span>
+            </div>
+        </div>`
+    }
 
-    GM.xmlHttpRequest({
-      method: "POST",
-      url: requestURL,
-      data: requestParams,
-      headers: {
-        "Referer" : url,
-        "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-        "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
-        //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
-        "User-Agent" : navigator.userAgent,
-        "X-Requested-With" : "XMLHttpRequest"
-      },
-      onload: async function(response) {
-        response.time = (new Date()).toJSON();
+    criticsClass = 'metascore_w medium tbd'
+    criticsScore = 'tbd'
+    userClass = 'metascore_w medium user tbd'
+    userScore = 'tbd'
 
+    if (doc.querySelector('.score_details .based_on')) {
+      criticsNumber = doc.querySelector('.score_details .based_on').textContent.match(/\d+/)
+    } else {
+      criticsNumber = 'By'
+    }
+    if (doc.querySelector('.user_score_summary .based_on')) {
+      userNumber = doc.querySelector('.user_score_summary .based_on').textContent.match(/\d+/)
+    } else {
+      userNumber = 'User'
+    }
 
-        if(!response.responseText) {
-          // Temporary fix:
-          // Hover info seems to be available only for movies.
-          requestURL = url;
-          if(requestURL.indexOf('/critic-reviews') !== -1) {
-            requestURL = url.split('/critic-reviews')[0]
-          }
-          GM.xmlHttpRequest({
-            method: "GET",
-            url: requestURL,
-            headers: {
-              "Referer" : url,
-              "Host" : getHostname(requestURL),  // This is important, otherwise Metacritic refuses to answer!
-              //"User-Agent" : "MetacriticUserscript "+navigator.userAgent,
-              "User-Agent" : navigator.userAgent
-            },
-            onload: async function(response) {
-              response.time = (new Date()).toJSON();
+    // Remove text from distribution charts:
+    let label = doc.querySelector('#nav_to_metascore .charts .label.fl')
+    while (label) {
+      label.parentNode.title = label.textContent.trim() + ' ' + label.parentNode.querySelector('.count').textContent.trim()
+      label.remove()
+      label = doc.querySelector('#nav_to_metascore .charts .label.fl')
+    }
+    const scores = doc.querySelectorAll('#nav_to_metascore .distribution .metascore_w')
+    if (scores.length === 2) {
+      criticsScore = scores[0].innerText
+      criticsClass = scores[0].className.replace('larger', 'medium')
+      scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
+      criticsCharts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
+      userScore = scores[1].innerText
+      userClass = scores[1].className.replace('larger', 'medium')
+      scores[1].parentNode.parentNode.querySelector('.charts').style.width = '40px'
+      userCharts = '<td class="usr">' + scores[1].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
+    } else if (scores.length === 1) {
+      if (scores[0].className.indexOf('user') === -1) {
+        criticsScore = scores[0].innerText
+        criticsClass = scores[0].className.replace('larger', 'medium')
+        scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
+        criticsCharts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
+      } else {
+        userScore = scores[0].innerText
+        userClass = scores[0].className.replace('larger', 'medium')
+        scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
+        userCharts = '<td class="usr">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
+      }
+    }
 
-              let html;
-              try {
-                // Try parsing HTML
+    html = `
+  <div class="hoverinfo">
+    <div class="hover_left">
+        <div class="product_image_wrapper">
+            <a target="_blank" href="${pageUrl}">
+                <img class="product_image large_image" src="${imgSrc}" alt="${imgAlt}" />
+            </a>
+        </div>
+    </div>
+    <div class="hover_right">
+        <h2 class="product_title">
+            <a target="_blank" href="${pageUrl}">${title}</a>
+        </h2>
+        <div>
+            <div class="summary_detail publisher">
+                <span class="data">${publisher}</span>
+                <span>&nbsp;|&nbsp;&nbsp;</span>
+            </div>
+            ${releaseDate}
+            <div class="clr"></div>
+        </div>
+        ${starring}
+        <div class="hr">
+            &nbsp;
+        </div>
 
-                let doc = domParser().parseFromString(response.responseText, 'text/html');
-                doc.querySelector(".product_page_title h1")
-                doc.querySelector(".summary_img")
-                doc.querySelectorAll(".details_section")
-                doc.querySelectorAll("#nav_to_metascore .distribution")
-
-
-
-                let page_url = img_src = img_alt = title = publisher = release_date = starring = critics_score = critics_class = critics_number = critics_charts = user_score = user_class = user_number = user_charts = ''
-
-                page_url = requestURL + (requestURL.endsWith("/") ? "" : "/")
-                img_src = doc.querySelector(".summary_img").src
-                img_alt = doc.querySelector(".summary_img").alt
-                title = doc.querySelector(".product_page_title h1").textContent
-                if(doc.querySelector(".details_section .distributor a"))
-                  publisher = doc.querySelector(".details_section .distributor a").textContent
-
-                if(doc.querySelector(".details_section .release_date span:nth-child(2)")) {
-                    let date = doc.querySelector(".details_section .release_date span:nth-child(2)").textContent
-                    release_date = `
-                        <div class="summary_detail release_data">
-                            <span class="label">Release Date:</span>
-                            <span class="data">${date}</span>
-                        </div>`
-                }
-
-                if(doc.querySelector(".details_section.summary_cast span:nth-child(2)")) {
-
-                  let stars = doc.querySelector(".details_section.summary_cast span:nth-child(2)").innerHTML
-                  starring = `
-                    <div>
-                        <div class="summary_detail product_credits">
-                            <span class="label">Starring:</span>
-                            <span class="data">
-                                ${stars}
-                            </span>
-                        </div>
-                    </div>`
-                }
-
-                critics_class = "metascore_w medium tbd"
-                critics_score = "tbd"
-                user_class = "metascore_w medium user tbd"
-                user_score = "tbd"
-
-                if(doc.querySelector(".score_details .based_on")) {
-                  critics_number = doc.querySelector(".score_details .based_on").textContent.match(/\d+/)
-                } else {
-                  critics_number = "By"
-                }
-                if(doc.querySelector(".user_score_summary .based_on")) {
-                  user_number = doc.querySelector(".user_score_summary .based_on").textContent.match(/\d+/)
-                } else {
-                  user_number = "User"
-                }
-
-                // Remove text from distribution charts:
-                let label = doc.querySelector("#nav_to_metascore .charts .label.fl")
-                while(label) {
-                  label.parentNode.title = label.textContent.trim() + " " + label.parentNode.querySelector(".count").textContent.trim()
-                  label.remove()
-                  label = doc.querySelector("#nav_to_metascore .charts .label.fl")
-                }
-                let scores = doc.querySelectorAll("#nav_to_metascore .distribution .metascore_w")
-                if(scores.length == 2) {
-                  critics_score = scores[0].innerText
-                  critics_class = scores[0].className.replace("larger", "medium")
-                  scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
-                  critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
-                  user_score = scores[1].innerText
-                  user_class = scores[1].className.replace("larger", "medium")
-                  scores[1].parentNode.parentNode.querySelector(".charts").style.width = '40px'
-                  user_charts = '<td class="usr">' + scores[1].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
-                } else if(scores.length == 1) {
-                  if(scores[0].className.indexOf("user") === -1) {
-                    critics_score = scores[0].innerText
-                    critics_class = scores[0].className.replace("larger", "medium")
-                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
-                    critics_charts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
-                  } else {
-                    user_score = scores[0].innerText
-                    user_class = scores[0].className.replace("larger", "medium")
-                    scores[0].parentNode.parentNode.querySelector(".charts").style.width = '40px'
-                    user_charts = '<td class="usr">' + scores[0].parentNode.parentNode.querySelector(".charts").outerHTML + "</td>"
-                  }
-                }
-
-                html = `
-            <div class="hoverinfo">
-                <div class="hover_left">
-                    <div class="product_image_wrapper">
-                        <a target="_blank" href="${page_url}">
-                            <img class="product_image large_image" src="${img_src}" alt="${img_alt}" />
+        <table class="hover_scores ">
+            <tr>
+                <td class="meta num">
+                    <a target="_blank" class="metascore_anchor" href="${pageUrl}#nav_to_metascore">
+                        <span class="${criticsClass}">${criticsScore}</span>
+                    </a>
+                </td>
+                <td class="meta txt">
+                    <div class="metascore_label">Metascore</div>
+                    <div class="metascore_review_count">
+                        <a target="_blank" href="${pageUrl}#nav_to_metascore">
+                            <span>${criticsNumber}</span> critics
                         </a>
                     </div>
-                </div>
-                <div class="hover_right">
-                    <h2 class="product_title">
-                        <a target="_blank" href="${page_url}">${title}</a>
-                    </h2>
-                    <div>
-                        <div class="summary_detail publisher">
-                            <span class="data">${publisher}</span>
-                            <span>&nbsp;|&nbsp;&nbsp;</span>
-                        </div>
-                        ${release_date}
-                        <div class="clr"></div>
+                </td>
+                ${criticsCharts}
+                <td class="usr num">
+
+                    <a target="_blank" class="metascore_anchor" href="${pageUrl}#nav_to_metascore">
+                        <span class="${userClass}">${userScore}</span>
+                    </a>
+
+                </td>
+                <td class="usr txt">
+                    <div class="userscore_label">User Score</div>
+                    <div class="userscore_review_count">
+                        <a target="_blank" href="${pageUrl}#nav_to_metascore">
+                            <span>${userNumber}</span> Ratings
+                        </a>
                     </div>
-                    ${starring}
-                    <div class="hr">
-                        &nbsp;
-                    </div>
+                </td>
+                ${userCharts}
+            </tr>
+        </table>
 
-                    <table class="hover_scores ">
-                        <tr>
-                            <td class="meta num">
-                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
-                                    <span class="${critics_class}">${critics_score}</span>
-                                </a>
-                            </td>
-                            <td class="meta txt">
-                                <div class="metascore_label">Metascore</div>
-                                <div class="metascore_review_count">
-                                    <a target="_blank" href="${page_url}#nav_to_metascore">
-                                        <span>${critics_number}</span> critics
-                                    </a>
-                                </div>
-                            </td>
-                            ${critics_charts}
-                            <td class="usr num">
+    </div>
 
-                                <a target="_blank" class="metascore_anchor" href="${page_url}#nav_to_metascore">
-                                    <span class="${user_class}">${user_score}</span>
-                                </a>
+    <div class="clr"></div>
+  </div>
+  `
+  } catch (e) {
+    console.log('Show metacritic ratings: Error parsing HTML: ' + e)
+    // fallback to cutting out the relevant parts
 
-                            </td>
-                            <td class="usr txt">
-                                <div class="userscore_label">User Score</div>
-                                <div class="userscore_review_count">
-                                    <a target="_blank" href="${page_url}#nav_to_metascore">
-                                        <span>${user_number}</span> Ratings
-                                    </a>
-                                </div>
-                            </td>
-                            ${user_charts}
-                        </tr>
-                    </table>
+    let parts = response.responseText.split('class="score_details')
+    const textPart = '<div class="' + parts[1].split('</div>')[0] + '</div>'
 
-                </div>
+    let titleText = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
+    titleText = titleText.split('<h1>').join('<h1 style="padding:0px; margin:2px">') + '</div>'
 
-                <div class="clr"></div>
-            </div>
-`
-              } catch(e) {
-                console.log("Show metacritic ratings: Error parsing HTML: "+e);
-                // fallback to cutting out the relevant parts
+    parts = response.responseText.split('id="nav_to_metascore"')
+    let metaScorePart = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
 
-                let parts = response.responseText.split('class="score_details')
-                let text_part = '<div class="' + parts[1].split('</div>')[0] + '</div>'
+    metaScorePart = metaScorePart.split('href="">').join('href="' + response.finalUrl + '">')
+    metaScorePart = metaScorePart.split('section_title bold">').join('section_title bold">' + titleText)
 
+    html = metaScorePart.split('<div class="distribution">').join(textPart + '<div class="distribution">')
 
-                let title_text = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
-                title_text = title_text.split('<h1>').join('<h1 style="padding:0px; margin:2px">')  + '</div>'
-
-                parts = response.responseText.split('id="nav_to_metascore"')
-                let meta_score_part = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
-
-
-                meta_score_part = meta_score_part.split('href="">').join('href="' + requestURL + '">')
-                meta_score_part = meta_score_part.split('section_title bold">').join('section_title bold">' + title_text)
-
-                html = meta_score_part.split('<div class="distribution">').join(text_part + '<div class="distribution">')
-
-                if(html.indexOf('products_module') !== -1) {
-                  // Critic reviews are not available for this Series yet -> Cut the preview for other series
-                  html = html.split('products_module')[0] + '"></div>'
-                }
-
-                if(html.length > 5000) {
-                  // Probably something went wrong, let's cut the response to prevent overly big content
-                  console.log("Show metacritic ratings: Cutting response to 5000 chars")
-                  html = html.substr(0, 5000)
-                }
-
-              }
-
-              // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
-              var newobj = {};
-              for(var key in response) {
-                newobj[key] = response[key];
-              }
-              newobj.responseText = html;
-
-              //alert(requestURL+'\n'+requestParams+'\nResult:\n'+response.responseText)
-
-              cache[url] = newobj;
-
-              await GM.setValue("hovercache",JSON.stringify(cache));
-
-              handleresponse(newobj, false);
-            },
-            onerror: function(response) {
-              console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
-            },
-          });
-
-        } else {
-
-          // Chrome fix: Otherwise JSON.stringify(cache) omits responseText
-          var newobj = {};
-          for(var key in response) {
-            newobj[key] = response[key];
-          }
-          newobj.responseText = response.responseText;
-
-
-
-          cache[url] = newobj;
-
-          await GM.setValue("hovercache",JSON.stringify(cache));
-
-          handleresponse(response, false);
-        }
-      },
-      onerror: function(response) {
-        console.log("Show metacritic ratings: Hover info error 03: "+response.status+"\nURL: "+requestURL+"\nResponse:\n"+response.responseText);
-      },
-    });
-  }
-}
-async function metacritic_searchResults(url, cb, errorcb) {
-  // Get metacritic search results. Requests are cached.
-  var handleresponse = function(response, cached) {
-    if(response.results.length && cb) {
-      cb(response.results, new Date(response.time));
-    } else if(response.results.length == 0 && errorcb) {
-      errorcb(response.results, new Date(response.time));
+    if (html.indexOf('products_module') !== -1) {
+      // Critic reviews are not available for this Series yet -> Cut the preview for other series
+      html = html.split('products_module')[0] + '"></div>'
     }
-  };
 
-  var cache = JSON.parse(await GM.getValue("searchcache","{}"));
-  for(var prop in cache) {
+    if (html.length > 5000) {
+      // Probably something went wrong, let's cut the response to prevent overly big content
+      console.log('Show metacritic ratings: Cutting response to 5000 chars')
+      html = html.substr(0, 5000)
+    }
+  }
+  return html
+}
+
+async function storeInHoverCache (metaurl, response, orgMetaUrl) {
+  const cache = JSON.parse(await GM.getValue('hovercache', '{}'))
+  for (const prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
-      delete cache[prop];
+    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+      delete cache[prop]
     }
   }
 
-  if(url in cache) {
-    handleresponse(cache[url], true);
-  } else {
-    GM.xmlHttpRequest({
-      method: "GET",
-      url: url,
-      headers: {
-        "Referer" : url,
-        "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-        "Host" : "www.metacritic.com",
-        "User-Agent" : "MetacriticUserscript "+navigator.userAgent,
-      },
-      onload: async function(response) {
-        var results = [];
-        if(!~response.responseText.indexOf("No search results found.")) {
-          var d = $('<html>').html(response.responseText);
-          d.find("ul.search_results.module .result").each(function() {
-            results.push(this.innerHTML);
-          });
-        }
+  const newobj = {}
+  for (const key in response) {
+    newobj[key] = response[key]
+  }
+  newobj.responseText = '' + response.responseText
+  newobj.cached = true
+  if (!('time' in newobj)) {
+    newobj.time = (new Date()).toJSON()
+  }
 
-        response = {
-          time : (new Date()).toJSON(),
-          results : results,
-        };
-        cache[url] = response;
-        await GM.setValue("searchcache",JSON.stringify(cache));
-        handleresponse(response, false);
-      },
-      onerror: function(response) {
-        console.log("Show metacritic ratings: Search error 04: "+response.status+"\n"+url);
-        handleresponse({
-          time : (new Date()).toJSON(),
-          results : [],
-        }, false);
+  cache[metaurl] = newobj
+  if (orgMetaUrl && orgMetaUrl !== metaurl) { // Store redirect
+    cache[orgMetaUrl] = { time: (new Date()).toJSON(), redirect: metaurl }
+  }
+
+  await GM.setValue('hovercache', JSON.stringify(cache))
+}
+
+async function isInHoverCache (metaurl) {
+  const cache = JSON.parse(await GM.getValue('hovercache', '{}'))
+  for (var prop in cache) {
+    // Delete cached values, that are older than 2 hours
+    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+      delete cache[prop]
+    }
+  }
+
+  function resolveRedirects (cacheEntry) {
+    if (cacheEntry.redirect) {
+      const newkey = cacheEntry.redirect
+      if (newkey in cache) {
+        const value = cache[newkey]
+        delete cache[newkey]
+        return resolveRedirects(value)
       }
-    });
+    } else {
+      return cacheEntry
+    }
+    return false
+  }
+
+  if (metaurl in cache) {
+    const value = cache[metaurl]
+    delete cache[metaurl]
+    return resolveRedirects(value)
+  } else {
+    return false
   }
 }
 
-function metacritic_showHoverInfo(url, docurl) {
-  if(!url) {
-    return;
+async function loadHoverInfo () {
+  const cacheResponse = await isInHoverCache(current.metaurl)
+  if (cacheResponse !== false) {
+    return cacheResponse
   }
-  metacritic_hoverInfo(url, docurl?docurl:false,
-  // On Success
-  function(html, time) {
-    $("#mcdiv123").remove();
-    var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
-    div.css({
-      position:"fixed",
-      bottom :0,
-      left: 0,
-      minWidth: 300,
-      backgroundColor: "#fff",
-      border: "2px solid #bbb",
-      borderRadius:" 6px",
-      boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-      color: "#000",
-      padding:" 3px",
-      zIndex: "2147483601",
-    });
 
-    // Functions for communication between page and iframe
-    // Mozilla can access parent.document
-    // Chrome can use postMessage()
-    var frame_status = false; // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
-    function loadExternalImage(url, myframe) {
-      // Load external image, bypass CSP
-      GM.xmlHttpRequest({
-        method: "GET",
-        url: url,
-        responseType : "arraybuffer",
-        onload: function(response) {
-          myframe.contentWindow.postMessage({
-              "mcimessage_imgLoaded" : true,
-              "mcimessage_imgData" : response.response,
-              "mcimessage_imgOrgSrc" : url
-          },'*');
-        }
-      });
+  const requestURL = baseURLdatabase
+  const requestParams = 'm=' + encodeURIComponent(current.docurl) + '&a=' + encodeURIComponent(current.metaurl)
+
+  let response = await asyncRequest({
+    method: 'POST',
+    url: requestURL,
+    data: requestParams,
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
     }
-    var functions = {
-      "parent" : function() {
-        var f = parent.document.getElementById('mciframe123');
-        var lastdiff = -200000;
-        window.addEventListener("message", function(e){
-          if(typeof e.data != "object") {
-            return;
-          } else if("mcimessage0" in e.data) {
-            frame_status = true;  // Frame content was loaded successfully
-          } else if("mcimessage1" in e.data) {
-            f.style.width = parseInt(f.style.width)+10+"px";
-            if(e.data.heightdiff == lastdiff) {
-              f.style.height = parseInt(f.style.height)+5+"px";
-            }
-            lastdiff = e.data.heightdiff;
+  }).catch(function (response) { alert('error 05: ' + response.status) })
 
-          } else if("mcimessage2" in e.data) {
-            f.style.height = parseInt(f.style.height)+15+"px";
-            f.style.width = "400px";
-          } else if("mcimessage_loadImg" in e.data) {
-            loadExternalImage(e.data.mcimessage_imgUrl, f);
-          } else {
-            return;
-          }
-          f.contentWindow.postMessage({
-            "mcimessage3" : true,
-            "mciframe123_clientHeight" : f.clientHeight,
-            "mciframe123_clientWidth" : f.clientWidth,
-          },'*');
-        });
-      },
-      "frame" : function() {
-        parent.postMessage({"mcimessage0":true},'*'); // Loading frame content was successfull
+  if (response.responseText.indexOf('"jsonRedirect"') !== -1) {
+    response = await handleJSONredirect(response)
+  }
+  if (response.responseText.indexOf('<title>500 Page') !== -1) {
+    // Hover info not available for this url, try again with GET
+    response = await asyncRequest({ url: current.metaurl }).catch(function (response) { alert('error 06: ' + response.status) })
 
-        var i = 0;
-        window.addEventListener("message", function(e){
-          if(typeof e.data == "object" && "mcimessage_imgLoaded" in e.data) {
-            // Load external image
-            var arrayBufferView = new Uint8Array( e.data["mcimessage_imgData"] );
-            var blob = new Blob( [ arrayBufferView ], { type: "image/jpeg" } );
-            var urlCreator = window.URL || window.webkitURL;
-            var imageUrl = urlCreator.createObjectURL( blob );
-            var img = failedImages[e.data["mcimessage_imgOrgSrc"]];
-            img.src = imageUrl;
-          }
+    const newobj = {}
+    for (var key in response) {
+      newobj[key] = response[key]
+    }
+    newobj.responseText = extractHoverFromFullPage(response)
+    response = newobj
+  }
 
-          if(!("mcimessage3" in e.data)) return;
+  if (!('time' in response)) {
+    response.time = (new Date()).toJSON()
+  }
+  if (response.status === 200 && response.responseText) {
+    return response
+  } else {
+    throw new Error('loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
+  }
+}
 
-          if(e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
-            parent.postMessage({"mcimessage1":1, "heightdiff":document.body.scrollHeight - e.data.mciframe123_clientHeight},'*');
-            i++;
-          }
-          if(i >= 100) {
-            parent.postMessage({"mcimessage2":1},'*')
-            i = 0;
-          }
-        });
-        parent.postMessage({"mcimessage1":1,"heightdiff":-100000},'*');
+const current = {
+  metaurl: false,
+  docurl: false,
+  type: false,
+  data: [], // Array of raw search keys
+  searchTerm: false
+}
+
+async function loadMetacriticUrl (fromSearch) {
+  if (!current.metaurl) {
+    alert('Error: 11')
+    return
+  }
+  const orgMetaUrl = current.metaurl
+  if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
+    waitForHotkeysMETA()
+    return
+  }
+
+  const response = await loadHoverInfo().catch((response) => fromSearch ? null : startSearch())
+
+  if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
+    waitForHotkeysMETA()
+    return
+  }
+
+  if (typeof response !== 'undefined') {
+    showHoverInfo(response, orgMetaUrl)
+  } else {
+    waitForHotkeysMETA()
+  }
+}
+
+async function startSearch () {
+  waitForHotkeysMETA()
+
+  var cache = JSON.parse(await GM.getValue('autosearchcache', '{}'))
+  for (var prop in cache) {
+    // Delete cached values, that are older than 2 hours
+    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+      delete cache[prop]
+    }
+  }
+
+  if (current.type === 'music') {
+    current.searchTerm = current.data[0]
+  } else {
+    current.searchTerm = current.data.join(' ')
+  }
+  let response
+  if (current.searchTerm in cache) {
+    response = cache[current.searchTerm]
+  } else {
+    response = await asyncRequest({
+      method: 'POST',
+      url: baseURLautosearch,
+      data: 'search_term=' + encodeURIComponent(current.searchTerm) + '&image_size=98&search_each=1&sort_type=popular',
+      headers: {
+        Referer: current.metaurl,
+        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        Host: 'www.metacritic.com',
+        'User-Agent': 'MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0',
+        'X-Requested-With': 'XMLHttpRequest'
       }
+    })
+    response = {
+      time: (new Date()).toJSON(),
+      json: JSON.parse(response.responseText)
+    }
+    cache[current.searchTerm] = response
+    await GM.setValue('autosearchcache', JSON.stringify(cache))
+  }
 
-    };
+  if (!response || !('json' in response)) {
+    alert('Error 09')
+  }
+  const data = response.json
+  let multiple = false
+  if (data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
+    // Remove data with wrong type
+    data.autoComplete = data.autoComplete.results
 
+    var newdata = []
+    data.autoComplete.forEach(function (result) {
+      if (metacritic2searchType(result.refType) === current.type) {
+        newdata.push(result)
+      }
+    })
+    data.autoComplete = newdata
+    if (data.autoComplete.length === 0) {
+      // No results
+      console.log('No results (after filtering by type) for searchTerm=' + current.searchTerm)
+    } else if (data.autoComplete.length === 1) {
+      // One result, let's show it
+      if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(data.autoComplete[0].url))) {
+        current.metaurl = absoluteMetaURL(data.autoComplete[0].url)
+        loadMetacriticUrl(true)
+        return
+      }
+    } else {
+      // More than one result
+      multiple = true
+      console.log('Multiple results for searchTerm=' + current.searchTerm)
+      var exactMatches = []
+      data.autoComplete.forEach(function (result, i) { // Try to find the correct result by matching the search term to exactly one movie title
+        if (current.searchTerm === result.name) {
+          exactMatches.push(result)
+        }
+      })
+      if (exactMatches.length === 1) {
+        // Only one exact match, let's show it
+        console.log('Only one exact match for searchTerm=' + current.searchTerm)
+        if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(exactMatches[0].url))) {
+          current.metaurl = absoluteMetaURL(exactMatches[0].url)
+          loadMetacriticUrl(true)
+          return
+        }
+      }
+    }
+  } else {
+    console.log('No results (at all) for searchTerm=' + current.searchTerm)
+  }
+  // HERE: multiple results or no result. The user may type "meta" now
+  if (multiple) {
+    balloonAlert('Multiple metacritic results. Type &#34;meta&#34; for manual search.', 10000, false, { bottom: 5, top: 'auto', maxWidth: 400, paddingRight: 5 }, () => openSearchBox(true))
+  }
+}
 
+function openSearchBox (search) {
+  let query
+  if (current.type === 'music') {
+    query = current.data[0]
+  } else {
+    query = current.data.join(' ')
+  }
+  $('#mcdiv123').remove()
+  var div = $('<div id="mcdiv123"></div>').appendTo(document.body)
+  div.css({
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    minWidth: 300,
+    maxHeight: '80%',
+    maxWidth: 640,
+    overflow: 'auto',
+    backgroundColor: '#fff',
+    border: '2px solid #bbb',
+    borderRadius: ' 6px',
+    boxShadow: '0 0 3px 3px rgba(100, 100, 100, 0.2)',
+    color: '#000',
+    padding: ' 3px',
+    zIndex: '2147483601'
+  })
+  $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function (e) {
+    var code = e.keyCode || e.which
+    if (code === 13) { // Enter key
+      searchBoxSearch(e, $('#mcisearchquery').val())
+    }
+  })
+  $('<button id="mcisearchbutton" style="background:silver;color:black;">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
+}
+async function searchBoxSearch (ev, query) {
+  if (!query) { // Use values from search form
+    query = current.searchTerm
+  }
 
-  var css = "#hover_div .clr { clear: both} #hover_div .fl{float: left} #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;} .chart{background-color:inherit!important;margin-top:-3px} .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)} .chart .bar{width:100%;height:3px} .chart .count{font-size:10px}";
+  var type = searchType2metacritic(current.type)
 
-    var framesrc = 'data:text/html,';
-    framesrc += encodeURIComponent('<!DOCTYPE html>\
+  var style = document.createElement('style')
+  style.type = 'text/css'
+  style.innerHTML = CSS
+  document.head.appendChild(style)
+
+  var div = $('#mcdiv123')
+  var loader = $('<div style="width:20px; height:20px;display:inline-block" class="grespinner"></div>').appendTo($('#mcisearchbutton'))
+
+  var url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
+
+  const response = await asyncRequest({
+    url: url,
+    data: 'search_term=' + encodeURIComponent(current.searchTerm) + '&image_size=98&search_each=1&sort_type=popular',
+    headers: {
+      Referer: url,
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      Host: 'www.metacritic.com',
+      'User-Agent': 'MetacriticUserscript ' + navigator.userAgent
+    }
+  }).catch(function (response) {
+    alert('Search failed!\n' + response.finalUrl + '\nStatus: ' + response.status + '\n' + response.responseText ? response.responseText.substring(0, 500) : 'Empty response')
+  })
+
+  var results = []
+  if (!~response.responseText.indexOf('No search results found.')) {
+    var d = $('<html>').html(response.responseText)
+    d.find('ul.search_results.module .result').each(function () {
+      results.push(this.innerHTML)
+    })
+  }
+
+  if (results && results.length > 0) {
+    // Show results
+    loader.remove()
+
+    var accept = function (ev) {
+      var a = $(this.parentNode).find("a[href*='metacritic.com']")
+      var metaurl = a.attr('href')
+
+      var docurl = document.location.href
+
+      removeFromBlacklist(docurl, metaurl).then(function () {
+        addToMap(docurl, metaurl).then(function () {
+          current.metaurl = metaurl
+          loadMetacriticUrl()
+        })
+      })
+    }
+    var denyAll = function (ev) {
+      const docurl = document.location.href
+      $('#mcdiv123searchresults').find("div.result a[href*='metacritic.com']").each(function () {
+        addToBlacklist(docurl, this.href)
+      })
+    }
+
+    const resultdiv = $('#mcdiv123searchresults').length ? $('#mcdiv123searchresults').html('') : $('<div id="mcdiv123searchresults"></div>').css('max-width', '95%').appendTo(div)
+    results.forEach(function (html) {
+      const singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html) + '<div style="clear:left"></div>').appendTo(resultdiv)
+      $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept)
+    })
+    resultdiv.find('.metascore_w.album').removeClass('album') // Remove some classes
+    resultdiv.find('.must-see').remove() // Remove some elements
+
+    const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
+      document.body.removeChild(this.parentNode.parentNode)
+    })
+    $('<span title="Assist us: None of the above is the correct item!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function () { if (confirm('None of the above is the correct item\nConfirm?')) denyAll() })
+  } else {
+    // No results
+    loader.remove()
+    const resultdiv = $('#mcdiv123searchresults').length ? $('#mcdiv123searchresults').html('') : $('<div id="mcdiv123searchresults"></div>').appendTo(div)
+    resultdiv.html('No search results.')
+
+    const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
+      document.body.removeChild(this.parentNode.parentNode)
+    })
+  }
+}
+
+function showHoverInfo (response, orgMetaUrl) {
+  const html = fixMetacriticURLs(response.responseText)
+  const time = new Date(response.time)
+  const url = response.finalUrl
+
+  $('#mcdiv123').remove()
+  var div = $('<div id="mcdiv123"></div>').appendTo(document.body)
+  div.css({
+    position: 'fixed',
+    bottom: 0,
+    left: 0,
+    minWidth: 300,
+    backgroundColor: '#fff',
+    border: '2px solid #bbb',
+    borderRadius: ' 6px',
+    boxShadow: '0 0 3px 3px rgba(100, 100, 100, 0.2)',
+    color: '#000',
+    padding: ' 3px',
+    zIndex: '2147483601'
+  })
+
+  // Functions for communication between page and iframe
+  // Mozilla can access parent.document
+  // Chrome can use postMessage()
+  var frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
+  function loadExternalImage (url, myframe) {
+    // Load external image, bypass CSP
+    GM.xmlHttpRequest({
+      method: 'GET',
+      url: url,
+      responseType: 'arraybuffer',
+      onload: function (response) {
+        myframe.contentWindow.postMessage({
+          mcimessage_imgLoaded: true,
+          mcimessage_imgData: response.response,
+          mcimessage_imgOrgSrc: url
+        }, '*')
+      }
+    })
+  }
+  var functions = {
+    parent: function () {
+      var f = parent.document.getElementById('mciframe123')
+      var lastdiff = -200000
+      window.addEventListener('message', function (e) {
+        if (typeof e.data !== 'object') {
+          return
+        } else if ('mcimessage0' in e.data) {
+          frameStatus = true // Frame content was loaded successfully
+        } else if ('mcimessage1' in e.data) {
+          f.style.width = parseInt(f.style.width) + 10 + 'px'
+          if (e.data.heightdiff === lastdiff) {
+            f.style.height = parseInt(f.style.height) + 5 + 'px'
+          }
+          lastdiff = e.data.heightdiff
+        } else if ('mcimessage2' in e.data) {
+          f.style.height = parseInt(f.style.height) + 15 + 'px'
+          f.style.width = '400px'
+        } else if ('mcimessage_loadImg' in e.data) {
+          loadExternalImage(e.data.mcimessage_imgUrl, f)
+        } else {
+          return
+        }
+        f.contentWindow.postMessage({
+          mcimessage3: true,
+          mciframe123_clientHeight: f.clientHeight,
+          mciframe123_clientWidth: f.clientWidth
+        }, '*')
+      })
+    },
+    frame: function () {
+      parent.postMessage({ mcimessage0: true }, '*') // Loading frame content was successfull
+
+      var i = 0
+      window.addEventListener('message', function (e) {
+        if (typeof e.data === 'object' && 'mcimessage_imgLoaded' in e.data) {
+          // Load external image
+          var arrayBufferView = new Uint8Array(e.data.mcimessage_imgData)
+          var blob = new Blob([arrayBufferView], { type: 'image/jpeg' })
+          var urlCreator = window.URL || window.webkitURL
+          var imageUrl = urlCreator.createObjectURL(blob)
+          var img = failedImages[e.data.mcimessage_imgOrgSrc]
+          img.src = imageUrl
+        }
+
+        if (!('mcimessage3' in e.data)) return
+
+        if (e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
+          parent.postMessage({ mcimessage1: 1, heightdiff: document.body.scrollHeight - e.data.mciframe123_clientHeight }, '*')
+          i++
+        }
+        if (i >= 100) {
+          parent.postMessage({ mcimessage2: 1 }, '*')
+          i = 0
+        }
+      })
+      parent.postMessage({ mcimessage1: 1, heightdiff: -100000 }, '*')
+    }
+
+  }
+
+  const css = "#hover_div .clr { clear: both} #hover_div .fl{float: left} #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;} .chart{background-color:inherit!important;margin-top:-3px} .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)} .chart .bar{width:100%;height:3px} .chart .count{font-size:10px}";
+
+  var framesrc = 'data:text/html,'
+  framesrc += encodeURIComponent('<!DOCTYPE html>\
     <html lang="en">\
       <head>\
         <meta charset="utf-8">\
         <title>Metacritic info</title>\
-        <style>body { margin:0px; padding:0px; background:white; }' + css
-        +'\
+        <style>body { margin:0px; padding:0px; background:white; }' + css +
+        '\
         </style>\
         <script>\
         var failedImages = {};\
@@ -977,7 +1201,7 @@ function metacritic_showHoverInfo(url, docurl) {
           parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
         }\
         function on_load() {\
-          ('+functions.frame.toString()+')();\
+          (' + functions.frame.toString() + ')();\
           window.setTimeout(findCSPerrors, 500);\
           \
         }\
@@ -985,968 +1209,788 @@ function metacritic_showHoverInfo(url, docurl) {
       </head>\
       <body onload="on_load();">\
         <div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
-          <div class="hover_content">'+fixMetacriticURLs(html)+'</div>\
+          <div class="hover_content">' + html + '</div>\
         </div>\
       </body>\
-    </html>');
+    </html>')
 
-    var frame = $("<iframe></iframe>").appendTo(div);
-    frame.attr("id","mciframe123");
-    frame.attr("src",framesrc);
-    frame.attr("scrolling","auto");
-    frame.css({
-      width: 380,
-      height: 150,
-      border: "none"
-    });
+  var frame = $('<iframe></iframe>').appendTo(div)
+  frame.attr('id', 'mciframe123')
+  frame.attr('src', framesrc)
+  frame.attr('scrolling', 'auto')
+  frame.css({
+    width: 380,
+    height: 150,
+    border: 'none'
+  })
 
-    window.setTimeout(function() {
-      if(!frame_status) { // Loading frame content failed.
-        //  Directly inject the html without an iframe (this may break the site or the metacritic)
-        console.log("Loading iframe content failed. Injecting directly.");
-        $("head").append("<style>"+css+"</style>");
-        var noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
-          <div class="hover_content">'+fixMetacriticURLs(html)+'</div>\
-          </div>');
-        frame.replaceWith(noframe);
-      }
-
-    },2000);
-
-    functions.parent();
-
-    var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleTimeString()+" "+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function() {
-      document.body.removeChild(this.parentNode.parentNode);
-    });
-
-    $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data("url", url).appendTo(sub).click(function() {
-      var docurl = document.location.href;
-      var metaurl = $(this).data("url");
-      addToMap(docurl, metaurl).then(function(r) {
-        balloonAlert("Thanks for your submission!\n\nSaved as a correct entry.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
-      });
-    });
-    $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data("url", url).appendTo(sub).click(function() {
-      if(!confirm("This is NOT the correct entry!\n\nAdd to blacklist?")) return;
-      var docurl = document.location.href;
-      var metaurl = $(this).data("url");
-      addToBlacklist(docurl,metaurl).then(function(r) {
-         balloonAlert("Thanks for your submission!\n\nSaved to blacklist.\n\n"+r[0]+"\n"+r[1], 6000, "Success");
-      });
-
-
-      // Open search
-      metacritic_searchcontainer(null, current.searchTerm);
-      metacritic_search(null, current.searchTerm);
-    });
-
-
-
-  },
-  // On error i.e. no result on metacritic.com
-  async function(html, time) {
-    // Make search available
-    metacritic_waitForHotkeys();
-
-    var handleresponse = await async function(response, fromcache) {
-      var data;
-      var multiple = false;
-      try {
-        data = JSON.parse(response.responseText);
-      } catch(e) {
-        console.log("Error in JSON 05: search_term="+current.searchTerm);
-        console.log(e);
-      }
-      if(data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
-        // Remove data with wrong type
-        data.autoComplete = data.autoComplete.results;
-
-        var newdata = [];
-        data.autoComplete.forEach(function(result) {
-          if(metacritic2searchType(result.refType) == current.type) {
-            newdata.push(result);
-          }
-        });
-        data.autoComplete = newdata;
-        if(data.autoComplete.length == 0) {
-          // No results
-          console.log("No results (after filtering by type) for search_term="+current.searchTerm);
-        } else if(data.autoComplete.length == 1) {
-          // One result, let's show it
-          if(! await isBlacklisted(absoluteMetaURL(data.autoComplete[0].url))) {
-            metacritic_showHoverInfo(absoluteMetaURL(data.autoComplete[0].url));
-            return;
-          }
-        } else {
-          // More than one result
-          multiple = true;
-          console.log("Multiple results for search_term="+current.searchTerm);
-          var exactMatches = [];
-          data.autoComplete.forEach(function(result,i) { // Try to find the correct result by matching the search term to exactly one movie title
-            if(current.searchTerm == result.name) {
-              exactMatches.push(result);
-            }
-          });
-          if(exactMatches.length == 1) {
-            // Only one exact match, let's show it
-            console.log("Only one exact match for search_term="+current.searchTerm);
-            if(! await isBlacklisted(absoluteMetaURL(exactMatches[0].url))) {
-              if( url != absoluteMetaURL(exactMatches[0].url)) {
-                metacritic_showHoverInfo(absoluteMetaURL(exactMatches[0].url));
-              } else {
-                console.log("Loop detected for: "+url);
-              }
-              return;
-            }
-          }
-        }
-      } else {
-        console.log("No results (at all) for search_term="+current.searchTerm);
-      }
-      // HERE: multiple results or no result. The user may type "meta" now
-      if(multiple) {
-        balloonAlert("Multiple metacritic results. Type &#34;meta&#34; for manual search.", 10000, false, {bottom: 5, top:"auto", maxWidth: 400, paddingRight: 5}, metacritic_searchcontainer);
-      }
-    };
-    var cache = JSON.parse(await GM.getValue("autosearchcache","{}"));
-    for(var prop in cache) {
-      // Delete cached values, that are older than 2 hours
-      if((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2*60*60*1000) {
-        delete cache[prop];
-      }
+  window.setTimeout(function () {
+    if (!frameStatus) { // Loading frame content failed.
+      //  Directly inject the html without an iframe (this may break the site or the metacritic)
+      console.log('Loading iframe content failed. Injecting directly.')
+      $('head').append('<style>' + css + '</style>')
+      var noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
+          <div class="hover_content">' + html + '</div>\
+          </div>')
+      frame.replaceWith(noframe)
     }
+  }, 2000)
 
-    if(current.type == "music") {
-      current.searchTerm = current.data[0];
-    } else {
-      current.searchTerm = current.data.join(" ");
-    }
-    if(current.searchTerm in cache) {
-      handleresponse(cache[current.searchTerm], true);
-    } else {
-      GM.xmlHttpRequest({
-        method: "POST",
-        url: baseURL_autosearch,
-        data: "search_term="+encodeURIComponent(current.searchTerm)+"&image_size=98&search_each=1&sort_type=popular",
-        headers: {
-          "Referer" : url,
-          "Content-Type" : "application/x-www-form-urlencoded; charset=UTF-8",
-          "Host" : "www.metacritic.com",
-          "User-Agent" : "MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0",
-          "X-Requested-With" : "XMLHttpRequest"
-        },
-        onload: async function(response) {
-          response = {
-            time : (new Date()).toJSON(),
-            responseText : response.responseText,
-          };
-          cache[current.searchTerm] = response;
-          await GM.setValue("autosearchcache",JSON.stringify(cache));
-          handleresponse(response, false);
-        }
-      });
-    }
-  });
-}
+  functions.parent()
 
-function metacritic_waitForHotkeys() {
-  listenForHotkeys("meta",metacritic_searchcontainer);
-}
+  var sub = $('<div></div>').appendTo(div)
+  $('<time style="color:#b6b6b6; font-size: 11px;" datetime="' + time + '" title="' + time.toLocaleTimeString() + ' ' + time.toLocaleDateString() + '">' + minutesSince(time) + '</time>').appendTo(sub)
+  $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
+  $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function () {
+    document.body.removeChild(this.parentNode.parentNode)
+  })
 
-function metacritic_searchcontainer(ev, query) {
-  if(!query) {
-    if(current.type == "music") {
-      query = current.data[0];
-    } else {
-      query = current.data.join(" ");
-    }
-  }
-  $("#mcdiv123").remove();
-  var div = $('<div id="mcdiv123"></div>').appendTo(document.body);
-  div.css({
-    position:"fixed",
-    bottom :0,
-    left: 0,
-    minWidth: 300,
-    maxHeight: "80%",
-    maxWidth: 640,
-    overflow:"auto",
-    backgroundColor: "#fff",
-    border: "2px solid #bbb",
-    borderRadius:" 6px",
-    boxShadow: "0 0 3px 3px rgba(100, 100, 100, 0.2)",
-    color: "#000",
-    padding:" 3px",
-    zIndex: "2147483601",
-  });
-  var query = $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function(e) {
-    var code = e.keyCode || e.which;
-    if(code == 13) { // Enter key
-      metacritic_search.call(this,e);
-    }
-  });
-  $('<button id="mcisearchbutton" style="background:silver;color:black;">').text("Search").appendTo(div).click(metacritic_search);
-}
+  $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+    var docurl = document.location.href
+    var metaurl = $(this).data('url')
+    addToMap(docurl, metaurl).then(function (r) {
+      balloonAlert('Thanks for your submission!\n\nSaved as a correct entry.\n\n' + r[0] + '\n' + r[1], 6000, 'Success')
+    })
+  })
+  $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+    if (!confirm('This is NOT the correct entry!\n\nAdd to blacklist?')) return
+    var docurl = document.location.href
+    var metaurl = $(this).data('url')
+    addToBlacklist(docurl, metaurl).then(function (r) {
+      balloonAlert('Thanks for your submission!\n\nSaved to blacklist.\n\n' + r[0] + '\n' + r[1], 6000, 'Success')
+    })
 
+    openSearchBox(true)
+  })
 
-function metacritic_search(ev, query) {
-  if(!query) { // Use values from search form
-    query = $("#mcisearchquery").val();
-  }
-  var type = searchType2metacritic(current.type);
-
-  var style = document.createElement('style');
-  style.type = 'text/css';
-  style.innerHTML = CSS;
-  document.head.appendChild(style);
-
-  var div = $("#mcdiv123");
-  var loader = $('<div style="width:20px; height:20px;" class="grespinner"></div>').appendTo($("#mcisearchbutton"));
-
-  var url = baseURL_search.replace("{type}",encodeURIComponent(type)).replace("{query}",encodeURIComponent(query));
-
-  metacritic_searchResults(url,
-  // On success
-  function(results, time) {
-    loader.remove();
-
-    var accept = function(ev) {
-      var a = $(this.parentNode).find("a[href*='metacritic.com']");
-      var metaurl = a.attr("href");
-
-      var docurl = document.location.href;
-
-      addToMap(docurl,metaurl).then(function() {
-        metacritic_showHoverInfo(metaurl);
-      });
-    };
-    var denyAll = function(ev) {
-      var urls = [];
-      var docurl = document.location.href;
-      $("#mcdiv123searchresults").find("div.result a[href*='metacritic.com']").each(function() {
-        addToBlacklist(docurl, this.href);
-      });
-    };
-
-    var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').css("max-width","95%").appendTo(div);
-    results.forEach(function(html) {
-      var singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html)+'<div style="clear:left"></div>').appendTo(resultdiv);
-      $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept);
-    });
-    resultdiv.find(".metascore_w.album").removeClass("album");  // Remove some classes
-
-    var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
-      document.body.removeChild(this.parentNode.parentNode);
-    });
-    $('<span title="Assist us: None of the above is the correct item!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function() {if(confirm("None of the above is the correct item\nConfirm?")) denyAll()});
-  },
-  // On error i.e. no results
-  function(results, time) {
-    loader.remove();
-    var resultdiv = $("#mcdiv123searchresults").length?$("#mcdiv123searchresults").html(""):$('<div id="mcdiv123searchresults"></div>').appendTo(div);
-    resultdiv.html("No search results.");
-
-    var sub = $("<div></div>").appendTo(div);
-    $('<time style="color:#b6b6b6; font-size: 11px;" datetime="'+time+'" title="'+time.toLocaleDateString()+'">'+minutesSince(time)+'</time>').appendTo(sub);
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="'+url+'" title="Open Metacritic">'+decodeURI(url.replace("https://www.","@"))+'</a>').appendTo(sub);
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function() {
-      document.body.removeChild(this.parentNode.parentNode);
-    });
-
-  }
-  );
-}
-
-var current = {
-  url : null,
-  type : null,
-  data : null, // Array of raw search keys
-  searchTerm : null
-};
-
-
-async function showURL(url) {
-  if(! await isBlacklisted(url)) {
-    var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
-    docurl = filterUniversalUrl(docurl);
-    metacritic_showHoverInfo(url, docurl);
-  } else {
-    console.log(url +" is blacklisted!");
+  // Store response in cache:
+  if (!('cached' in response)) {
+    storeInHoverCache(current.metaurl, response, orgMetaUrl)
   }
 }
 
-
-var metacritic = {
-  "mapped" : function metacritic_mapped(url, type) {
+const metacritic = {
+  mapped: function metacriticMapped (docurl, metaurl, type) {
     // url was in the map/whitelist
-    current.data = [url]
-    current.url = url;
-    current.type = type;
-    current.searchTerm = url;
-    showURL(url);
+    current.data = []
+    current.docurl = docurl
+    current.metaurl = metaurl
+    current.type = type
+    current.searchTerm = null
+    loadMetacriticUrl()
   },
-  "music" : function metacritic_music(artistname, albumname) {
-    current.data = [albumname.trim(),artistname.trim()]
-    artistname = name2metacritic(artistname);
-    albumname = albumname.replace("&"," ");
-    albumname = name2metacritic(albumname);
-    var url = baseURL_music + albumname + "/" + artistname;
-    current.url = url;
-    current.type = "music";
-    current.searchTerm = albumname + "/" + artistname;
-    showURL(url);
+  music: function metacriticMusic (docurl, artistname, albumname) {
+    current.data = [albumname.trim(), artistname.trim()]
+    artistname = name2metacritic(artistname)
+    albumname = albumname.replace('&', ' ')
+    albumname = name2metacritic(albumname)
+    current.docurl = docurl
+    current.metaurl = baseURLmusic + albumname + '/' + artistname
+    current.type = 'music'
+    current.searchTerm = albumname + '/' + artistname
+    loadMetacriticUrl()
   },
-  "movie" : function metacritic_movie(moviename) {
+  movie: function metacriticMovie (docurl, moviename) {
     current.data = [moviename.trim()]
-    moviename = name2metacritic(moviename);
-    var url = baseURL_movie + moviename;
-    current.url = url;
-    current.type = "movie";
-    current.searchTerm = moviename;
-    showURL(url);
+    moviename = name2metacritic(moviename)
+    current.docurl = docurl
+    current.metaurl = baseURLmovie + moviename
+    current.type = 'movie'
+    current.searchTerm = moviename
+    loadMetacriticUrl()
   },
-  "tv" : function metacritic_tv(seriesname) {
+  tv: function metacriticTv (docurl, seriesname) {
     current.data = [seriesname.trim()]
-    seriesname = name2metacritic(seriesname);
-    var url = baseURL_tv + seriesname;
-    current.url = url;
-    current.type = "tv";
-    current.searchTerm = seriesname;
-    showURL(url);
+    seriesname = name2metacritic(seriesname)
+    current.docurl = docurl
+    current.metaurl = baseURLtv + seriesname
+    current.type = 'tv'
+    current.searchTerm = seriesname
+    loadMetacriticUrl()
   },
-  "pcgame" : function metacritic_pcgame(gamename) {
+  pcgame: function metacriticPcgame (docurl, gamename) {
     current.data = [gamename.trim()]
-    gamename = name2metacritic(gamename);
-    var url = baseURL_pcgame + gamename;
-    current.url = url;
-    current.type = "pcgame";
-    current.searchTerm = gamename;
-    showURL(url);
+    gamename = name2metacritic(gamename)
+    current.docurl = docurl
+    current.metaurl = baseURLpcgame + gamename
+    current.type = 'pcgame'
+    current.searchTerm = gamename
+    loadMetacriticUrl()
   },
-  "ps4game" : function metacritic_ps4game(gamename) {
+  ps4game: function metacriticPs4game (docurl, gamename) {
     current.data = [gamename.trim()]
-    gamename = name2metacritic(gamename);
-    var url = baseURL_ps4 + gamename;
-    current.url = url;
-    current.type = "ps4game";
-    current.searchTerm = gamename;
-    showURL(url);
+    gamename = name2metacritic(gamename)
+    current.docurl = docurl
+    current.metaurl = baseURLps4 + gamename
+    current.type = 'ps4game'
+    current.searchTerm = gamename
+    loadMetacriticUrl()
   },
-  "xonegame" : function metacritic_xonegame(gamename) {
+  xonegame: function metacriticXonegame (docurl, gamename) {
     current.data = [gamename.trim()]
-    gamename = name2metacritic(gamename);
-    var url = baseURL_xone + gamename;
-    current.url = url;
-    current.type = "xonegame";
-    current.searchTerm = gamename;
-    showURL(url);
+    gamename = name2metacritic(gamename)
+    current.docurl = docurl
+    current.metaurl = baseURLxone + gamename
+    current.type = 'xonegame'
+    current.searchTerm = gamename
+    loadMetacriticUrl()
   }
-};
+}
 
-
-var Always = () => true;
-var sites = {
-  'bandcamp' : {
-    host : ["bandcamp.com"],
-    condition : function() {
+const Always = () => true
+const sites = {
+  bandcamp: {
+    host: ['bandcamp.com'],
+    condition: function () {
       return unsafeWindow.TralbumData
     },
-    products : [{
-      condition : Always,
-      type : "music",
-      data : () => [unsafeWindow.TralbumData.artist, unsafeWindow.TralbumData.current.title]
+    products: [{
+      condition: Always,
+      type: 'music',
+      data: () => [unsafeWindow.TralbumData.artist, unsafeWindow.TralbumData.current.title]
     }]
   },
-  'itunes' : {
-    host : ["itunes.apple.com"],
-    condition : Always,
-    products : [{
-      condition : () => ~document.location.href.indexOf("/movie/"),
-      type : "movie",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "Movie"))
+  itunes: {
+    host: ['itunes.apple.com'],
+    condition: Always,
+    products: [{
+      condition: () => ~document.location.href.indexOf('/movie/'),
+      type: 'movie',
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
     },
     {
-      condition : () => ~document.location.href.indexOf("/tv-season/"),
-      type : "tv",
-      data : function() {
-        var name = parseLDJSON("name", (j) => (j["@type"] == "TVSeries"));
-        if(~name.indexOf(", Season")) {
-          name = name.split(", Season")[0];
+      condition: () => ~document.location.href.indexOf('/tv-season/'),
+      type: 'tv',
+      data: function () {
+        var name = parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
+        if (~name.indexOf(', Season')) {
+          name = name.split(', Season')[0]
         }
-        return name;
+        return name
       }
     },
     {
-      condition : () => ~document.location.href.indexOf("/album/"),
-      type : "music",
-      data : function() {
-        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
-        var album = ld[0];
-        var artist = ld[1]["name"]
-        return [artist, album];
+      condition: () => ~document.location.href.indexOf('/album/'),
+      type: 'music',
+      data: function () {
+        var ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
+        var album = ld[0]
+        var artist = ld[1].name
+        return [artist, album]
       }
     }]
   },
-  'music.apple' : {
-    host : ["music.apple.com"],
-    condition : Always,
-    products : [{
-      condition : () => ~document.location.href.indexOf("/album/"),
-      type : "music",
-      data : function() {
-        var ld = parseLDJSON(["name","byArtist"], (j) => (j["@type"] == "MusicAlbum"));
-        var album = ld[0];
-        var artist = ld[1]["name"]
-        return [artist, album];
+  'music.apple': {
+    host: ['music.apple.com'],
+    condition: Always,
+    products: [{
+      condition: () => ~document.location.href.indexOf('/album/'),
+      type: 'music',
+      data: function () {
+        var ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
+        var album = ld[0]
+        var artist = ld[1].name
+        return [artist, album]
       }
     }]
   },
-  'googleplay' : {
-    host : ["play.google.com"],
-    condition : Always,
-    products : [
-    {
-      condition : () => ~document.location.href.indexOf("/album/"),
-      type : "music",
-      data : () => [document.querySelector('[itemprop="byArtist"] meta[itemprop="name"]').content, document.querySelector('[itemtype="https://schema.org/MusicAlbum"] meta[itemprop="name"]').content]
-    },
-    {
-      condition : () => ~document.location.href.indexOf("/movies/details/"),
-      type : "movie",
-      data : () => document.querySelector("*[itemprop=name]").textContent
-    }
-    ]
-  },
-  'imdb' : {
-    host : ["imdb.com"],
-    condition : () => !~document.location.pathname.indexOf("/mediaviewer") && !~document.location.pathname.indexOf("/mediaindex") && !~document.location.pathname.indexOf("/videoplayer"),
-    products : [
-    {
-      condition : function() {
-        var e = document.querySelector("meta[property='og:type']");
-        if(e) {
-          return e.content == "video.movie"
-        }
-        return false;
+  googleplay: {
+    host: ['play.google.com'],
+    condition: Always,
+    products: [
+      {
+        condition: () => ~document.location.href.indexOf('/album/'),
+        type: 'music',
+        data: () => [document.querySelector('[itemprop="byArtist"] meta[itemprop="name"]').content, document.querySelector('[itemtype="https://schema.org/MusicAlbum"] meta[itemprop="name"]').content]
       },
-      type : "movie",
-      data : function() {
-        if(document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
-          name = document.querySelector("meta[property='og:title']").content.trim()
-          if (name.indexOf('- IMDb') !== -1) {
-            name = name.replace('- IMDb', '').trim()
-          }
-          name = name.replace(/\(\d{4}\)/, '').trim()
-          return name
-        } else if(document.querySelector(".originalTitle") && document.querySelector(".title_wrapper h1"))   { // Use English title 2018
-           return document.querySelector(".title_wrapper h1").firstChild.data.trim();
-        } else if(document.querySelector('script[type="application/ld+json"]')) { // Use original language title
-          return parseLDJSON("name");
-        } else if(document.querySelector("h1[itemprop=name]")) { // Movie homepage (New design 2015-12)
-          return document.querySelector("h1[itemprop=name]").firstChild.textContent.trim();
-        } else if(document.querySelector("*[itemprop=name] a") && document.querySelector("*[itemprop=name] a").firstChild.data) { // Subpage of a move
-          return document.querySelector("*[itemprop=name] a").firstChild.data.trim();
-        } else if(document.querySelector(".title-extra[itemprop=name]")) { // Movie homepage: sub-/alternative-/original title
-          return document.querySelector(".title-extra[itemprop=name]").firstChild.textContent.replace(/\"/g,"").trim();
-        } else { // Movie homepage (old design)
-          return document.querySelector("*[itemprop=name]").firstChild.textContent.trim();
-        }
+      {
+        condition: () => ~document.location.href.indexOf('/movies/details/'),
+        type: 'movie',
+        data: () => document.querySelector('*[itemprop=name]').textContent
       }
-    },
-    {
-      condition : function() {
-        var e = document.querySelector("meta[property='og:type']");
-        if(e) {
-          return e.content == "video.tv_show"
+    ]
+  },
+  imdb: {
+    host: ['imdb.com'],
+    condition: () => !~document.location.pathname.indexOf('/mediaviewer') && !~document.location.pathname.indexOf('/mediaindex') && !~document.location.pathname.indexOf('/videoplayer'),
+    products: [
+      {
+        condition: function () {
+          var e = document.querySelector("meta[property='og:type']")
+          if (e) {
+            return e.content === 'video.movie'
+          }
+          return false
+        },
+        type: 'movie',
+        data: function () {
+          if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
+            let name = document.querySelector("meta[property='og:title']").content.trim()
+            if (name.indexOf('- IMDb') !== -1) {
+              name = name.replace('- IMDb', '').trim()
+            }
+            name = name.replace(/\(\d{4}\)/, '').trim()
+            return name
+          } else if (document.querySelector('.originalTitle') && document.querySelector('.title_wrapper h1')) { // Use English title 2018
+            return document.querySelector('.title_wrapper h1').firstChild.data.trim()
+          } else if (document.querySelector('script[type="application/ld+json"]')) { // Use original language title
+            return parseLDJSON('name')
+          } else if (document.querySelector('h1[itemprop=name]')) { // Movie homepage (New design 2015-12)
+            return document.querySelector('h1[itemprop=name]').firstChild.textContent.trim()
+          } else if (document.querySelector('*[itemprop=name] a') && document.querySelector('*[itemprop=name] a').firstChild.data) { // Subpage of a move
+            return document.querySelector('*[itemprop=name] a').firstChild.data.trim()
+          } else if (document.querySelector('.title-extra[itemprop=name]')) { // Movie homepage: sub-/alternative-/original title
+            return document.querySelector('.title-extra[itemprop=name]').firstChild.textContent.replace(/"/g, '').trim()
+          } else { // Movie homepage (old design)
+            return document.querySelector('*[itemprop=name]').firstChild.textContent.trim()
+          }
         }
-        return false;
       },
-      type : "tv",
-      data : function() {
-        var year = null;
-        if(document.querySelector("*[itemprop=name]")) {
-          return document.querySelector("*[itemprop=name]").textContent;
-        } else {
-          var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText);
-          return jsonld["name"];
-        }
-      }
-    }
-    ]
-  },
-  'steam' : {
-    host : ["store.steampowered.com"],
-    condition : () => document.querySelector("*[itemprop=name]"),
-    products : [{
-      condition : Always,
-      type : "pcgame",
-      data : () => document.querySelector("*[itemprop=name]").textContent
-    }]
-  },
-  'tv.com' : {
-    host : ["www.tv.com"],
-    condition : () => document.querySelector("meta[property='og:type']"),
-    products : [{
-      condition : () => document.querySelector("meta[property='og:type']").content == "tv_show" && document.querySelector("h1[data-name]"),
-      type : "tv",
-      data : () => document.querySelector("h1[data-name]").dataset.name
-    }]
-  },
-  'rottentomatoes' : {
-    host : ["www.rottentomatoes.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.location.pathname.startsWith("/m/"),
-      type : "movie",
-      data : () => document.querySelector("h1").firstChild.textContent
-    },
-    {
-      condition : () => document.location.pathname.startsWith("/tv/") ,
-      type : "tv",
-      data : () => unsafeWindow.BK.TvSeriesTitle
-    }
-    ]
-  },
-  'serienjunkies' : {
-    host : ["www.serienjunkies.de"],
-    condition : Always,
-    products : [{
-      condition : () =>  Always,
-      type : "tv",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "TVSeries"))
-    }]
-  },
-  'gamespot' : {
-    host : ["gamespot.com"],
-    condition : () => document.querySelector("[itemprop=device]"),
-    products : [
-    {
-      condition : () => ~$("[itemprop=device]").text().indexOf("PC"),
-      type : "pcgame",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "VideoGame"))
-    },
-    {
-      condition : () => ~$("[itemprop=device]").text().indexOf("PS4"),
-      type : "ps4game",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "VideoGame"))
-    },
-    {
-      condition : () => ~$("[itemprop=device]").text().indexOf("XONE"),
-      type : "xonegame",
-      data : () => parseLDJSON("name", (j) => (j["@type"] == "VideoGame"))
-    }
-    ]
-  },
-  'amazon' : {
-    host : ["amazon."],
-    condition : Always,
-    products : [
-    {
-      condition : () => document.location.hostname == "music.amazon.com" && document.location.pathname.startsWith("/albums/") && document.querySelector(".viewTitle"), // "Amazon Music Unlimited" page
-      type : "music",
-      data : function() {
-        var artist = document.querySelector(".artistLink").textContent.trim();
-        var title = document.querySelector(".viewTitle").textContent.trim();
-        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
-        if(artist && title) {
-          return [artist, title];
-        }
-        return false;
-      }
-    },
-    {
-      condition : function() { // "Normal amazon" page
-        try {
-          if(document.querySelector(".nav-categ-image").alt.toLowerCase().indexOf("musi") != -1) {
-            return true;
+      {
+        condition: function () {
+          var e = document.querySelector("meta[property='og:type']")
+          if (e) {
+            return e.content === 'video.tv_show'
           }
-        } catch(e) {}
-        var music = ["Music","Musique","Musik","Música","Musica","音楽"];
-        return music.some(function(s) {
-          if(~document.title.indexOf(s)) {
-            return true;
+          return false
+        },
+        type: 'tv',
+        data: function () {
+          if (document.querySelector('*[itemprop=name]')) {
+            return document.querySelector('*[itemprop=name]').textContent
           } else {
-            return false;
+            var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
+            return jsonld.name
           }
-        });
-      },
-      type : "music",
-      data : function() {
-        var artist = document.querySelector("#ProductInfoArtistLink").textContent.trim();
-        var title = document.querySelector("#dmusicProductTitle_feature_div").textContent.trim();
-        title = title.replace(/\[([^\]]*)\]/g,"").trim(); // Remove [brackets] and their content
-        return [artist, title];
+        }
       }
+    ]
+  },
+  steam: {
+    host: ['store.steampowered.com'],
+    condition: () => document.querySelector('*[itemprop=name]'),
+    products: [{
+      condition: Always,
+      type: 'pcgame',
+      data: () => document.querySelector('*[itemprop=name]').textContent
+    }]
+  },
+  'tv.com': {
+    host: ['www.tv.com'],
+    condition: () => document.querySelector("meta[property='og:type']"),
+    products: [{
+      condition: () => document.querySelector("meta[property='og:type']").content === 'tv_show' && document.querySelector('h1[data-name]'),
+      type: 'tv',
+      data: () => document.querySelector('h1[data-name]').dataset.name
+    }]
+  },
+  rottentomatoes: {
+    host: ['www.rottentomatoes.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.startsWith('/m/'),
+      type: 'movie',
+      data: () => document.querySelector('h1').firstChild.textContent
     },
     {
-      condition : () => (document.querySelector('[data-automation-id=title]') && (document.getElementsByClassName("av-season-single").length || document.querySelector('[data-automation-id="num-of-seasons-badge"]'))),
-      type : "tv",
-      data : () => document.querySelector('[data-automation-id=title]').textContent.trim()
-    },
-    {
-      condition : () => document.querySelector('[data-automation-id=title]'),
-      type : "movie",
-      data : () => document.querySelector('[data-automation-id=title]').textContent.trim()
+      condition: () => document.location.pathname.startsWith('/tv/'),
+      type: 'tv',
+      data: () => unsafeWindow.BK.TvSeriesTitle
     }
     ]
   },
-  'BoxOfficeMojo' : {
-    host : ["boxofficemojo.com"],
-    condition : () => ~document.location.search.indexOf("id="),
-    products : [{
-      condition : () => document.querySelector("#body table:nth-child(2) tr:first-child b"),
-      type : "movie",
-      data : () => document.querySelector("#body table:nth-child(2) tr:first-child b").firstChild.data
+  serienjunkies: {
+    host: ['www.serienjunkies.de'],
+    condition: Always,
+    products: [{
+      condition: () => Always,
+      type: 'tv',
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
     }]
   },
-  'AllMovie' : {
-    host : ["allmovie.com"],
-    condition : () => document.querySelector("h2[itemprop=name].movie-title"),
-    products : [{
-      condition : () => document.querySelector("h2[itemprop=name].movie-title"),
-      type : "movie",
-      data : () => document.querySelector("h2[itemprop=name].movie-title").firstChild.data.trim()
-    }]
-  },
-  'en.wikipedia' : {
-    host : ["en.wikipedia.org"],
-    condition : Always,
-    products : [{
-      condition : function() {
-        if(!document.querySelector(".infobox .summary")) {
-          return false;
-        }
-        var r = /\d\d\d\d films/;
-        return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
+  gamespot: {
+    host: ['gamespot.com'],
+    condition: () => document.querySelector('[itemprop=device]'),
+    products: [
+      {
+        condition: () => ~$('[itemprop=device]').text().indexOf('PC'),
+        type: 'pcgame',
+        data: () => parseLDJSON('name', (j) => (j['@type'] === 'VideoGame'))
       },
-      type : "movie",
-      data : () => document.querySelector(".infobox .summary").firstChild.data
+      {
+        condition: () => ~$('[itemprop=device]').text().indexOf('PS4'),
+        type: 'ps4game',
+        data: () => parseLDJSON('name', (j) => (j['@type'] === 'VideoGame'))
+      },
+      {
+        condition: () => ~$('[itemprop=device]').text().indexOf('XONE'),
+        type: 'xonegame',
+        data: () => parseLDJSON('name', (j) => (j['@type'] === 'VideoGame'))
+      }
+    ]
+  },
+  amazon: {
+    host: ['amazon.'],
+    condition: Always,
+    products: [
+      {
+        condition: () => document.location.hostname === 'music.amazon.com' && document.location.pathname.startsWith('/albums/') && document.querySelector('.viewTitle'), // "Amazon Music Unlimited" page
+        type: 'music',
+        data: function () {
+          var artist = document.querySelector('.artistLink').textContent.trim()
+          var title = document.querySelector('.viewTitle').textContent.trim()
+          title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
+          if (artist && title) {
+            return [artist, title]
+          }
+          return false
+        }
+      },
+      {
+        condition: function () { // "Normal amazon" page
+          try {
+            if (document.querySelector('.nav-categ-image').alt.toLowerCase().indexOf('musi') !== -1) {
+              return true
+            }
+          } catch (e) {}
+          var music = ['Music', 'Musique', 'Musik', 'Música', 'Musica', '音楽']
+          return music.some(function (s) {
+            if (~document.title.indexOf(s)) {
+              return true
+            } else {
+              return false
+            }
+          })
+        },
+        type: 'music',
+        data: function () {
+          var artist = document.querySelector('#ProductInfoArtistLink').textContent.trim()
+          var title = document.querySelector('#dmusicProductTitle_feature_div').textContent.trim()
+          title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
+          return [artist, title]
+        }
+      },
+      {
+        condition: () => (document.querySelector('[data-automation-id=title]') && (document.getElementsByClassName('av-season-single').length || document.querySelector('[data-automation-id="num-of-seasons-badge"]'))),
+        type: 'tv',
+        data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
+      },
+      {
+        condition: () => document.querySelector('[data-automation-id=title]'),
+        type: 'movie',
+        data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
+      }
+    ]
+  },
+  BoxOfficeMojo: {
+    host: ['boxofficemojo.com'],
+    condition: () => ~document.location.search.indexOf('id='),
+    products: [{
+      condition: () => document.querySelector('#body table:nth-child(2) tr:first-child b'),
+      type: 'movie',
+      data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.data
+    }]
+  },
+  AllMovie: {
+    host: ['allmovie.com'],
+    condition: () => document.querySelector('h2[itemprop=name].movie-title'),
+    products: [{
+      condition: () => document.querySelector('h2[itemprop=name].movie-title'),
+      type: 'movie',
+      data: () => document.querySelector('h2[itemprop=name].movie-title').firstChild.data.trim()
+    }]
+  },
+  'en.wikipedia': {
+    host: ['en.wikipedia.org'],
+    condition: Always,
+    products: [{
+      condition: function () {
+        if (!document.querySelector('.infobox .summary')) {
+          return false
+        }
+        var r = /\d\d\d\d films/
+        return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
+      },
+      type: 'movie',
+      data: () => document.querySelector('.infobox .summary').firstChild.data
     },
     {
-      condition : function() {
-        if(!document.querySelector(".infobox .summary")) {
-          return false;
+      condition: function () {
+        if (!document.querySelector('.infobox .summary')) {
+          return false
         }
-        var r = /television series/;
-        return $("#catlinks a").filter((i,e) => e.firstChild.data.match(r)).length;
+        var r = /television series/
+        return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
       },
-      type : "tv",
-      data : () => document.querySelector(".infobox .summary").firstChild.data
+      type: 'tv',
+      data: () => document.querySelector('.infobox .summary').firstChild.data
     }]
   },
-  'movies.com' : {
-    host : ["movies.com"],
-    condition : () => document.querySelector("meta[property='og:title']"),
-    products : [{
-      condition : Always,
-      type : "movie",
-      data : () => document.querySelector("meta[property='og:title']").content
+  'movies.com': {
+    host: ['movies.com'],
+    condition: () => document.querySelector("meta[property='og:title']"),
+    products: [{
+      condition: Always,
+      type: 'movie',
+      data: () => document.querySelector("meta[property='og:title']").content
     }]
   },
-  'themoviedb' : {
-    host : ["themoviedb.org"],
-    condition : () => document.querySelector("meta[property='og:type']"),
-    products : [{
-      condition : () => document.querySelector("meta[property='og:type']").content == "movie",
-      type : "movie",
-      data : () => document.querySelector("meta[property='og:title']").content
+  themoviedb: {
+    host: ['themoviedb.org'],
+    condition: () => document.querySelector("meta[property='og:type']"),
+    products: [{
+      condition: () => document.querySelector("meta[property='og:type']").content === 'movie',
+      type: 'movie',
+      data: () => document.querySelector("meta[property='og:title']").content
     },
     {
-      condition : () => document.querySelector("meta[property='og:type']").content == "tv" || document.querySelector("meta[property='og:type']").content == "tv_series",
-      type : "tv",
-      data : () => document.querySelector("meta[property='og:title']").content
+      condition: () => document.querySelector("meta[property='og:type']").content === 'tv' || document.querySelector("meta[property='og:type']").content === 'tv_series',
+      type: 'tv',
+      data: () => document.querySelector("meta[property='og:title']").content
     }]
   },
-  'letterboxd' : {
-    host : ["letterboxd.com"],
-    condition : () => unsafeWindow.filmData && "name" in unsafeWindow.filmData,
-    products : [{
-      condition : Always,
-      type : "movie",
-      data : () => unsafeWindow.filmData.name
+  letterboxd: {
+    host: ['letterboxd.com'],
+    condition: () => unsafeWindow.filmData && 'name' in unsafeWindow.filmData,
+    products: [{
+      condition: Always,
+      type: 'movie',
+      data: () => unsafeWindow.filmData.name
     }]
   },
-  'TVmaze' : {
-    host : ["tvmaze.com"],
-    condition : () => document.querySelector("h1"),
-    products : [{
-      condition : Always,
-      type : "tv",
-      data : () => document.querySelector("h1").firstChild.data
+  TVmaze: {
+    host: ['tvmaze.com'],
+    condition: () => document.querySelector('h1'),
+    products: [{
+      condition: Always,
+      type: 'tv',
+      data: () => document.querySelector('h1').firstChild.data
     }]
   },
-  'TVGuide' : {
-    host : ["tvguide.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.location.pathname.startsWith("/tvshows/"),
-      type : "tv",
-      data : function() {
-        if(document.querySelector("meta[itemprop=name]")) {
-          return document.querySelector("meta[itemprop=name]").content;
+  TVGuide: {
+    host: ['tvguide.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.startsWith('/tvshows/'),
+      type: 'tv',
+      data: function () {
+        if (document.querySelector('meta[itemprop=name]')) {
+          return document.querySelector('meta[itemprop=name]').content
         } else {
-          return document.querySelector("meta[property='og:title']").content.split("|")[0];
+          return document.querySelector("meta[property='og:title']").content.split('|')[0]
         }
       }
     }]
   },
-  'followshows' : {
-    host : ["followshows.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.querySelector("meta[property='og:type']").content == "video.tv_show",
-      type : "tv",
-      data : () => document.querySelector("meta[property='og:title']").content
+  followshows: {
+    host: ['followshows.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.querySelector("meta[property='og:type']").content === 'video.tv_show',
+      type: 'tv',
+      data: () => document.querySelector("meta[property='og:title']").content
     }]
   },
-  'TheTVDB' : {
-    host : ["thetvdb.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.location.pathname.startsWith("/series/") || ~document.location.search.indexOf("tab=series"),
-      type : "tv",
-      data : () => document.getElementById("series_title").firstChild.data.trim()
+  TheTVDB: {
+    host: ['thetvdb.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.startsWith('/series/') || ~document.location.search.indexOf('tab=series'),
+      type: 'tv',
+      data: () => document.getElementById('series_title').firstChild.data.trim()
     }]
   },
-  'ConsequenceOfSound' : {
-    host : ["consequenceofsound.net"],
-    condition : () => document.querySelector("#main-content .review-summary"),
-    products : [{
-      condition : () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
-      type : "music",
-      data : function() {
-        let m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
+  ConsequenceOfSound: {
+    host: ['consequenceofsound.net'],
+    condition: () => document.querySelector('#main-content .review-summary'),
+    products: [{
+      condition: () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
+      type: 'music',
+      data: function () {
+        const m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
         return [m[1], m[2]]
       }
     }]
   },
-  'Pitchfork' : {
-    host : ["pitchfork.com"],
-    condition : () => ~document.location.href.indexOf("/reviews/albums/"),
-    products : [{
-      condition : () => document.querySelector(".single-album-tombstone"),
-      type : "music",
-      data : function() {
-        var artist, album;
-        if(document.querySelector(".single-album-tombstone .artists")) {
-        	artist = document.querySelector(".single-album-tombstone .artists").innerText.trim();
-        } else if(document.querySelector(".single-album-tombstone .artist-list")) {
-          artist = document.querySelector(".single-album-tombstone .artist-list").innerText.trim();
+  Pitchfork: {
+    host: ['pitchfork.com'],
+    condition: () => ~document.location.href.indexOf('/reviews/albums/'),
+    products: [{
+      condition: () => document.querySelector('.single-album-tombstone'),
+      type: 'music',
+      data: function () {
+        var artist, album
+        if (document.querySelector('.single-album-tombstone .artists')) {
+          artist = document.querySelector('.single-album-tombstone .artists').innerText.trim()
+        } else if (document.querySelector('.single-album-tombstone .artist-list')) {
+          artist = document.querySelector('.single-album-tombstone .artist-list').innerText.trim()
         }
-        if(document.querySelector(".single-album-tombstone h1.review-title")) {
-       	  album = document.querySelector(".single-album-tombstone h1.review-title").innerText.trim();
-        } else if(document.querySelector(".single-album-tombstone h1")) {
-       	  album = document.querySelector(".single-album-tombstone h1").innerText.trim();
+        if (document.querySelector('.single-album-tombstone h1.review-title')) {
+          album = document.querySelector('.single-album-tombstone h1.review-title').innerText.trim()
+        } else if (document.querySelector('.single-album-tombstone h1')) {
+          album = document.querySelector('.single-album-tombstone h1').innerText.trim()
         }
 
-        return [artist, album];
+        return [artist, album]
       }
     }]
   },
-  'Last.fm' : {
-    host : ["last.fm"],
-    condition : () => document.querySelector("*[data-page-resource-type]") && document.querySelector("*[data-page-resource-type]").dataset.pageResourceType == "album",
-    products : [{
-      condition : () => document.querySelector("*[data-page-resource-type]").dataset.pageResourceName,
-      type : "music",
-      data : function() {
-        var artist = document.querySelector("*[data-page-resource-type]").dataset.pageResourceArtistName;
-        var album = document.querySelector("*[data-page-resource-type]").dataset.pageResourceName;
-        return [artist, album];
+  'Last.fm': {
+    host: ['last.fm'],
+    condition: () => document.querySelector('*[data-page-resource-type]') && document.querySelector('*[data-page-resource-type]').dataset.pageResourceType === 'album',
+    products: [{
+      condition: () => document.querySelector('*[data-page-resource-type]').dataset.pageResourceName,
+      type: 'music',
+      data: function () {
+        var artist = document.querySelector('*[data-page-resource-type]').dataset.pageResourceArtistName
+        var album = document.querySelector('*[data-page-resource-type]').dataset.pageResourceName
+        return [artist, album]
       }
     }]
   },
-  'TVNfo' : {
-    host : ["tvnfo.com"],
-    condition : () => document.querySelector("#tvsign"),
-    products : [{
-      condition : Always,
-      type : "tv",
-      data : () => document.querySelector(".heading h1").textContent.trim()
+  TVNfo: {
+    host: ['tvnfo.com'],
+    condition: () => document.querySelector('#tvsign'),
+    products: [{
+      condition: Always,
+      type: 'tv',
+      data: () => document.querySelector('.heading h1').textContent.trim()
     }]
   },
-  'rateyourmusic' : {
-    host : ["rateyourmusic.com"],
-    condition : () => document.querySelector("meta[property='og:type']"),
-    products : [{
-      condition : () => document.querySelector("meta[property='og:type']").content == "music.album",
-      type : "music",
-      data : function() {
-        var artist = document.querySelector(".section_main_info .artist").innerText.trim();
-        var album = document.querySelector(".section_main_info .album_title").innerText.trim();
-        return [artist, album];
+  rateyourmusic: {
+    host: ['rateyourmusic.com'],
+    condition: () => document.querySelector("meta[property='og:type']"),
+    products: [{
+      condition: () => document.querySelector("meta[property='og:type']").content === 'music.album',
+      type: 'music',
+      data: function () {
+        var artist = document.querySelector('.section_main_info .artist').innerText.trim()
+        var album = document.querySelector('.section_main_info .album_title').innerText.trim()
+        return [artist, album]
       }
     }]
   },
-  'spotify_webplayer' : {
-    host : ["open.spotify.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.querySelector("#main .main-view-container .content.album"),
-      type : "music",
-      data : function() {
-        var artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent;
-        var album = document.querySelector("#main .media-bd h2").textContent;
-        return [artist, album];
+  spotify_webplayer: {
+    host: ['open.spotify.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.querySelector('#main .main-view-container .content.album'),
+      type: 'music',
+      data: function () {
+        var artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent
+        var album = document.querySelector('#main .media-bd h2').textContent
+        return [artist, album]
       }
     },
     {
-      condition : () => document.location.pathname.startsWith("/album/") && document.querySelector("meta[property='og:type']").content == "music.album",
-      type : "music",
-      data : function() {
-        var artist = "";
-        var album = document.querySelector("meta[property='og:title']").content;
-        return [artist, album];
+      condition: () => document.location.pathname.startsWith('/album/') && document.querySelector("meta[property='og:type']").content === 'music.album',
+      type: 'music',
+      data: function () {
+        var artist = ''
+        var album = document.querySelector("meta[property='og:title']").content
+        return [artist, album]
       }
     }]
   },
-  'spotify' : {
-    host : ["play.spotify.com"],
-    condition : Always,
-    products : [{
-      condition : () => document.location.pathname.startsWith("/album/"),
-      type : "music",
-      data : function() {
-        var artist = document.querySelector(".context_landing p.secondary-title").textContent;
-        var album = document.querySelector(".context_landing p.primary-title").textContent;
-        return [artist, album];
+  spotify: {
+    host: ['play.spotify.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.startsWith('/album/'),
+      type: 'music',
+      data: function () {
+        var artist = document.querySelector('.context_landing p.secondary-title').textContent
+        var album = document.querySelector('.context_landing p.primary-title').textContent
+        return [artist, album]
       }
     }]
   },
-  'nme' : {
-    host : ["nme.com"],
-    condition : () => document.location.pathname.startsWith("/reviews/"),
-    products : [
-    {
-      condition : () => document.location.pathname.startsWith("/reviews/movie/"),
-      type : "movie",
-      data : function() {
-        try {
-          return document.querySelector(".title-primary").textContent.match(/‘(.+?)’/)[1];
-        } catch(e) {
-          return document.querySelector("h1").textContent.match(/:\s*(.+)/)[1].trim();
-        }
-      }
-    },
-    {
-      condition : () => document.location.pathname.startsWith("/reviews/album/"),
-      type : "music",
-      data : () => document.querySelector(".title-primary").textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
-    }]
-  },
-  'albumoftheyear' : {
-    host : ["albumoftheyear.org"],
-    condition : Always,
-    products : [{
-      condition : () => document.location.pathname.startsWith("/album/"),
-      type : "music",
-      data : function() {
-        var artist = document.querySelector("*[itemprop=byArtist] *[itemprop=name]").textContent;
-        var album = document.querySelector(".albumTitle *[itemprop=name]").textContent;
-        return [artist, album];
-      }
-    }]
-  },
-  'epguides' : {
-    host : ['epguides.com'],
-    condition : () => document.getElementById('TVHeader'),
-    products : [{
-      condition : () => document.getElementById('TVHeader') && document.querySelector('body>div#header h1'),
-      type : 'tv',
-      data : () => document.querySelector('body>div#header h1').textContent.trim()
-    }]
-  },
-  'ShareTV' : {
-    host : ['sharetv.com'],
-    condition : () => document.location.pathname.startsWith("/shows/"),
-    products : [{
-      condition : () => document.location.pathname.split("/").length === 3 && document.querySelector("meta[property='og:title']"),
-      type : 'tv',
-      data : () => document.querySelector("meta[property='og:title']").content
-    }]
-  },
-
-};
-
-
-async function main() {
-
-  var dataFound = false;
-
-  var map = false;
-
-  for(var name in sites) {
-    var site = sites[name];
-    if(site.host.some(function(e) {return ~this.indexOf(e)}, document.location.hostname) && site.condition()) {
-      for(var i = 0; i < site.products.length; i++) {
-        if(site.products[i].condition()) {
-          // Check map for a match
-          if(map === false) {
-            map = JSON.parse(await GM.getValue("map","{}"));
-          }
-          var docurl = document.location.host.replace(/^www\./,"") + document.location.pathname + document.location.search;
-          docurl = filterUniversalUrl(docurl);
-          if(docurl in map) {
-            // Found in map, show result
-            var metaurl = map[docurl];
-            metacritic["mapped"].apply(undefined, [absoluteMetaURL(metaurl), site.products[i].type]);
-            break;
-          }
-          // Try to retrieve item name from page
-          var data;
+  nme: {
+    host: ['nme.com'],
+    condition: () => document.location.pathname.startsWith('/reviews/'),
+    products: [
+      {
+        condition: () => document.location.pathname.startsWith('/reviews/movie/'),
+        type: 'movie',
+        data: function () {
           try {
-            data = site.products[i].data();
-          } catch(e) {
-            data = false;
-            console.log(e);
+            return document.querySelector('.title-primary').textContent.match(/‘(.+?)’/)[1]
+          } catch (e) {
+            return document.querySelector('h1').textContent.match(/:\s*(.+)/)[1].trim()
           }
-          if(data) {
-            metacritic[site.products[i].type].apply(undefined, Array.isArray(data)?data:[data]);
-            dataFound = true;
-          }
-          break;
         }
+      },
+      {
+        condition: () => document.location.pathname.startsWith('/reviews/album/'),
+        type: 'music',
+        data: () => document.querySelector('.title-primary').textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
+      }]
+  },
+  albumoftheyear: {
+    host: ['albumoftheyear.org'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.startsWith('/album/'),
+      type: 'music',
+      data: function () {
+        var artist = document.querySelector('*[itemprop=byArtist] *[itemprop=name]').textContent
+        var album = document.querySelector('.albumTitle *[itemprop=name]').textContent
+        return [artist, album]
       }
-      break;
-    }
+    }]
+  },
+  epguides: {
+    host: ['epguides.com'],
+    condition: () => document.getElementById('TVHeader'),
+    products: [{
+      condition: () => document.getElementById('TVHeader') && document.querySelector('body>div#header h1'),
+      type: 'tv',
+      data: () => document.querySelector('body>div#header h1').textContent.trim()
+    }]
+  },
+  ShareTV: {
+    host: ['sharetv.com'],
+    condition: () => document.location.pathname.startsWith('/shows/'),
+    products: [{
+      condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
+      type: 'tv',
+      data: () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+  netflix: {
+    host: ['netflix.com'],
+    condition: !(document.querySelector('.button-nfplayerPlay') || document.querySelector('.nf-big-play-pause') || document.querySelector('.AkiraPlayer video')),
+    /*
+    https://www.netflix.com/de/title/70264888
+    https://www.netflix.com/de/title/70178217
+    https://www.netflix.com/de/title/70305892    ## Movie
+    https://www.netflix.com/de-en/title/80108495  ## No meta
+    */
+    products: [{
+      condition: () => parseLDJSON('@type') === 'Movie',
+      type: 'movie',
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
+    },
+    {
+      condition: () => parseLDJSON('@type') === 'TVSeries',
+      type: 'tv',
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
+    }]
+  },
+  ComedyCentral: {
+    host: ['cc.com'],
+    condition: () => document.location.pathname.startsWith('/shows/'),
+    products: [{
+      condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
+      type: 'tv',
+      data: () => document.querySelector("meta[property='og:title']").content
+    }]
+  },
+  TVHoard: {
+    host: ['tvhoard.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.split('/').length === 3 && document.location.pathname.split('/')[1] === 'titles' && !document.querySelector('app-root title-secondary-details-panel .seasons') && document.querySelector('app-root title-page-container h1.title a'),
+      type: 'movie',
+      data: () => document.querySelector('app-root title-page-container h1.title a').textContent.trim()
+    },
+    {
+      condition: () => document.location.pathname.split('/').length === 3 && document.location.pathname.split('/')[1] === 'titles' && document.querySelector('app-root title-secondary-details-panel .seasons') && document.querySelector('app-root title-page-container h1.title a'),
+      type: 'tv',
+      data: () => document.querySelector('app-root title-page-container h1.title a').textContent.trim()
+    }]
+  },
+  AMC: {
+    host: ['amc.com'],
+    condition: () => document.location.pathname.startsWith('/shows/'),
+    products: [
+      {
+        condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:type']") && document.querySelector("meta[property='og:type']").content === 'tv_show',
+        type: 'tv',
+        data: () => document.querySelector("meta[property='og:title']").content
+      }]
   }
-  return dataFound;
+
 }
 
+async function main () {
+  var dataFound = false
 
+  var map = false
 
+  for (var name in sites) {
+    var site = sites[name]
+    if (site.host.some(function (e) { return ~this.indexOf(e) }, document.location.hostname) && site.condition()) {
+      for (var i = 0; i < site.products.length; i++) {
+        if (site.products[i].condition()) {
+          // Check map for a match
+          if (map === false) {
+            map = JSON.parse(await GM.getValue('map', '{}'))
+          }
+          var docurl = filterUniversalUrl(document.location.href)
+          if (docurl in map) {
+            // Found in map, show result
+            var metaurl = map[docurl]
+            metacritic.mapped.apply(undefined, [docurl, absoluteMetaURL(metaurl), site.products[i].type])
+            break
+          }
+          // Try to retrieve item name from page
+          var data
+          try {
+            data = site.products[i].data()
+          } catch (e) {
+            data = false
+            console.log(e)
+          }
+          if (data) {
+            const params = [docurl]
+            if (Array.isArray(data)) {
+              params.push(...data)
+            } else {
+              params.push(data)
+            }
+            metacritic[site.products[i].type].apply(undefined, params)
+            dataFound = true
+          }
+          break
+        }
+      }
+      break
+    }
+  }
+  return dataFound
+}
 
-(async function() {
-  await versionUpdate();
-  await main();
-  var lastLoc = document.location.href;
-  var lastContent = document.body.innerText;
-  var lastCounter = 0;
-  async function newpage() {
-    if(lastContent == document.body.innerText && lastCounter < 15) {
-      window.setTimeout(newpage, 500);
-      lastCounter++;
+(async function () {
+  await versionUpdate()
+  const firstRunResult = await main()
+  var lastLoc = document.location.href
+  var lastContent = document.body.innerText
+  var lastCounter = 0
+  async function newpage () {
+    console.log('newpage')
+    if (lastContent === document.body.innerText && lastCounter < 15) {
+      window.setTimeout(newpage, 500)
+      lastCounter++
     } else {
-      lastCounter = 0;
-      var re = await main();
-      if(!re) { // No page matched or no data found
-        window.setTimeout(newpage, 1000);
+      lastCounter = 0
+      var re = await main()
+      if (!re) { // No page matched or no data found
+        window.setTimeout(newpage, 1000)
       }
     }
   }
-  window.setInterval(function() {
-    if(document.location.href != lastLoc) {
-      lastLoc = document.location.href;
-      $("#mcdiv123").remove();
+  window.setInterval(function () {
+    if (document.location.href !== lastLoc) {
+      lastLoc = document.location.href
+      $('#mcdiv123').remove()
 
-      window.setTimeout(newpage,1000);
+      window.setTimeout(newpage, 1000)
     }
-  },500);
+  }, 500)
 
-})();
+  if (!firstRunResult) {
+    // Initial run had no match, let's try again there may be new content
+    window.setTimeout(main, 2000)
+  }
+})()
