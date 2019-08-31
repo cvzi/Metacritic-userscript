@@ -51,12 +51,12 @@
 // @include     http://www.serienjunkies.de/*
 // @include     https://www.serienjunkies.de/*
 // @include     http://www.tv.com/shows/*
-// @include     http://www.rottentomatoes.com/m/*
 // @include     https://www.rottentomatoes.com/m/*
-// @include     http://www.rottentomatoes.com/tv/*
+// @include     https://rottentomatoes.com/m/*
 // @include     https://www.rottentomatoes.com/tv/*
-// @include     http://www.rottentomatoes.com/tv/*/s*/
+// @include     https://rottentomatoes.com/tv/*
 // @include     https://www.rottentomatoes.com/tv/*/s*/
+// @include     https://rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
 // @include     https://www.boxofficemojo.com/movies/*
 // @include     http://www.allmovie.com/movie/*
@@ -1145,14 +1145,19 @@ async function searchBoxSearch (ev, query) {
     loader.remove()
 
     const accept = function (ev) {
-      const a = $(this.parentNode).find("a[href*='metacritic.com']")
+      const parentDiv = $(this.parentNode)
+      const a = parentDiv.find("a[href*='metacritic.com']")
       const metaurl = a.attr('href')
       const docurl = document.location.href
+
+      const resultDivParent = parentDiv.parent()
+      resultDivParent.html('')
+      resultDivParent.append(loader)
 
       removeFromBlacklist(docurl, metaurl).then(function () {
         addToMap(docurl, metaurl).then(function () {
           current.metaurl = metaurl
-          loadMetacriticUrl()
+          loadMetacriticUrl().then(() => loader.remove())
         })
       })
     }
@@ -1690,7 +1695,7 @@ const sites = {
     }]
   },
   rottentomatoes: {
-    host: ['www.rottentomatoes.com'],
+    host: ['rottentomatoes.com'],
     condition: Always,
     products: [{
       condition: () => document.location.pathname.startsWith('/m/'),
@@ -1773,14 +1778,14 @@ const sites = {
           let title = false
           if (document.querySelector('#ProductInfoArtistLink')) {
             artist = document.querySelector('#ProductInfoArtistLink').textContent.trim()
-          } else if(document.querySelector('#bylineInfo .author>*')) {
+          } else if (document.querySelector('#bylineInfo .author>*')) {
             artist = document.querySelector('#bylineInfo .author>*').textContent.trim()
           }
 
-          if(document.querySelector('#dmusicProductTitle_feature_div')) {
+          if (document.querySelector('#dmusicProductTitle_feature_div')) {
             title = document.querySelector('#dmusicProductTitle_feature_div').textContent.trim()
             title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
-          } else if(document.querySelector('#productTitle')) {
+          } else if (document.querySelector('#productTitle')) {
             title = document.querySelector('#productTitle').textContent.trim()
             title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
           }
