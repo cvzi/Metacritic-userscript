@@ -124,6 +124,8 @@ const baseURLdatabase = 'https://php-cuzi.herokuapp.com/r.php'
 const baseURLwhitelist = 'https://php-cuzi.herokuapp.com/whitelist.php'
 const baseURLblacklist = 'https://php-cuzi.herokuapp.com/blacklist.php'
 
+const TEMPORARY_BLACKLIST_TIMEOUT = 5 * 60
+
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 const CSS = '#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}'
 
@@ -142,8 +144,10 @@ async function versionUpdate () {
     await GM.setValue('map', '{}')
     await GM.setValue('black', '[]')
     await GM.setValue('hovercache', '{}')
+    await GM.setValue('requestcache', '{}')
     await GM.setValue('searchcache', '{}')
     await GM.setValue('autosearchcache', '{}')
+    await GM.setValue('temporaryblack', '{}')
   }
   if (version < 52) {
     await GM.setValue('version', 52)
@@ -171,13 +175,13 @@ function absoluteMetaURL (url) {
   return baseURL + url
 }
 
-var parseLDJSONCache = {}
+const parseLDJSONCache = {}
 function parseLDJSON (keys, condition) {
   if (document.querySelector('script[type="application/ld+json"]')) {
-    var data = []
-    var scripts = document.querySelectorAll('script[type="application/ld+json"]')
+    const data = []
+    const scripts = document.querySelectorAll('script[type="application/ld+json"]')
     for (let i = 0; i < scripts.length; i++) {
-      var jsonld
+      let jsonld
       if (scripts[i].innerText in parseLDJSONCache) {
         jsonld = parseLDJSONCache[scripts[i].innerText]
       } else {
@@ -225,11 +229,11 @@ function name2metacritic (s) {
   return s.normalize('NFKD').replace(/\//g, '').replace(/[\u0300-\u036F]/g, '').replace(/&/g, 'and').replace(/\W+/g, ' ').toLowerCase().trim().replace(/\W+/g, '-')
 }
 function minutesSince (time) {
-  var seconds = ((new Date()).getTime() - time.getTime()) / 1000
+  const seconds = ((new Date()).getTime() - time.getTime()) / 1000
   return seconds > 60 ? parseInt(seconds / 60) + ' min ago' : 'now'
 }
 function randomStringId () {
-  var id10 = () => Math.floor((1 + Math.random()) * 0x10000000000).toString(16).substring(1)
+  const id10 = () => Math.floor((1 + Math.random()) * 0x10000000000).toString(16).substring(1)
   return id10() + id10() + id10() + id10() + id10() + id10()
 }
 function fixMetacriticURLs (html) {
@@ -259,7 +263,7 @@ function metacritic2searchType (type) {
 }
 
 function balloonAlert (message, timeout, title, css, click) {
-  var header
+  let header
   if (title) {
     header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">' + title + '</div>'
   } else if (title === false) {
@@ -267,7 +271,7 @@ function balloonAlert (message, timeout, title, css, click) {
   } else {
     header = '<div style="background:rgb(220,230,150); padding: 2px 12px;">Userscript alert</div>'
   }
-  var div = $('<div>' + header + '<div style="padding:5px">' + message.split('\n').join('<br>') + '</div></div>')
+  const div = $('<div>' + header + '<div style="padding:5px">' + message.split('\n').join('<br>') + '</div></div>')
   div.css({
     position: 'fixed',
     top: 10,
@@ -294,7 +298,7 @@ function balloonAlert (message, timeout, title, css, click) {
   }
 
   if (!click) {
-    var close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div)
+    const close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div)
     close.click(function () {
       $(this.parentNode).hide(1000)
     })
@@ -330,9 +334,9 @@ function filterUniversalUrl (url) {
   } else if (url.startsWith('boxofficemojo.com/')) {
     // Keep the important id= on
     try {
-      var parts = url.split('?')
-      var page = parts[0] + '?'
-      var idparam = parts[1].match(/(id=.+?)(\.|&)/)[1]
+      const parts = url.split('?')
+      const page = parts[0] + '?'
+      const idparam = parts[1].match(/(id=.+?)(\.|&)/)[1]
       return page + idparam
     } catch (e) {
       return url
@@ -344,7 +348,7 @@ function filterUniversalUrl (url) {
 }
 
 async function addToMap (url, metaurl) {
-  var data = JSON.parse(await GM.getValue('map', '{}'))
+  const data = JSON.parse(await GM.getValue('map', '{}'))
 
   url = filterUniversalUrl(url)
   metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
@@ -358,7 +362,7 @@ async function addToMap (url, metaurl) {
 }
 
 async function removeFromMap (url) {
-  var data = JSON.parse(await GM.getValue('map', '{}'))
+  const data = JSON.parse(await GM.getValue('map', '{}'))
 
   url = filterUniversalUrl(url)
   if (url in data) {
@@ -367,8 +371,48 @@ async function removeFromMap (url) {
   }
 }
 
+async function addToTemporaryBlacklist (metaurl) {
+  const data = JSON.parse(await GM.getValue('temporaryblack', '{}'))
+
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
+  metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/')
+  metaurl = metaurl.replace(/^\/+/, '')
+
+  data[metaurl] = (new Date()).toJSON()
+
+  // Remove old entries
+  const now = (new Date()).getTime()
+  const timeout = TEMPORARY_BLACKLIST_TIMEOUT * 1000
+  for (const prop in data) {
+    if (now - (new Date(data[prop].time)).getTime() > timeout) {
+      delete data[prop]
+    }
+  }
+
+  await GM.setValue('temporaryblack', JSON.stringify(data))
+
+  return true
+}
+
+async function isTemporaryBlacklisted (metaurl) {
+  const data = JSON.parse(await GM.getValue('temporaryblack', '{}'))
+
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
+  metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/')
+  metaurl = metaurl.replace(/^\/+/, '')
+
+  if (metaurl in data) {
+    const now = (new Date()).getTime()
+    const timeout = TEMPORARY_BLACKLIST_TIMEOUT * 1000
+    if (now - (new Date(data[metaurl])).getTime() < timeout) {
+      return true
+    }
+  }
+  return false
+}
+
 async function addToBlacklist (url, metaurl) {
-  var data = JSON.parse(await GM.getValue('black', '[]'))
+  const data = JSON.parse(await GM.getValue('black', '[]'))
 
   url = filterUniversalUrl(url)
   metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
@@ -389,8 +433,8 @@ async function removeFromBlacklist (docurl, metaurl) {
   metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/') // remove double slash
   metaurl = metaurl.replace(/^\/+/, '') // remove starting slash
 
-  var data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
-  var found = []
+  const data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  const found = []
   for (let i = 0; i < data.length; i++) {
     if (data[i][0] === docurl && data[i][1] === metaurl) {
       found.push(i)
@@ -411,8 +455,8 @@ async function isBlacklistedUrl (docurl, metaurl) {
   metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/') // remove double slash
   metaurl = metaurl.replace(/^\/+/, '') // remove starting slash
 
-  var data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
-  for (var i = 0; i < data.length; i++) {
+  const data = JSON.parse(await GM.getValue('black', '[]')) // [ [docurl0, metaurl0] , [docurl1, metaurl1] , ... ]
+  for (let i = 0; i < data.length; i++) {
     if (data[i][0] === docurl && data[i][1] === metaurl) {
       return true
     }
@@ -427,7 +471,7 @@ function listenForHotkeys (code, cb) {
     return
   }
   listenForHotkeysActive = true
-  var i = 0
+  let i = 0
   $(document).bind('keydown.listenForHotkeys', function (ev) {
     if (document.activeElement === document.body) {
       if (ev.key !== code[i]) {
@@ -449,16 +493,22 @@ function waitForHotkeysMETA () {
 }
 
 function asyncRequest (data) {
-  // TODO cache all requests for a few minutes
-  return new Promise(function (resolve, reject) {
+  return new Promise(async function (resolve, reject) {
+    const cachedValue = await isInRequestCache(data)
+    if (cachedValue) {
+      return resolve(cachedValue)
+    }
     const defaultHeaders = {
       Referer: data.url,
-      Host: getHostname(data.url),
+      // Host: getHostname(data.url),
       'User-Agent': navigator.userAgent
     }
     const defaultData = {
       method: 'GET',
-      onload: (response) => resolve(response),
+      onload: function (response) {
+        storeInRequestCache(data, response)
+        resolve(response)
+      },
       onerror: (response) => reject(response)
     }
     if ('headers' in data) {
@@ -468,22 +518,21 @@ function asyncRequest (data) {
     }
 
     data = Object.assign(defaultData, data)
-    console.log('Show Metacritic ratings: asyncRequest(' + data.method + ': ' + data.url + ('data' in data ? (', ' + data.data) : '') + ')')
     GM.xmlHttpRequest(data)
   })
 }
 
 async function handleJSONredirect (response) {
-  var blacklistedredirect = false
-  var j = JSON.parse(response.responseText)
+  let blacklistedredirect = false
+  const j = JSON.parse(response.responseText)
 
   // Blacklist items from database received?
   if ('blacklist' in j && j.blacklist && j.blacklist.length) {
     // Save new blacklist items
-    var data = JSON.parse(await GM.getValue('black', '[]'))
-    for (var i = 0; i < j.blacklist.length; i++) {
-      var saveDocurl = j.blacklist[i].docurl
-      var saveMetaurl = j.blacklist[i].metaurl
+    const data = JSON.parse(await GM.getValue('black', '[]'))
+    for (let i = 0; i < j.blacklist.length; i++) {
+      const saveDocurl = j.blacklist[i].docurl
+      const saveMetaurl = j.blacklist[i].metaurl
 
       data.push([saveDocurl, saveMetaurl])
       if (j.jsonRedirect === '/' + saveMetaurl) {
@@ -493,11 +542,9 @@ async function handleJSONredirect (response) {
     }
     await GM.setValue('black', JSON.stringify(data))
   }
-  // TODO cache() redirect
   if (blacklistedredirect) {
     // Redirect was blacklisted, show nothing
-    // errorcb(response.responseText, new Date(response.time));
-    alert('Error 02: blacklisted')
+    console.log('ShowMetacriticRatings: Redirect was blacklisted -> show nothing')
     return null
   } else {
     // Load redirect
@@ -510,13 +557,15 @@ async function handleJSONredirect (response) {
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'X-Requested-With': 'XMLHttpRequest'
       }
-    }).catch(function (response) { alert('error 04: ' + response.status) })
+    }).catch(function (response) {
+      console.log('ShowMetacriticRatings: Error 01')
+    })
     return response
   }
 }
 
 function extractHoverFromFullPage (response) {
-  let html = 'Error occured in extractHoverFromFullPage()'
+  let html = 'ShowMetacriticRatings:<br>Error occured in extractHoverFromFullPage()'
   try {
     // Try parsing HTML
     const doc = domParser().parseFromString(response.responseText, 'text/html')
@@ -683,7 +732,8 @@ function extractHoverFromFullPage (response) {
   </div>
   `
   } catch (e) {
-    console.log('Show metacritic ratings: Error parsing HTML: ' + e)
+    console.log('ShowMetacriticRatings: Error parsing HTML: ' + e)
+
     // fallback to cutting out the relevant parts
 
     let parts = response.responseText.split('class="score_details')
@@ -706,19 +756,80 @@ function extractHoverFromFullPage (response) {
     }
 
     if (html.length > 5000) {
-      // Probably something went wrong, let's cut the response to prevent overly big content
-      console.log('Show metacritic ratings: Cutting response to 5000 chars')
+      // Probably something went wrong, let's cut the response to prevent too long content
+      console.log('ShowMetacriticRatings: Cutting response to 5000 chars')
       html = html.substr(0, 5000)
     }
   }
   return html
 }
 
+async function storeInRequestCache (requestData, response) {
+  if ('onload' in requestData) {
+    delete requestData.onload
+  }
+  if ('onerror' in requestData) {
+    delete requestData.onerror
+  }
+  const newkey = JSON.stringify(requestData)
+  const cache = JSON.parse(await GM.getValue('requestcache', '{}'))
+  const now = (new Date()).getTime()
+  const timeout = 15 * 60 * 1000
+  for (const prop in cache) {
+    // Delete cached values, that are older than 15 minutes
+    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
+      delete cache[prop]
+    }
+  }
+
+  const newobj = {}
+  for (const key in response) {
+    newobj[key] = response[key]
+  }
+  newobj.responseText = '' + response.responseText
+  newobj.cached = true
+  if (!('time' in newobj)) {
+    newobj.time = (new Date()).toJSON()
+  }
+
+  cache[newkey] = newobj
+
+  await GM.setValue('requestcache', JSON.stringify(cache))
+}
+
+async function isInRequestCache (requestData) {
+  if ('onload' in requestData) {
+    delete requestData.onload
+  }
+  if ('onerror' in requestData) {
+    delete requestData.onerror
+  }
+  const key = JSON.stringify(requestData)
+
+  const cache = JSON.parse(await GM.getValue('requestcache', '{}'))
+  const now = (new Date()).getTime()
+  const timeout = 15 * 60 * 1000
+  for (const prop in cache) {
+    // Delete cached values, that are older than 15 minutes
+    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
+      delete cache[prop]
+    }
+  }
+
+  if (key in cache) {
+    return cache[key]
+  } else {
+    return false
+  }
+}
+
 async function storeInHoverCache (metaurl, response, orgMetaUrl) {
   const cache = JSON.parse(await GM.getValue('hovercache', '{}'))
+  const now = (new Date()).getTime()
+  const timeout = 2 * 60 * 60 * 1000
   for (const prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
       delete cache[prop]
     }
   }
@@ -743,9 +854,11 @@ async function storeInHoverCache (metaurl, response, orgMetaUrl) {
 
 async function isInHoverCache (metaurl) {
   const cache = JSON.parse(await GM.getValue('hovercache', '{}'))
-  for (var prop in cache) {
+  const now = (new Date()).getTime()
+  const timeout = 2 * 60 * 60 * 1000
+  for (const prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
       delete cache[prop]
     }
   }
@@ -789,17 +902,21 @@ async function loadHoverInfo () {
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
     }
-  }).catch(function (response) { alert('error 05: ' + response.status) })
+  }).catch(function (response) {
+    console.log('ShowMetacriticRatings: Error 02\nurl=' + requestURL + '\nparams=' + requestParams + '\nstatus=' + response.status)
+  })
 
   if (response.responseText.indexOf('"jsonRedirect"') !== -1) {
     response = await handleJSONredirect(response)
   }
   if (response.responseText.indexOf('<title>500 Page') !== -1) {
     // Hover info not available for this url, try again with GET
-    response = await asyncRequest({ url: current.metaurl }).catch(function (response) { alert('error 06: ' + response.status) })
+    response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
+      console.log('ShowMetacriticRatings: Error 03\nurl=' + current.metaurl + '\nstatus=' + response.status)
+    })
 
     const newobj = {}
-    for (var key in response) {
+    for (const key in response) {
       newobj[key] = response[key]
     }
     newobj.responseText = extractHoverFromFullPage(response)
@@ -812,7 +929,7 @@ async function loadHoverInfo () {
   if (response.status === 200 && response.responseText) {
     return response
   } else {
-    throw new Error('loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
+    throw new Error('ShowMetacriticRatings: loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
   }
 }
 
@@ -826,11 +943,17 @@ const current = {
 
 async function loadMetacriticUrl (fromSearch) {
   if (!current.metaurl) {
-    alert('Error: 11')
+    alert('ShowMetacriticRatings: Error 04')
     return
   }
   const orgMetaUrl = current.metaurl
   if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
+    waitForHotkeysMETA()
+    return
+  }
+
+  if (await isTemporaryBlacklisted(current.metaurl)) {
+    console.log('ShowMetacriticRatings: isTemporaryBlacklisted=true')
     waitForHotkeysMETA()
     return
   }
@@ -852,10 +975,12 @@ async function loadMetacriticUrl (fromSearch) {
 async function startSearch () {
   waitForHotkeysMETA()
 
-  var cache = JSON.parse(await GM.getValue('autosearchcache', '{}'))
-  for (var prop in cache) {
+  const cache = JSON.parse(await GM.getValue('autosearchcache', '{}'))
+  const now = (new Date()).getTime()
+  const timeout = 2 * 60 * 60 * 1000
+  for (const prop in cache) {
     // Delete cached values, that are older than 2 hours
-    if ((new Date()).getTime() - (new Date(cache[prop].time)).getTime() > 2 * 60 * 60 * 1000) {
+    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
       delete cache[prop]
     }
   }
@@ -876,7 +1001,7 @@ async function startSearch () {
       headers: {
         Referer: current.metaurl,
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        Host: 'www.metacritic.com',
+        // Host: 'www.metacritic.com',
         'User-Agent': 'MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0',
         'X-Requested-With': 'XMLHttpRequest'
       }
@@ -890,7 +1015,7 @@ async function startSearch () {
   }
 
   if (!response || !('json' in response)) {
-    alert('Error 09')
+    alert('ShowMetacriticRatings: Error 05')
   }
   const data = response.json
   let multiple = false
@@ -898,7 +1023,7 @@ async function startSearch () {
     // Remove data with wrong type
     data.autoComplete = data.autoComplete.results
 
-    var newdata = []
+    const newdata = []
     data.autoComplete.forEach(function (result) {
       if (metacritic2searchType(result.refType) === current.type) {
         newdata.push(result)
@@ -907,7 +1032,7 @@ async function startSearch () {
     data.autoComplete = newdata
     if (data.autoComplete.length === 0) {
       // No results
-      console.log('No results (after filtering by type) for searchTerm=' + current.searchTerm)
+      console.log('ShowMetacriticRatings: No results (after filtering by type) for searchTerm=' + current.searchTerm)
     } else if (data.autoComplete.length === 1) {
       // One result, let's show it
       if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(data.autoComplete[0].url))) {
@@ -918,8 +1043,8 @@ async function startSearch () {
     } else {
       // More than one result
       multiple = true
-      console.log('Multiple results for searchTerm=' + current.searchTerm)
-      var exactMatches = []
+      console.log('ShowMetacriticRatings: Multiple results for searchTerm=' + current.searchTerm)
+      const exactMatches = []
       data.autoComplete.forEach(function (result, i) { // Try to find the correct result by matching the search term to exactly one movie title
         if (current.searchTerm === result.name) {
           exactMatches.push(result)
@@ -927,7 +1052,7 @@ async function startSearch () {
       })
       if (exactMatches.length === 1) {
         // Only one exact match, let's show it
-        console.log('Only one exact match for searchTerm=' + current.searchTerm)
+        console.log('ShowMetacriticRatings: Only one exact match for searchTerm=' + current.searchTerm)
         if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(exactMatches[0].url))) {
           current.metaurl = absoluteMetaURL(exactMatches[0].url)
           loadMetacriticUrl(true)
@@ -936,7 +1061,7 @@ async function startSearch () {
       }
     }
   } else {
-    console.log('No results (at all) for searchTerm=' + current.searchTerm)
+    console.log('ShowMetacriticRatings: No results (at all) for searchTerm=' + current.searchTerm)
   }
   // HERE: multiple results or no result. The user may type "meta" now
   if (multiple) {
@@ -952,7 +1077,7 @@ function openSearchBox (search) {
     query = current.data.join(' ')
   }
   $('#mcdiv123').remove()
-  var div = $('<div id="mcdiv123"></div>').appendTo(document.body)
+  const div = $('<div id="mcdiv123"></div>').appendTo(document.body)
   div.css({
     position: 'fixed',
     bottom: 0,
@@ -970,7 +1095,7 @@ function openSearchBox (search) {
     zIndex: '2147483601'
   })
   $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function (e) {
-    var code = e.keyCode || e.which
+    const code = e.keyCode || e.which
     if (code === 13) { // Enter key
       searchBoxSearch(e, $('#mcisearchquery').val())
     }
@@ -982,17 +1107,17 @@ async function searchBoxSearch (ev, query) {
     query = current.searchTerm
   }
 
-  var type = searchType2metacritic(current.type)
+  const type = searchType2metacritic(current.type)
 
-  var style = document.createElement('style')
+  const style = document.createElement('style')
   style.type = 'text/css'
   style.innerHTML = CSS
   document.head.appendChild(style)
 
-  var div = $('#mcdiv123')
-  var loader = $('<div style="width:20px; height:20px;display:inline-block" class="grespinner"></div>').appendTo($('#mcisearchbutton'))
+  const div = $('#mcdiv123')
+  const loader = $('<div style="width:20px; height:20px;display:inline-block" class="grespinner"></div>').appendTo($('#mcisearchbutton'))
 
-  var url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
+  const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
 
   const response = await asyncRequest({
     url: url,
@@ -1000,16 +1125,16 @@ async function searchBoxSearch (ev, query) {
     headers: {
       Referer: url,
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      Host: 'www.metacritic.com',
+      // Host: 'www.metacritic.com',
       'User-Agent': 'MetacriticUserscript ' + navigator.userAgent
     }
   }).catch(function (response) {
     alert('Search failed!\n' + response.finalUrl + '\nStatus: ' + response.status + '\n' + response.responseText ? response.responseText.substring(0, 500) : 'Empty response')
   })
 
-  var results = []
+  const results = []
   if (!~response.responseText.indexOf('No search results found.')) {
-    var d = $('<html>').html(response.responseText)
+    const d = $('<html>').html(response.responseText)
     d.find('ul.search_results.module .result').each(function () {
       results.push(this.innerHTML)
     })
@@ -1019,11 +1144,10 @@ async function searchBoxSearch (ev, query) {
     // Show results
     loader.remove()
 
-    var accept = function (ev) {
-      var a = $(this.parentNode).find("a[href*='metacritic.com']")
-      var metaurl = a.attr('href')
-
-      var docurl = document.location.href
+    const accept = function (ev) {
+      const a = $(this.parentNode).find("a[href*='metacritic.com']")
+      const metaurl = a.attr('href')
+      const docurl = document.location.href
 
       removeFromBlacklist(docurl, metaurl).then(function () {
         addToMap(docurl, metaurl).then(function () {
@@ -1032,7 +1156,7 @@ async function searchBoxSearch (ev, query) {
         })
       })
     }
-    var denyAll = function (ev) {
+    const denyAll = function (ev) {
       const docurl = document.location.href
       $('#mcdiv123searchresults').find("div.result a[href*='metacritic.com']").each(function () {
         addToBlacklist(docurl, this.href)
@@ -1073,7 +1197,7 @@ function showHoverInfo (response, orgMetaUrl) {
   const url = response.finalUrl
 
   $('#mcdiv123').remove()
-  var div = $('<div id="mcdiv123"></div>').appendTo(document.body)
+  const div = $('<div id="mcdiv123"></div>').appendTo(document.body)
   div.css({
     position: 'fixed',
     bottom: 0,
@@ -1091,7 +1215,7 @@ function showHoverInfo (response, orgMetaUrl) {
   // Functions for communication between page and iframe
   // Mozilla can access parent.document
   // Chrome can use postMessage()
-  var frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
+  let frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
   function loadExternalImage (url, myframe) {
     // Load external image, bypass CSP
     GM.xmlHttpRequest({
@@ -1107,10 +1231,10 @@ function showHoverInfo (response, orgMetaUrl) {
       }
     })
   }
-  var functions = {
+  const functions = {
     parent: function () {
-      var f = parent.document.getElementById('mciframe123')
-      var lastdiff = -200000
+      const f = parent.document.getElementById('mciframe123')
+      let lastdiff = -200000
       window.addEventListener('message', function (e) {
         if (typeof e.data !== 'object') {
           return
@@ -1140,15 +1264,15 @@ function showHoverInfo (response, orgMetaUrl) {
     frame: function () {
       parent.postMessage({ mcimessage0: true }, '*') // Loading frame content was successfull
 
-      var i = 0
+      let i = 0
       window.addEventListener('message', function (e) {
         if (typeof e.data === 'object' && 'mcimessage_imgLoaded' in e.data) {
           // Load external image
-          var arrayBufferView = new Uint8Array(e.data.mcimessage_imgData)
-          var blob = new Blob([arrayBufferView], { type: 'image/jpeg' })
-          var urlCreator = window.URL || window.webkitURL
-          var imageUrl = urlCreator.createObjectURL(blob)
-          var img = failedImages[e.data.mcimessage_imgOrgSrc]
+          const arrayBufferView = new Uint8Array(e.data.mcimessage_imgData)
+          const blob = new Blob([arrayBufferView], { type: 'image/jpeg' })
+          const urlCreator = window.URL || window.webkitURL
+          const imageUrl = urlCreator.createObjectURL(blob)
+          const img = failedImages[e.data.mcimessage_imgOrgSrc]
           img.src = imageUrl
         }
 
@@ -1168,9 +1292,88 @@ function showHoverInfo (response, orgMetaUrl) {
 
   }
 
-  const css = "#hover_div .clr { clear: both} #hover_div .fl{float: left} #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;} #hover_div .hoverinfo .hover_left { float: left} #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;} #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;} #hover_div a * { cursor: pointer} #hover_div a { color: #09f; font-weight: bold;} #hover_div a:link, #hover_div a:visited { text-decoration: none;} #hover_div a:hover { text-decoration: underline;} #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;} #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;} #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;} #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left} #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;} #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; } #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;} #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;} #hover_div .hoverinfo .hover_scores td.num { width: 39px} #hover_div .hoverinfo .hover_scores td { vertical-align: middle} #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;} #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important} #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}.metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;} #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff} #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}.score_tbd { background: #eaeaea; color: #333; font-size: 14px;} #hover_div .score_tbd a { color: #333}.negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}.mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;} #hover_div .score_mixed a { color: #333}.positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}.critscore_terrible, .critscore_unfavorable { border-color: #f00}.critscore_mixed { border-color: #fc3}.critscore_favorable, .critscore_outstanding { border-color: #6c3}.metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}.hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}.hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}.hoverinfo .hover_scores td { vertical-align: middle}.hoverinfo .hover_scores td.num { width: 39px}.hoverinfo .hover_scores td.usr.num { padding-left: 20px}.metascore_anchor, a.metascore_w { text-decoration: none !important} .metascore_w.album { padding-top:0px; !important} .metascore_w.user { border-radius: 55%; color: #fff;}.metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important} a.metascore_w { text-decoration: none!important}.metascore_anchor:hover { text-decoration: none!important}.metascore_w:hover { text-decoration: none!important}span.metascore_w, a.metascore_w { display: inline-block}.metascore_w.xlarge, .metascore_w.xl { font-size: 42px}.metascore_w.large, .metascore_w.lrg { font-size: 25px}.m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}.metascore_w.med_small { font-size: 14px}.metascore_w.small, .metascore_w.sm { font-size: 12px}.metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}.metascore_w.user { border-radius: 55%; color: #fff;}.metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}.metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}.metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}.metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}.metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\2022\2022\2022'}.metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}.metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}.metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}.metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}.metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}.metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}.metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}.m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}.metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}.metascore_w.indiv.perfect { padding-right: 1px}.promo_amazon .esite_btn { margin: 3px 0 0 7px;}.esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}.esite_label_wrapper { display:none;}.esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;} .chart{background-color:inherit!important;margin-top:-3px} .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)} .chart .bar{width:100%;height:3px} .chart .count{font-size:10px}";
+  const css = `#hover_div .clr { clear: both} 
+  #hover_div .fl{float: left}
+  #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;}
+  #hover_div .hoverinfo .hover_left { float: left}
+  #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;}
+  #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;}
+  #hover_div a * { cursor: pointer}
+  #hover_div a { color: #09f; font-weight: bold;}
+  #hover_div a:link, #hover_div a:visited { text-decoration: none;}
+  #hover_div a:hover { text-decoration: underline;}
+  #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;}
+  #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;}
+  #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;}
+  #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left}
+  #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;}
+  #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; }
+  #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;}
+  #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;}
+  #hover_div .hoverinfo .hover_scores td.num { width: 39px}
+  #hover_div .hoverinfo .hover_scores td { vertical-align: middle}
+  #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;}
+  #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important}
+  #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}
+  .metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;}
+  #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff}
+  #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}
+  .score_tbd { background: #eaeaea; color: #333; font-size: 14px;}
+  #hover_div .score_tbd a { color: #333}
+  .negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}
+  .mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}
+  #hover_div .score_mixed a { color: #333}
+  .positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}
+  .critscore_terrible, .critscore_unfavorable { border-color: #f00}
+  .critscore_mixed { border-color: #fc3}
+  .critscore_favorable, .critscore_outstanding { border-color: #6c3}
+  .metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}
+  .hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}
+  .hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}
+  .hoverinfo .hover_scores td { vertical-align: middle}
+  .hoverinfo .hover_scores td.num { width: 39px}
+  .hoverinfo .hover_scores td.usr.num { padding-left: 20px}
+  .metascore_anchor, a.metascore_w { text-decoration: none !important}
+  .metascore_w.album { padding-top:0px; !important}
+  .metascore_w.user { border-radius: 55%; color: #fff;}
+  .metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important}
+  a.metascore_w { text-decoration: none!important}
+  .metascore_anchor:hover { text-decoration: none!important}
+  .metascore_w:hover { text-decoration: none!important}
+  span.metascore_w, a.metascore_w { display: inline-block}
+  .metascore_w.xlarge, .metascore_w.xl { font-size: 42px}
+  .metascore_w.large, .metascore_w.lrg { font-size: 25px}
+  .m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}
+  .metascore_w.med_small { font-size: 14px}
+  .metascore_w.small, .metascore_w.sm { font-size: 12px}
+  .metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}
+  .metascore_w.user { border-radius: 55%; color: #fff;}
+  .metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}
+  .metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}
+  .metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}
+  .metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}
+  .metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\u2022\u2022\u2022'}
+  .metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}
+  .metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}
+  .metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}
+  .metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}
+  .metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}
+  .metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}
+  .metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}
+  .m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}
+  .metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}
+  .metascore_w.indiv.perfect { padding-right: 1px}
+  .hover_esite { display:none; }
+  .promo_amazon .esite_btn { margin: 3px 0 0 7px;}
+  .esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}
+  .esite_label_wrapper { display:none;}
+  .esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}
+  .chart{background-color:inherit!important;margin-top:-3px}
+  .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)}
+  .chart .bar{width:100%;height:3px}
+  .chart .count{font-size:10px}`
 
-  var framesrc = 'data:text/html,'
+  let framesrc = 'data:text/html,'
   framesrc += encodeURIComponent('<!DOCTYPE html>\
     <html lang="en">\
       <head>\
@@ -1180,7 +1383,7 @@ function showHoverInfo (response, orgMetaUrl) {
         '\
         </style>\
         <script>\
-        var failedImages = {};\
+        const failedImages = {};\
         function detectCSP(img) {\
           if(img.complete && (!img.naturalWidth || !img.naturalHeight)) {\
             return true;\
@@ -1188,15 +1391,15 @@ function showHoverInfo (response, orgMetaUrl) {
           return false;\
         }\
         function findCSPerrors() {\
-          var imgs = document.querySelectorAll("img");\
-          for(var i = 0; i < imgs.length; i++) {\
+          const imgs = document.querySelectorAll("img");\
+          for(let i = 0; i < imgs.length; i++) {\
             if(imgs[i].complete && detectCSP(imgs[i])) {\
               fixCSP(imgs[i]);\
             }\
           }\
         }\
         function fixCSP(img) {\
-          console.log("Loading image failed. Bypassing CSP...");\
+          console.log("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");\
           failedImages[img.src] = img;\
           parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
         }\
@@ -1214,7 +1417,7 @@ function showHoverInfo (response, orgMetaUrl) {
       </body>\
     </html>')
 
-  var frame = $('<iframe></iframe>').appendTo(div)
+  const frame = $('<iframe></iframe>').appendTo(div)
   frame.attr('id', 'mciframe123')
   frame.attr('src', framesrc)
   frame.attr('scrolling', 'auto')
@@ -1227,9 +1430,9 @@ function showHoverInfo (response, orgMetaUrl) {
   window.setTimeout(function () {
     if (!frameStatus) { // Loading frame content failed.
       //  Directly inject the html without an iframe (this may break the site or the metacritic)
-      console.log('Loading iframe content failed. Injecting directly.')
+      console.log('ShowMetacriticRatings: Loading iframe content failed. Injecting directly.')
       $('head').append('<style>' + css + '</style>')
-      var noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
+      const noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
           <div class="hover_content">' + html + '</div>\
           </div>')
       frame.replaceWith(noframe)
@@ -1238,24 +1441,26 @@ function showHoverInfo (response, orgMetaUrl) {
 
   functions.parent()
 
-  var sub = $('<div></div>').appendTo(div)
+  const sub = $('<div></div>').appendTo(div)
   $('<time style="color:#b6b6b6; font-size: 11px;" datetime="' + time + '" title="' + time.toLocaleTimeString() + ' ' + time.toLocaleDateString() + '">' + minutesSince(time) + '</time>').appendTo(sub)
   $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
-  $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').appendTo(sub).click(function () {
+  $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+    const metaurl = $(this).data('url')
+    addToTemporaryBlacklist(metaurl)
     document.body.removeChild(this.parentNode.parentNode)
   })
 
   $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
-    var docurl = document.location.href
-    var metaurl = $(this).data('url')
+    const docurl = document.location.href
+    const metaurl = $(this).data('url')
     addToMap(docurl, metaurl).then(function (r) {
       balloonAlert('Thanks for your submission!\n\nSaved as a correct entry.\n\n' + r[0] + '\n' + r[1], 6000, 'Success')
     })
   })
   $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
     if (!confirm('This is NOT the correct entry!\n\nAdd to blacklist?')) return
-    var docurl = document.location.href
-    var metaurl = $(this).data('url')
+    const docurl = document.location.href
+    const metaurl = $(this).data('url')
     addToBlacklist(docurl, metaurl).then(function (r) {
       balloonAlert('Thanks for your submission!\n\nSaved to blacklist.\n\n' + r[0] + '\n' + r[1], 6000, 'Success')
     })
@@ -1362,7 +1567,7 @@ const sites = {
       condition: () => ~document.location.href.indexOf('/tv-season/'),
       type: 'tv',
       data: function () {
-        var name = parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
+        let name = parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
         if (~name.indexOf(', Season')) {
           name = name.split(', Season')[0]
         }
@@ -1373,9 +1578,9 @@ const sites = {
       condition: () => ~document.location.href.indexOf('/album/'),
       type: 'music',
       data: function () {
-        var ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
-        var album = ld[0]
-        var artist = ld[1].name
+        const ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
+        const album = ld[0]
+        const artist = ld[1].name
         return [artist, album]
       }
     }]
@@ -1387,9 +1592,9 @@ const sites = {
       condition: () => ~document.location.href.indexOf('/album/'),
       type: 'music',
       data: function () {
-        var ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
-        var album = ld[0]
-        var artist = ld[1].name
+        const ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
+        const album = ld[0]
+        const artist = ld[1].name
         return [artist, album]
       }
     }]
@@ -1416,7 +1621,7 @@ const sites = {
     products: [
       {
         condition: function () {
-          var e = document.querySelector("meta[property='og:type']")
+          const e = document.querySelector("meta[property='og:type']")
           if (e) {
             return e.content === 'video.movie'
           }
@@ -1448,7 +1653,7 @@ const sites = {
       },
       {
         condition: function () {
-          var e = document.querySelector("meta[property='og:type']")
+          const e = document.querySelector("meta[property='og:type']")
           if (e) {
             return e.content === 'video.tv_show'
           }
@@ -1459,7 +1664,7 @@ const sites = {
           if (document.querySelector('*[itemprop=name]')) {
             return document.querySelector('*[itemprop=name]').textContent
           } else {
-            var jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
+            const jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
             return jsonld.name
           }
         }
@@ -1537,8 +1742,8 @@ const sites = {
         condition: () => document.location.hostname === 'music.amazon.com' && document.location.pathname.startsWith('/albums/') && document.querySelector('.viewTitle'), // "Amazon Music Unlimited" page
         type: 'music',
         data: function () {
-          var artist = document.querySelector('.artistLink').textContent.trim()
-          var title = document.querySelector('.viewTitle').textContent.trim()
+          const artist = document.querySelector('.artistLink').textContent.trim()
+          let title = document.querySelector('.viewTitle').textContent.trim()
           title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
           if (artist && title) {
             return [artist, title]
@@ -1553,7 +1758,7 @@ const sites = {
               return true
             }
           } catch (e) {}
-          var music = ['Music', 'Musique', 'Musik', 'Música', 'Musica', '音楽']
+          const music = ['Music', 'Musique', 'Musik', 'Música', 'Musica', '音楽']
           return music.some(function (s) {
             if (~document.title.indexOf(s)) {
               return true
@@ -1564,9 +1769,21 @@ const sites = {
         },
         type: 'music',
         data: function () {
-          var artist = document.querySelector('#ProductInfoArtistLink').textContent.trim()
-          var title = document.querySelector('#dmusicProductTitle_feature_div').textContent.trim()
-          title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
+          let artist = false
+          let title = false
+          if (document.querySelector('#ProductInfoArtistLink')) {
+            artist = document.querySelector('#ProductInfoArtistLink').textContent.trim()
+          } else if(document.querySelector('#bylineInfo .author>*')) {
+            artist = document.querySelector('#bylineInfo .author>*').textContent.trim()
+          }
+
+          if(document.querySelector('#dmusicProductTitle_feature_div')) {
+            title = document.querySelector('#dmusicProductTitle_feature_div').textContent.trim()
+            title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
+          } else if(document.querySelector('#productTitle')) {
+            title = document.querySelector('#productTitle').textContent.trim()
+            title = title.replace(/\[([^\]]*)\]/g, '').trim() // Remove [brackets] and their content
+          }
           return [artist, title]
         }
       },
@@ -1608,7 +1825,7 @@ const sites = {
         if (!document.querySelector('.infobox .summary')) {
           return false
         }
-        var r = /\d\d\d\d films/
+        const r = /\d\d\d\d films/
         return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
       },
       type: 'movie',
@@ -1619,7 +1836,7 @@ const sites = {
         if (!document.querySelector('.infobox .summary')) {
           return false
         }
-        var r = /television series/
+        const r = /television series/
         return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
       },
       type: 'tv',
@@ -1719,7 +1936,8 @@ const sites = {
       condition: () => document.querySelector('.single-album-tombstone'),
       type: 'music',
       data: function () {
-        var artist, album
+        let artist
+        let album
         if (document.querySelector('.single-album-tombstone .artists')) {
           artist = document.querySelector('.single-album-tombstone .artists').innerText.trim()
         } else if (document.querySelector('.single-album-tombstone .artist-list')) {
@@ -1742,8 +1960,8 @@ const sites = {
       condition: () => document.querySelector('*[data-page-resource-type]').dataset.pageResourceName,
       type: 'music',
       data: function () {
-        var artist = document.querySelector('*[data-page-resource-type]').dataset.pageResourceArtistName
-        var album = document.querySelector('*[data-page-resource-type]').dataset.pageResourceName
+        const artist = document.querySelector('*[data-page-resource-type]').dataset.pageResourceArtistName
+        const album = document.querySelector('*[data-page-resource-type]').dataset.pageResourceName
         return [artist, album]
       }
     }]
@@ -1764,8 +1982,8 @@ const sites = {
       condition: () => document.querySelector("meta[property='og:type']").content === 'music.album',
       type: 'music',
       data: function () {
-        var artist = document.querySelector('.section_main_info .artist').innerText.trim()
-        var album = document.querySelector('.section_main_info .album_title').innerText.trim()
+        const artist = document.querySelector('.section_main_info .artist').innerText.trim()
+        const album = document.querySelector('.section_main_info .album_title').innerText.trim()
         return [artist, album]
       }
     }]
@@ -1777,8 +1995,8 @@ const sites = {
       condition: () => document.querySelector('#main .main-view-container .content.album'),
       type: 'music',
       data: function () {
-        var artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent
-        var album = document.querySelector('#main .media-bd h2').textContent
+        const artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent
+        const album = document.querySelector('#main .media-bd h2').textContent
         return [artist, album]
       }
     },
@@ -1786,8 +2004,8 @@ const sites = {
       condition: () => document.location.pathname.startsWith('/album/') && document.querySelector("meta[property='og:type']").content === 'music.album',
       type: 'music',
       data: function () {
-        var artist = ''
-        var album = document.querySelector("meta[property='og:title']").content
+        const artist = ''
+        const album = document.querySelector("meta[property='og:title']").content
         return [artist, album]
       }
     }]
@@ -1799,8 +2017,8 @@ const sites = {
       condition: () => document.location.pathname.startsWith('/album/'),
       type: 'music',
       data: function () {
-        var artist = document.querySelector('.context_landing p.secondary-title').textContent
-        var album = document.querySelector('.context_landing p.primary-title').textContent
+        const artist = document.querySelector('.context_landing p.secondary-title').textContent
+        const album = document.querySelector('.context_landing p.primary-title').textContent
         return [artist, album]
       }
     }]
@@ -1833,8 +2051,8 @@ const sites = {
       condition: () => document.location.pathname.startsWith('/album/'),
       type: 'music',
       data: function () {
-        var artist = document.querySelector('*[itemprop=byArtist] *[itemprop=name]').textContent
-        var album = document.querySelector('.albumTitle *[itemprop=name]').textContent
+        const artist = document.querySelector('*[itemprop=byArtist] *[itemprop=name]').textContent
+        const album = document.querySelector('.albumTitle *[itemprop=name]').textContent
         return [artist, album]
       }
     }]
@@ -1857,15 +2075,17 @@ const sites = {
       data: () => document.querySelector("meta[property='og:title']").content
     }]
   },
+  /*
   netflix: {
     host: ['netflix.com'],
     condition: !(document.querySelector('.button-nfplayerPlay') || document.querySelector('.nf-big-play-pause') || document.querySelector('.AkiraPlayer video')),
-    /*
-    https://www.netflix.com/de/title/70264888
-    https://www.netflix.com/de/title/70178217
-    https://www.netflix.com/de/title/70305892    ## Movie
-    https://www.netflix.com/de-en/title/80108495  ## No meta
-    */
+
+    //  TODO
+    //  https://www.netflix.com/de/title/70264888
+    //  https://www.netflix.com/de/title/70178217
+    //  https://www.netflix.com/de/title/70305892    ## Movie
+    //  https://www.netflix.com/de-en/title/80108495  ## No meta
+
     products: [{
       condition: () => parseLDJSON('@type') === 'Movie',
       type: 'movie',
@@ -1877,6 +2097,7 @@ const sites = {
       data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
     }]
   },
+  */
   ComedyCentral: {
     host: ['cc.com'],
     condition: () => document.location.pathname.startsWith('/shows/'),
@@ -1914,33 +2135,33 @@ const sites = {
 }
 
 async function main () {
-  var dataFound = false
+  let dataFound = false
 
-  var map = false
+  let map = false
 
-  for (var name in sites) {
-    var site = sites[name]
+  for (const name in sites) {
+    const site = sites[name]
     if (site.host.some(function (e) { return ~this.indexOf(e) }, document.location.hostname) && site.condition()) {
-      for (var i = 0; i < site.products.length; i++) {
+      for (let i = 0; i < site.products.length; i++) {
         if (site.products[i].condition()) {
           // Check map for a match
           if (map === false) {
             map = JSON.parse(await GM.getValue('map', '{}'))
           }
-          var docurl = filterUniversalUrl(document.location.href)
+          const docurl = filterUniversalUrl(document.location.href)
           if (docurl in map) {
             // Found in map, show result
-            var metaurl = map[docurl]
+            const metaurl = map[docurl]
             metacritic.mapped.apply(undefined, [docurl, absoluteMetaURL(metaurl), site.products[i].type])
             break
           }
           // Try to retrieve item name from page
-          var data
+          let data
           try {
             data = site.products[i].data()
           } catch (e) {
             data = false
-            console.log(e)
+            console.log('ShowMetacriticRatings: ' + e)
           }
           if (data) {
             const params = [docurl]
@@ -1964,17 +2185,17 @@ async function main () {
 (async function () {
   await versionUpdate()
   const firstRunResult = await main()
-  var lastLoc = document.location.href
-  var lastContent = document.body.innerText
-  var lastCounter = 0
+  let lastLoc = document.location.href
+  const lastContent = document.body.innerText
+  let lastCounter = 0
   async function newpage () {
-    console.log('newpage')
+    console.log('ShowMetacriticRatings: newpage')
     if (lastContent === document.body.innerText && lastCounter < 15) {
       window.setTimeout(newpage, 500)
       lastCounter++
     } else {
       lastCounter = 0
-      var re = await main()
+      const re = await main()
       if (!re) { // No page matched or no data found
         window.setTimeout(newpage, 1000)
       }
