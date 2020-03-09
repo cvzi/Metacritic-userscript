@@ -13,7 +13,7 @@
 // @require     http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @require     https://greasemonkey.github.io/gm4-polyfill/gm4-polyfill.js
 // @license     GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version     52
+// @version     53
 // @connect     metacritic.com
 // @connect     php-cuzi.herokuapp.com
 // @include     https://*.bandcamp.com/*
@@ -59,6 +59,7 @@
 // @include     https://rottentomatoes.com/tv/*/s*/
 // @include     http://www.boxofficemojo.com/movies/*
 // @include     https://www.boxofficemojo.com/movies/*
+// @include     https://www.boxofficemojo.com/release/*
 // @include     http://www.allmovie.com/movie/*
 // @include     https://www.allmovie.com/movie/*
 // @include     https://en.wikipedia.org/*
@@ -331,7 +332,7 @@ function filterUniversalUrl (url) {
   } else if (url.startsWith('thetvdb.com/')) {
     // Do nothing with thetvdb.com urls
     return url
-  } else if (url.startsWith('boxofficemojo.com/')) {
+  } else if (url.startsWith('boxofficemojo.com/') && url.indexOf('id=') !== -1) {
     // Keep the important id= on
     try {
       const parts = url.split('?')
@@ -1297,7 +1298,7 @@ function showHoverInfo (response, orgMetaUrl) {
 
   }
 
-  const css = `#hover_div .clr { clear: both} 
+  const css = `#hover_div .clr { clear: both}
   #hover_div .fl{float: left}
   #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;}
   #hover_div .hoverinfo .hover_left { float: left}
@@ -1551,9 +1552,7 @@ const Always = () => true
 const sites = {
   bandcamp: {
     host: ['bandcamp.com'],
-    condition: function () {
-      return unsafeWindow.TralbumData
-    },
+    condition: () => unsafeWindow && unsafeWindow.TralbumData && unsafeWindow.TralbumData.current,
     products: [{
       condition: Always,
       type: 'music',
@@ -1806,9 +1805,16 @@ const sites = {
   },
   BoxOfficeMojo: {
     host: ['boxofficemojo.com'],
-    condition: () => ~document.location.search.indexOf('id='),
-    products: [{
-      condition: () => document.querySelector('#body table:nth-child(2) tr:first-child b'),
+    condition: () => Always,
+    products: [
+    {
+      condition: () => document.location.pathname.startsWith('/release/'),
+      type: 'movie',
+      data: () => document.querySelector('meta[name=title]').content
+    },
+    {
+      // Old page design
+      condition: () => ~document.location.search.indexOf('id=') && document.querySelector('#body table:nth-child(2) tr:first-child b'),
       type: 'movie',
       data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.data
     }]
@@ -2194,7 +2200,6 @@ async function main () {
   const lastContent = document.body.innerText
   let lastCounter = 0
   async function newpage () {
-    console.log('ShowMetacriticRatings: newpage')
     if (lastContent === document.body.innerText && lastCounter < 15) {
       window.setTimeout(newpage, 500)
       lastCounter++
