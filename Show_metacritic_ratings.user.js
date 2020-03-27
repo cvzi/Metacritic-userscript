@@ -158,7 +158,6 @@ async function versionUpdate () {
 async function acceptGDPR () {
   return new Promise(function (resolutionFunc) {
     GM.getValue('gdpr', null).then(function (value) {
-      alert(value)
       if (value === true) {
         resolutionFunc(true)
       }
