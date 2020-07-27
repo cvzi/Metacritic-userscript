@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          55
+// @version          56
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -1298,11 +1298,13 @@ function showHoverInfo (response, orgMetaUrl) {
         } else {
           return
         }
-        f.contentWindow.postMessage({
-          mcimessage3: true,
-          mciframe123_clientHeight: f.clientHeight,
-          mciframe123_clientWidth: f.clientWidth
-        }, '*')
+        if (f.contentWindow != null) {
+          f.contentWindow.postMessage({
+            mcimessage3: true,
+            mciframe123_clientHeight: f.clientHeight,
+            mciframe123_clientWidth: f.clientWidth
+          }, '*')
+        }
       })
     },
     frame: function () {
