@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          56
+// @version          57
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -2248,6 +2248,7 @@ async function main () {
       window.setTimeout(newpage, 500)
       lastCounter++
     } else {
+      lastContent = document.body.innerText
       lastCounter = 0
       const re = await main()
       if (!re) { // No page matched or no data found
