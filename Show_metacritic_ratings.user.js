@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          58
+// @version          59
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -2204,6 +2204,7 @@ async function main () {
             // Found in map, show result
             const metaurl = map[docurl]
             metacritic.mapped.apply(undefined, [docurl, absoluteMetaURL(metaurl), site.products[i].type])
+            dataFound = true
             break
           }
           // Try to retrieve item name from page
