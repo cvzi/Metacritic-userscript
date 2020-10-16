@@ -2,8 +2,12 @@ Metacritic-userscript
 =====================
 A userscript or greasemonkey script that shows the metascore of movies and games from Metacritic.com on several other websites like amazon, google play and others.
 
-It is primarily designed for Firefox with [Greasemonkey](https://addons.mozilla.org/firefox/addon/greasemonkey/) and Chrome with [Tampermonkey](https://www.tampermonkey.net/). 
-General information about userscripts and how to use them can be found at [openuserjs.org/about/Userscript-Beginners-HOWTO](https://openuserjs.org/about/Userscript-Beginners-HOWTO).
+It's primarily designed for Firefox and Chrome with
+[Greasemonkey ![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/firefox/addon/greasemonkey/)
+,
+[Tampermonkey](https://www.tampermonkey.net/) [![Chrome logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/chrome16.png)](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) [![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
+or
+[FireMonkey ![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/).
 
 [**Click here for install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings.user.js)  
 Tested with Firefox/**Greasemonkey** and Chrome/**Tampermonkey**.
