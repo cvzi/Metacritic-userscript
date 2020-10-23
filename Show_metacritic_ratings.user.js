@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          59
+// @version          60
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -928,6 +928,9 @@ async function isInHoverCache (metaurl) {
 async function loadHoverInfo () {
   const cacheResponse = await isInHoverCache(current.metaurl)
   if (cacheResponse !== false) {
+    if (cacheResponse.responseText.indexOf('"jsonRedirect"') !== -1) {
+      return await handleJSONredirect(cacheResponse)
+    }
     return cacheResponse
   }
 
