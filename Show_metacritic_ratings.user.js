@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name             Show Metacritic.com ratings
-// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, movie.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com
+// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com
 // @namespace        cuzi
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
 // @updateURL        https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings.meta.js
@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          61
+// @version          62
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -65,7 +65,7 @@
 // @include          http://www.allmovie.com/movie/*
 // @include          https://www.allmovie.com/movie/*
 // @include          https://en.wikipedia.org/*
-// @include          http://www.movies.com/*/m*
+// @include          https://www.fandango.com/*
 // @include          https://www.themoviedb.org/movie/*
 // @include          https://www.themoviedb.org/tv/*
 // @include          http://letterboxd.com/film/*
@@ -77,11 +77,8 @@
 // @include          https://www.tvguide.com/tvshows/*
 // @include          http://followshows.com/show/*
 // @include          https://followshows.com/show/*
-// @include          http://thetvdb.com/*tab=series*
-// @include          https://thetvdb.com/*tab=series*
-// @include          http://www.thetvdb.com/*tab=series*
-// @include          https://www.thetvdb.com/*tab=series*
-// @include          https://www.thetvdb.com/series/*
+// @include          https://thetvdb.com/series/*
+// @include          https://thetvdb.com/movies/*
 // @include          http://consequenceofsound.net/*
 // @include          https://consequenceofsound.net/*
 // @include          http://pitchfork.com/*
@@ -367,9 +364,6 @@ function filterUniversalUrl (url) {
   if (url.startsWith('imdb.com/') && url.match(/(imdb\.com\/\w+\/\w+\/)/)) {
     // Remove movie subpage from imdb url
     return url.match(/(imdb\.com\/\w+\/\w+\/)/)[1]
-  } else if (url.startsWith('thetvdb.com/')) {
-    // Do nothing with thetvdb.com urls
-    return url
   } else if (url.startsWith('boxofficemojo.com/') && url.indexOf('id=') !== -1) {
     // Keep the important id= on
     try {
@@ -1909,13 +1903,13 @@ const sites = {
       data: () => document.querySelector('.infobox .summary').firstChild.data
     }]
   },
-  'movies.com': {
-    host: ['movies.com'],
+  fandango: {
+    host: ['fandango.com'],
     condition: () => document.querySelector("meta[property='og:title']"),
     products: [{
       condition: Always,
       type: 'movie',
-      data: () => document.querySelector("meta[property='og:title']").content
+      data: () => document.querySelector("meta[property='og:title']").content.match(/(.+?)\s+\(\d{4}\)/)[1].trim()
     }]
   },
   themoviedb: {
@@ -1978,8 +1972,13 @@ const sites = {
     host: ['thetvdb.com'],
     condition: Always,
     products: [{
-      condition: () => document.location.pathname.startsWith('/series/') || ~document.location.search.indexOf('tab=series'),
+      condition: () => document.location.pathname.startsWith('/series/'),
       type: 'tv',
+      data: () => document.getElementById('series_title').firstChild.data.trim()
+    },
+    {
+      condition: () => document.location.pathname.startsWith('/movies/'),
+      type: 'movie',
       data: () => document.getElementById('series_title').firstChild.data.trim()
     }]
   },
@@ -1990,8 +1989,30 @@ const sites = {
       condition: () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
       type: 'music',
       data: function () {
+        window.setInterval(function() {
+          if (document.getElementById('ot-sdk-btn-floating')) {
+            document.getElementById('ot-sdk-btn-floating').remove()
+          }
+        }, 5000)
         const m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
         return [m[1], m[2]]
+      }
+    },
+    {
+      condition: () => document.location.pathname.indexOf('/album-review') !== -1 && document.querySelector('a.tag[href*="/artist/"'),
+      type: 'music',
+      data: function () {
+        window.setInterval(function() {
+          if (document.getElementById('ot-sdk-btn-floating')) {
+            document.getElementById('ot-sdk-btn-floating').remove()
+          }
+        }, 5000)
+        const artistAndTitleWithDash = document.location.pathname.match(/album-review-([\w-]+)/)[1]
+        const artistWithDash = document.querySelector('a.tag[href*="/artist/"').pathname.match(/artist\/([\w-]+)/)[1]
+        const titleWithDash = artistAndTitleWithDash.replace(artistWithDash, '')
+        const title = titleWithDash.replace('-', ' ').trim()
+        const artist = artistWithDash.replace('-', ' ').trim()
+        return [artist, title]
       }
     }]
   },
@@ -2034,11 +2055,15 @@ const sites = {
   },
   TVNfo: {
     host: ['tvnfo.com'],
-    condition: () => document.querySelector('#tvsign'),
+    condition: () => document.querySelector('.ui.breadcrumb a[href*="/series"]'),
     products: [{
       condition: Always,
       type: 'tv',
-      data: () => document.querySelector('.heading h1').textContent.trim()
+      data: function() {
+        const years = document.querySelector('#title h1 .years').textContent.trim()
+        const title = document.querySelector('#title h1').textContent.replace(years, '').trim()
+        return title
+      }
     }]
   },
   rateyourmusic: {
@@ -2054,37 +2079,19 @@ const sites = {
       }
     }]
   },
-  spotify_webplayer: {
+  spotify: {
     host: ['open.spotify.com'],
     condition: Always,
     products: [{
-      condition: () => document.querySelector('#main .main-view-container .content.album'),
+      condition: () => document.location.pathname.startsWith('/album/') && document.querySelector('.Root__main-view h1'),
       type: 'music',
       data: function () {
-        const artist = document.querySelector("#main .media-bd div a[href*='artist']").textContent
-        const album = document.querySelector('#main .media-bd h2').textContent
-        return [artist, album]
-      }
-    },
-    {
-      condition: () => document.location.pathname.startsWith('/album/') && document.querySelector("meta[property='og:type']").content === 'music.album',
-      type: 'music',
-      data: function () {
-        const artist = ''
-        const album = document.querySelector("meta[property='og:title']").content
-        return [artist, album]
-      }
-    }]
-  },
-  spotify: {
-    host: ['play.spotify.com'],
-    condition: Always,
-    products: [{
-      condition: () => document.location.pathname.startsWith('/album/'),
-      type: 'music',
-      data: function () {
-        const artist = document.querySelector('.context_landing p.secondary-title').textContent
-        const album = document.querySelector('.context_landing p.primary-title').textContent
+        const album = document.querySelector('.Root__main-view h1').textContent.trim()
+        let artist = []
+        document.querySelector('.Root__main-view h1').parentNode.parentNode.parentNode.querySelectorAll('a[href*="/artist/"]').forEach(function(a) {
+          artist.push(a.textContent.trim())
+        })
+        artist = artist.join(' ')
         return [artist, album]
       }
     }]
@@ -2094,20 +2101,25 @@ const sites = {
     condition: () => document.location.pathname.startsWith('/reviews/'),
     products: [
       {
-        condition: () => document.location.pathname.startsWith('/reviews/movie/'),
+        condition: () => document.querySelector('.tdb-breadcrumbs a[href*="/reviews/film-reviews"]'),
         type: 'movie',
         data: function () {
           try {
-            return document.querySelector('.title-primary').textContent.match(/‘(.+?)’/)[1]
+            return document.querySelector('h1.tdb-title-text').textContent.match(/‘(.+?)’/)[1]
           } catch (e) {
             return document.querySelector('h1').textContent.match(/:\s*(.+)/)[1].trim()
           }
         }
       },
       {
-        condition: () => document.location.pathname.startsWith('/reviews/album/'),
+        condition: () => document.querySelector('.tdb-breadcrumbs a[href*="/reviews/album"]'),
         type: 'music',
-        data: () => document.querySelector('.title-primary').textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
+        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
+      },
+      {
+        condition: () => document.querySelector('.tdb-breadcrumbs a[href*="/reviews/tv-reviews"]'),
+        type: 'tv',
+        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/‘(.+?)’/)[1]
       }]
   },
   albumoftheyear: {
@@ -2125,11 +2137,11 @@ const sites = {
   },
   epguides: {
     host: ['epguides.com'],
-    condition: () => document.getElementById('TVHeader'),
+    condition: () => document.getElementById('eplist'),
     products: [{
-      condition: () => document.getElementById('TVHeader') && document.querySelector('body>div#header h1'),
+      condition: () => document.getElementById('eplist') && document.querySelector('.center.titleblock h2'),
       type: 'tv',
-      data: () => document.querySelector('body>div#header h1').textContent.trim()
+      data: () => document.querySelector('.center.titleblock h2').textContent.trim()
     }]
   },
   ShareTV: {
@@ -2168,9 +2180,14 @@ const sites = {
     host: ['cc.com'],
     condition: () => document.location.pathname.startsWith('/shows/'),
     products: [{
-      condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
+      condition : () => document.location.pathname.split("/").length === 3 && document.querySelector("meta[property='og:title']"),
+      type : 'tv',
+      data : () => document.querySelector("meta[property='og:title']").content
+    },
+    {
+      condition: () => document.location.pathname.split('/').length === 3 && document.title.match(/(.+?)\s+-\s+Series/),
       type: 'tv',
-      data: () => document.querySelector("meta[property='og:title']").content
+      data: () => document.title.match(/(.+?)\s+-\s+Series/)[1]
     }]
   },
   TVHoard: {
@@ -2192,9 +2209,9 @@ const sites = {
     condition: () => document.location.pathname.startsWith('/shows/'),
     products: [
       {
-        condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:type']") && document.querySelector("meta[property='og:type']").content === 'tv_show',
+        condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:type']") && document.querySelector("meta[property='og:type']").content.indexOf('tv_show') !== -1,
         type: 'tv',
-        data: () => document.querySelector("meta[property='og:title']").content
+        data: () => document.querySelector('.video-card-description h1').textContent.trim()
       }]
   }
 

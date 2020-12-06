@@ -32,7 +32,7 @@ Supported sites and products:
  * Serienjunkies
  * BoxOfficeMojo
  * allmovie.com
- * movie.com
+ * fandango.com
  * Wikipedia (en)
  * themoviedb.org
  * letterboxd
