@@ -13,9 +13,9 @@
 // @grant            GM.xmlHttpRequest
 // @grant            GM.setValue
 // @grant            GM.getValue
-// @require          http://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js
+// @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          60
+// @version          61
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -1669,14 +1669,20 @@ const sites = {
       {
         condition: function () {
           const e = document.querySelector("meta[property='og:type']")
-          if (e) {
-            return e.content === 'video.movie'
+          if (e && e.content === 'video.movie') {
+            return true
+          } else if(document.querySelector('div[data-testid="hero-title-block__title"]') && !document.querySelector('div[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
+            // New design 2020-12
+            return true
           }
           return false
         },
         type: 'movie',
         data: function () {
-          if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
+          if(document.querySelector('div[data-testid="hero-title-block__title"]')) {
+            // New design 2020-12
+            return document.querySelector('div[data-testid="hero-title-block__title"]').textContent
+          } else if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
             let name = document.querySelector("meta[property='og:title']").content.trim()
             if (name.indexOf('- IMDb') !== -1) {
               name = name.replace('- IMDb', '').trim()
@@ -1701,14 +1707,20 @@ const sites = {
       {
         condition: function () {
           const e = document.querySelector("meta[property='og:type']")
-          if (e) {
-            return e.content === 'video.tv_show'
+          if (e && e.content === 'video.tv_show') {
+            return true
+          } else if(document.querySelector('div[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
+            // New design 2020-12
+            return true
           }
           return false
         },
         type: 'tv',
         data: function () {
-          if (document.querySelector('*[itemprop=name]')) {
+          if (document.querySelector('div[data-testid="hero-title-block__title"]')) {
+            // New design 2020-12
+            return document.querySelector('div[data-testid="hero-title-block__title"]').textContent
+          } else if (document.querySelector('*[itemprop=name]')) {
             return document.querySelector('*[itemprop=name]').textContent
           } else {
             const jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
