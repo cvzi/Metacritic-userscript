@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          62
+// @version          63
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -104,6 +104,8 @@
 // @include          http://www.cc.com/*
 // @include          https://www.tvhoard.com/*
 // @include          https://www.amc.com/*
+// @include          http://rlsbb.ru/*/
+// @include          https://newalbumreleases.net/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -187,6 +189,12 @@ async function acceptGDPR () {
       space.style = 'height:2000px;'
       alert('ShowMetacriticRatings:\n\nWhen you use this script, data will be sent to our database and to metacritic.com. This data includes the url of the website that you are browsing, the metacritic page url, your IP adress, browser configuration and language preferences. We only store the url of the website and the metacritic url and no personal information. Log files are temporarily retained and contain your IP address. We have no control over which data is stored by metacritic.com and our hoster heroku.com, see their respective privacy policies for more information (see "Third Party Privacy Policies").\n\nPlease read and accept our privacy policy now or uninstall this userscript.')
     })
+  })
+}
+
+function delay (ms) {
+  return new Promise(function (resolve) {
+    window.setTimeout(() => resolve(), ms)
   })
 }
 
@@ -945,6 +953,26 @@ async function loadHoverInfo () {
   if (response.responseText.indexOf('"jsonRedirect"') !== -1) {
     response = await handleJSONredirect(response)
   }
+
+  if (response.status > 300) {
+    // Metacritic server error, try again after 2 seconds
+    console.log('ShowMetacriticRatings: Metacritic server error\nwait 2s for retry\nurl=' + current.metaurl + '\nstatus=' + response.status)
+    await delay(2000)
+    response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
+      console.log('ShowMetacriticRatings: Error 06\nurl=' + current.metaurl + '\nstatus=' + response.status)
+    })
+    if (response.status > 300) {
+      console.log('ShowMetacriticRatings: Metacritic server error. Error 07. Retry failed as well.\nurl=' + current.metaurl + '\nstatus=' + response.status)
+    } else {
+      const newobj = {}
+      for (const key in response) {
+        newobj[key] = response[key]
+      }
+      newobj.responseText = extractHoverFromFullPage(response)
+      response = newobj
+    }
+  }
+
   if (response.responseText.indexOf('<title>500 Page') !== -1) {
     // Hover info not available for this url, try again with GET
     response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
@@ -993,6 +1021,7 @@ async function loadMetacriticUrl (fromSearch) {
     waitForHotkeysMETA()
     return
   }
+
 
   const response = await loadHoverInfo().catch((response) => fromSearch ? null : startSearch())
 
@@ -2212,6 +2241,39 @@ const sites = {
         condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:type']") && document.querySelector("meta[property='og:type']").content.indexOf('tv_show') !== -1,
         type: 'tv',
         data: () => document.querySelector('.video-card-description h1').textContent.trim()
+      }]
+  },
+  RlsBB: {
+    host: ['rlsbb.ru'],
+    condition: () => document.querySelectorAll('.post').length == 1,
+    products: [
+      {
+        condition: () => document.querySelector('.post .postSubTitle a[href*="/category/movies/"]'),
+        type: 'movie',
+        data: () => document.querySelector('h1.postTitle').textContent.match(/(.+?)\s+\d{4}/)[1].trim()
+      },
+      {
+        condition: () => document.querySelector('.post .postSubTitle a[href*="/category/tv-shows/"]'),
+        type: 'tv',
+        data: () => document.querySelector('h1.postTitle').textContent.match(/(.+?)\s+S\d{2}/)[1].trim()
+      }]
+  },
+  newalbumreleases: {
+    host: ['newalbumreleases.net'],
+    condition: () => document.querySelectorAll('#content .single').length == 1,
+    products: [
+      {
+        condition: () => document.querySelector('#content .single .cover .entry'),
+        type: 'music',
+        data: function() {
+          let mArtist = document.querySelector('#content .single .cover .entry').textContent.match(/Artist.\s*(.+)\s+/i)
+          if (mArtist) {
+            let mAlbum = document.querySelector('#content .single .cover .entry').textContent.match(/Album.\s*(.+)\s+/i)
+            if (mAlbum) {
+              return [mArtist[1], mAlbum[1]]
+            }
+          }
+        }
       }]
   }
 
