@@ -15,7 +15,7 @@
 // @grant            GM.getValue
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
-// @version          63
+// @version          64
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -585,7 +585,7 @@ async function handleJSONredirect (response) {
   }
   if (blacklistedredirect) {
     // Redirect was blacklisted, show nothing
-    console.log('ShowMetacriticRatings: Redirect was blacklisted -> show nothing')
+    console.debug('ShowMetacriticRatings: Redirect was blacklisted -> show nothing')
     return null
   } else {
     // Load redirect
@@ -599,7 +599,7 @@ async function handleJSONredirect (response) {
         'X-Requested-With': 'XMLHttpRequest'
       }
     }).catch(function (response) {
-      console.log('ShowMetacriticRatings: Error 01')
+      console.error('ShowMetacriticRatings: Error 01')
     })
     return response
   }
@@ -773,7 +773,7 @@ function extractHoverFromFullPage (response) {
   </div>
   `
   } catch (e) {
-    console.log('ShowMetacriticRatings: Error parsing HTML: ' + e)
+    console.warn('ShowMetacriticRatings: Error parsing HTML: ' + e)
 
     // fallback to cutting out the relevant parts
 
@@ -798,7 +798,7 @@ function extractHoverFromFullPage (response) {
 
     if (html.length > 5000) {
       // Probably something went wrong, let's cut the response to prevent too long content
-      console.log('ShowMetacriticRatings: Cutting response to 5000 chars')
+      console.warn('ShowMetacriticRatings: Cutting response to 5000 chars')
       html = html.substr(0, 5000)
     }
   }
@@ -930,12 +930,12 @@ async function isInHoverCache (metaurl) {
 async function loadHoverInfo () {
   const cacheResponse = await isInHoverCache(current.metaurl)
   if (cacheResponse !== false) {
+    console.debug(`ShowMetacriticRatings: loadHoverInfo () ${current.metaurl} found in hover cache`)
     if (cacheResponse.responseText.indexOf('"jsonRedirect"') !== -1) {
       return await handleJSONredirect(cacheResponse)
     }
     return cacheResponse
   }
-
   const requestURL = baseURLdatabase
   const requestParams = 'm=' + encodeURIComponent(current.docurl) + '&a=' + encodeURIComponent(current.metaurl)
 
@@ -947,22 +947,22 @@ async function loadHoverInfo () {
       'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
     }
   }).catch(function (response) {
-    console.log('ShowMetacriticRatings: Error 02\nurl=' + requestURL + '\nparams=' + requestParams + '\nstatus=' + response.status)
+    console.warn('ShowMetacriticRatings: Error 02\nurl=' + requestURL + '\nparams=' + requestParams + '\nstatus=' + response.status)
   })
 
-  if (response.responseText.indexOf('"jsonRedirect"') !== -1) {
+  if (response.responseText && response.responseText.indexOf('"jsonRedirect"') !== -1) {
     response = await handleJSONredirect(response)
   }
 
-  if (response.status > 300) {
+  if (response.status >= 500) {
     // Metacritic server error, try again after 2 seconds
-    console.log('ShowMetacriticRatings: Metacritic server error\nwait 2s for retry\nurl=' + current.metaurl + '\nstatus=' + response.status)
+    console.warn('ShowMetacriticRatings: Metacritic server error\nwait 2s for retry\nurl=' + current.metaurl + '\nstatus=' + response.status)
     await delay(2000)
     response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
-      console.log('ShowMetacriticRatings: Error 06\nurl=' + current.metaurl + '\nstatus=' + response.status)
+      console.warn('ShowMetacriticRatings: Error 06\nurl=' + current.metaurl + '\nstatus=' + response.status)
     })
     if (response.status > 300) {
-      console.log('ShowMetacriticRatings: Metacritic server error. Error 07. Retry failed as well.\nurl=' + current.metaurl + '\nstatus=' + response.status)
+      console.warn('ShowMetacriticRatings: Metacritic server error. Error 07. Retry failed as well.\nurl=' + current.metaurl + '\nstatus=' + response.status)
     } else {
       const newobj = {}
       for (const key in response) {
@@ -973,10 +973,10 @@ async function loadHoverInfo () {
     }
   }
 
-  if (response.responseText.indexOf('<title>500 Page') !== -1) {
+  if (response.responseText && response.responseText.indexOf('<title>500 Page') !== -1) {
     // Hover info not available for this url, try again with GET
     response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
-      console.log('ShowMetacriticRatings: Error 03\nurl=' + current.metaurl + '\nstatus=' + response.status)
+      console.warn('ShowMetacriticRatings: Error 03\nurl=' + current.metaurl + '\nstatus=' + response.status)
     })
 
     const newobj = {}
@@ -1017,13 +1017,22 @@ async function loadMetacriticUrl (fromSearch) {
   }
 
   if (await isTemporaryBlacklisted(current.metaurl)) {
-    console.log('ShowMetacriticRatings: isTemporaryBlacklisted=true')
+    console.debug(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) ${current.metaurl} is temporary blacklisted`)
     waitForHotkeysMETA()
     return
   }
 
+  const response = await loadHoverInfo().catch(function(response) {
+    if (response instanceof Error || (response && response.stack && response.message)) {
+      console.error(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) current.metaurl = ${current.metaurl}. Error in loadHoverInfo():`, response)
+    }
 
-  const response = await loadHoverInfo().catch((response) => fromSearch ? null : startSearch())
+    if (fromSearch) {
+      startSearch()
+    } else {
+      throw response
+    }
+  })
 
   if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
     waitForHotkeysMETA()
@@ -1097,7 +1106,7 @@ async function startSearch () {
     data.autoComplete = newdata
     if (data.autoComplete.length === 0) {
       // No results
-      console.log('ShowMetacriticRatings: No results (after filtering by type) for searchTerm=' + current.searchTerm)
+      console.debug('ShowMetacriticRatings: No results (after filtering by type) for searchTerm=' + current.searchTerm)
     } else if (data.autoComplete.length === 1) {
       // One result, let's show it
       if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(data.autoComplete[0].url))) {
@@ -1108,7 +1117,7 @@ async function startSearch () {
     } else {
       // More than one result
       multiple = true
-      console.log('ShowMetacriticRatings: Multiple results for searchTerm=' + current.searchTerm)
+      console.debug('ShowMetacriticRatings: Multiple results for searchTerm=' + current.searchTerm)
       const exactMatches = []
       data.autoComplete.forEach(function (result, i) { // Try to find the correct result by matching the search term to exactly one movie title
         if (current.searchTerm === result.name) {
@@ -1117,7 +1126,7 @@ async function startSearch () {
       })
       if (exactMatches.length === 1) {
         // Only one exact match, let's show it
-        console.log('ShowMetacriticRatings: Only one exact match for searchTerm=' + current.searchTerm)
+        console.debug('ShowMetacriticRatings: Only one exact match for searchTerm=' + current.searchTerm)
         if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(exactMatches[0].url))) {
           current.metaurl = absoluteMetaURL(exactMatches[0].url)
           loadMetacriticUrl(true)
@@ -1126,7 +1135,7 @@ async function startSearch () {
       }
     }
   } else {
-    console.log('ShowMetacriticRatings: No results (at all) for searchTerm=' + current.searchTerm)
+    console.debug('ShowMetacriticRatings: No results (at all) for searchTerm=' + current.searchTerm)
   }
   // HERE: multiple results or no result. The user may type "meta" now
   if (multiple) {
@@ -1471,7 +1480,7 @@ function showHoverInfo (response, orgMetaUrl) {
           }\
         }\
         function fixCSP(img) {\
-          console.log("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");\
+          console.debug("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");\
           failedImages[img.src] = img;\
           parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
         }\
@@ -1502,7 +1511,7 @@ function showHoverInfo (response, orgMetaUrl) {
   window.setTimeout(function () {
     if (!frameStatus) { // Loading frame content failed.
       //  Directly inject the html without an iframe (this may break the site or the metacritic)
-      console.log('ShowMetacriticRatings: Loading iframe content failed. Injecting directly.')
+      console.debug('ShowMetacriticRatings: Loading iframe content failed. Injecting directly.')
       $('head').append('<style>' + css + '</style>')
       const noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
           <div class="hover_content">' + html + '</div>\
@@ -2307,7 +2316,7 @@ async function main () {
             data = site.products[i].data()
           } catch (e) {
             data = false
-            console.log('ShowMetacriticRatings: ' + e)
+            console.error('ShowMetacriticRatings: main() ' + e)
           }
           if (data) {
             const params = [docurl]
