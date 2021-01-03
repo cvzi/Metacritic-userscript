@@ -6,17 +6,15 @@
 // @updateURL        https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings.meta.js
 // @contributionURL  https://buymeacoff.ee/cuzi
 // @contributionURL  https://ko-fi.com/cuzicvzi
-// @grant            GM_xmlhttpRequest
-// @grant            GM_setValue
-// @grant            GM_getValue
 // @grant            unsafeWindow
 // @grant            GM.xmlHttpRequest
 // @grant            GM.setValue
 // @grant            GM.getValue
+// @grant            GM.registerMenuCommand
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          64
+// @version          65
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -157,7 +155,11 @@ async function versionUpdate () {
   }
 }
 
-async function acceptGDPR () {
+async function acceptGDPR (showDialog) {
+  if (showDialog === true) {
+    await GM.setValue('gdpr', null)
+    return acceptGDPR()
+  }
   return new Promise(function (resolutionFunc) {
     GM.getValue('gdpr', null).then(function (value) {
       if (value === true) {
@@ -2341,10 +2343,14 @@ async function main () {
 (async function () {
   const gdpr = await acceptGDPR()
   if (!gdpr) {
+    GM.registerMenuCommand('Show Metacritic.com ratings - Accept terms of service', () => acceptGDPR(true).then((yes) => yes && document.location.reload()))
     return
   }
   await versionUpdate()
   const firstRunResult = await main()
+
+  GM.registerMenuCommand('Show Metacritic.com ratings - Search now', () => openSearchBox())
+
   let lastLoc = document.location.href
   let lastContent = document.body.innerText
   let lastCounter = 0
