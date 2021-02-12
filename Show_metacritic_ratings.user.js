@@ -14,7 +14,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          65
+// @version          66
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -1032,8 +1032,6 @@ async function loadMetacriticUrl (fromSearch) {
 
     if (fromSearch) {
       startSearch()
-    } else {
-      throw response
     }
   })
 
