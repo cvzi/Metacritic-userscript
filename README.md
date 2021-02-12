@@ -3,17 +3,12 @@ Metacritic-userscript
 A userscript or greasemonkey script that shows the metascore of movies and games from Metacritic.com on several other websites like amazon, google play and others.
 
 It's primarily designed for Firefox and Chrome with
-[Greasemonkey ![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/firefox/addon/greasemonkey/)
-,
 [Tampermonkey](https://www.tampermonkey.net/) [![Chrome logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/chrome16.png)](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) [![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/en-US/firefox/addon/tampermonkey/)
 or
 [FireMonkey ![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/).
 
 [**Click here for install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings.user.js)  
-Tested with Firefox/**Greasemonkey** and Chrome/**Tampermonkey**.
-
-[**Click here for Safari install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings_(Safari).user.js) 
-Tested with Safari/Ninjakit and Safari/Tampermonkey
+Tested with Firefox/**Tampermonkey** and Chrome/**Tampermonkey**.
 
 I develop a similar script for the [Rotten Tomatoes](https://www.rottentomatoes.com/) score, see [cvzi/Rottentomatoes-userscript](https://github.com/cvzi/Rottentomatoes-userscript)  
 and for the [Letterboxd.com](https://letterboxd.com/) rating, see [cvzi/Letterboxd-userscript](https://github.com/cvzi/Letterboxd-userscript/)
