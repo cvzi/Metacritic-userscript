@@ -2,6 +2,7 @@
 // @name             Show Metacritic.com ratings
 // @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), TV.com, Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com
 // @namespace        cuzi
+// @icon             https://www.metacritic.com/images/icons/metacritic-icon.svg
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
 // @updateURL        https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings.meta.js
 // @contributionURL  https://buymeacoff.ee/cuzi
@@ -14,7 +15,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          66
+// @version          67
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -130,7 +131,7 @@ const TEMPORARY_BLACKLIST_TIMEOUT = 5 * 60
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 const CSS = '#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}'
 
-var myDOMParser = null
+let myDOMParser = null
 function domParser () {
   if (myDOMParser === null) {
     myDOMParser = new DOMParser()
@@ -160,13 +161,13 @@ async function acceptGDPR (showDialog) {
     await GM.setValue('gdpr', null)
     return acceptGDPR()
   }
-  return new Promise(function (resolutionFunc) {
+  return new Promise(function (resolve) {
     GM.getValue('gdpr', null).then(function (value) {
       if (value === true) {
-        return resolutionFunc(true)
+        return resolve(true)
       }
-      if(value === false) {
-        return resolutionFunc(false)
+      if (value === false) {
+        return resolve(false)
       }
       const html = '<h1>Privacy Policy for &quot;Show Metacritic.com ratings&quot;</h1><h2>General Data Protection Regulation (GDPR)</h2><p>We are a Data Controller of your information.</p> <p>&quot;Show Metacritic.com ratings&quot; legal basis for collecting and using the personal information described in this Privacy Policy depends on the Personal Information we collect and the specific context in which we collect the information:</p><ul> <li>&quot;Show Metacritic.com ratings&quot; needs to perform a contract with you</li> <li>You have given &quot;Show Metacritic.com ratings&quot; permission to do so</li> <li>Processing your personal information is in &quot;Show Metacritic.com ratings&quot; legitimate interests</li> <li>&quot;Show Metacritic.com ratings&quot; needs to comply with the law</li></ul> <p>&quot;Show Metacritic.com ratings&quot; will retain your personal information only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use your information to the extent necessary to comply with our legal obligations, resolve disputes, and enforce our policies.</p> <p>If you are a resident of the European Economic Area (EEA), you have certain data protection rights. If you wish to be informed what Personal Information we hold about you and if you want it to be removed from our systems, please contact us. Our Privacy Policy was generated with the help of <a href="https://www.gdprprivacypolicy.net/">GDPR Privacy Policy Generator</a> and the <a href="https://www.app-privacy-policy.com">App Privacy Policy Generator</a>.</p><p>In certain circumstances, you have the following data protection rights:</p><ul> <li>The right to access, update or to delete the information we have on you.</li> <li>The right of rectification.</li> <li>The right to object.</li> <li>The right of restriction.</li> <li>The right to data portability</li> <li>The right to withdraw consent</li></ul><h2>Log Files</h2><p>&quot;Show Metacritic.com ratings&quot; follows a standard procedure of using log files. These files log visitors when they visit websites. All hosting companies do this and a part of hosting services\' analytics. The information collected by log files include internet protocol (IP) addresses, browser type, Internet Service Provider (ISP), date and time stamp, referring/exit pages, and possibly the number of clicks. These are not linked to any information that is personally identifiable. The purpose of the information is for analyzing trends, administering the site, tracking users\' movement on the website, and gathering demographic information.</p><h2>Privacy Policies</h2><P>You may consult this list to find the Privacy Policy for each of the advertising partners of &quot;Show Metacritic.com ratings&quot;.</p><p>Third-party ad servers or ad networks uses technologies like cookies, JavaScript, or Web Beacons that are used in their respective advertisements and links that appear on &quot;Show Metacritic.com ratings&quot;, which are sent directly to users\' browser. They automatically receive your IP address when this occurs. These technologies are used to measure the effectiveness of their advertising campaigns and/or to personalize the advertising content that you see on websites that you visit.</p><p>Note that &quot;Show Metacritic.com ratings&quot; has no access to or control over these cookies that are used by third-party advertisers.</p><h2>Third Party Privacy Policies</h2><p>&quot;Show Metacritic.com ratings&quot;\'s Privacy Policy does not apply to other advertisers or websites. Thus, we are advising you to consult the respective Privacy Policies of these third-party ad servers for more detailed information. It may include their practices and instructions about how to opt-out of certain options.List of these Privacy Policies and their links: <ul> <li>Heroku: <a href="https://www.salesforce.com/company/privacy/">https://www.salesforce.com/company/privacy/</a></li> <li>www.metacritic.com: <a href="https://privacy.cbs/">https://privacy.cbs/</a></li></ul></p><p>You can choose to disable cookies through your individual browser options.</p><h2>Children\'s Information</h2><p>Another part of our priority is adding protection for children while using the internet. We encourage parents and guardians to observe, participate in, and/or monitor and guide their online activity.</p><p>&quot;Show Metacritic.com ratings&quot; does not knowingly collect any Personal Identifiable Information from children under the age of 13. If you think that your child provided this kind of information on our website, we strongly encourage you to contact us immediately and we will do our best efforts to promptly remove such information from our records.</p><h2>Online Privacy Policy Only</h2><p>Our Privacy Policy created at GDPRPrivacyPolicy.net) applies only to our online activities and is valid for users of our program with regards to the information that they shared and/or collect in &quot;Show Metacritic.com ratings&quot;. This policy is not applicable to any information collected offline or via channels other than this program. <a href="https://gdprprivacypolicy.net">Our GDPR Privacy Policy</a> was generated from the GDPR Privacy Policy Generator.</p><h2>Contact</h2><p>Contact us via github <a href="https://github.com/cvzi/Metacritic-userscript">https://github.com/cvzi/Metacritic-userscript</a> or email cuzi@openmail.cc</p><h2>Consent</h2><p>By using our program ("userscript"), you hereby consent to our Privacy Policy and agree to its terms.</p>'
       const div = document.body.appendChild(document.createElement('div'))
@@ -177,7 +178,7 @@ async function acceptGDPR (showDialog) {
       acceptButton.appendChild(document.createTextNode('Accept'))
       acceptButton.addEventListener('click', function () {
         div.remove()
-        resolutionFunc(true)
+        resolve(true)
         GM.setValue('gdpr', true)
       })
       const declineButton = div.appendChild(document.createElement('button'))
@@ -185,7 +186,7 @@ async function acceptGDPR (showDialog) {
       declineButton.addEventListener('click', function () {
         alert('You may uninstall the userscript now.')
         div.remove()
-        resolutionFunc(false)
+        resolve(false)
         GM.setValue('gdpr', false)
       })
       const space = div.appendChild(document.createElement('div'))
@@ -1025,7 +1026,7 @@ async function loadMetacriticUrl (fromSearch) {
     return
   }
 
-  const response = await loadHoverInfo().catch(function(response) {
+  const response = await loadHoverInfo().catch(function (response) {
     if (response instanceof Error || (response && response.stack && response.message)) {
       console.error(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) current.metaurl = ${current.metaurl}. Error in loadHoverInfo():`, response)
     }
@@ -1704,7 +1705,7 @@ const sites = {
           const e = document.querySelector("meta[property='og:type']")
           if (e && e.content === 'video.movie') {
             return true
-          } else if(document.querySelector('div[data-testid="hero-title-block__title"]') && !document.querySelector('div[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
+          } else if (document.querySelector('[data-testid="hero-title-block__title"]') && !document.querySelector('[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
             // New design 2020-12
             return true
           }
@@ -1712,9 +1713,9 @@ const sites = {
         },
         type: 'movie',
         data: function () {
-          if(document.querySelector('div[data-testid="hero-title-block__title"]')) {
+          if (document.querySelector('[data-testid="hero-title-block__title"]')) {
             // New design 2020-12
-            return document.querySelector('div[data-testid="hero-title-block__title"]').textContent
+            return document.querySelector('[data-testid="hero-title-block__title"]').textContent
           } else if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
             let name = document.querySelector("meta[property='og:title']").content.trim()
             if (name.indexOf('- IMDb') !== -1) {
@@ -1732,8 +1733,10 @@ const sites = {
             return document.querySelector('*[itemprop=name] a').firstChild.data.trim()
           } else if (document.querySelector('.title-extra[itemprop=name]')) { // Movie homepage: sub-/alternative-/original title
             return document.querySelector('.title-extra[itemprop=name]').firstChild.textContent.replace(/"/g, '').trim()
-          } else { // Movie homepage (old design)
+          } else if (document.querySelector('*[itemprop=name]')) { // Movie homepage (old design)
             return document.querySelector('*[itemprop=name]').firstChild.textContent.trim()
+          } else {
+            return document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1]
           }
         }
       },
@@ -1742,7 +1745,7 @@ const sites = {
           const e = document.querySelector("meta[property='og:type']")
           if (e && e.content === 'video.tv_show') {
             return true
-          } else if(document.querySelector('div[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
+          } else if (document.querySelector('[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
             // New design 2020-12
             return true
           }
@@ -1750,14 +1753,16 @@ const sites = {
         },
         type: 'tv',
         data: function () {
-          if (document.querySelector('div[data-testid="hero-title-block__title"]')) {
+          if (document.querySelector('[data-testid="hero-title-block__title"]')) {
             // New design 2020-12
-            return document.querySelector('div[data-testid="hero-title-block__title"]').textContent
+            return document.querySelector('[data-testid="hero-title-block__title"]').textContent
           } else if (document.querySelector('*[itemprop=name]')) {
             return document.querySelector('*[itemprop=name]').textContent
-          } else {
+          } else if (document.querySelector('script[type="application/ld+json"]')) {
             const jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
             return jsonld.name
+          } else {
+            return document.title.match(/(.+?)\s+\(TV/)[1]
           }
         }
       }
@@ -1895,17 +1900,17 @@ const sites = {
     host: ['boxofficemojo.com'],
     condition: () => Always,
     products: [
-    {
-      condition: () => document.location.pathname.startsWith('/release/'),
-      type: 'movie',
-      data: () => document.querySelector('meta[name=title]').content
-    },
-    {
+      {
+        condition: () => document.location.pathname.startsWith('/release/'),
+        type: 'movie',
+        data: () => document.querySelector('meta[name=title]').content
+      },
+      {
       // Old page design
-      condition: () => ~document.location.search.indexOf('id=') && document.querySelector('#body table:nth-child(2) tr:first-child b'),
-      type: 'movie',
-      data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.data
-    }]
+        condition: () => ~document.location.search.indexOf('id=') && document.querySelector('#body table:nth-child(2) tr:first-child b'),
+        type: 'movie',
+        data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.data
+      }]
   },
   AllMovie: {
     host: ['allmovie.com'],
@@ -2028,7 +2033,7 @@ const sites = {
       condition: () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
       type: 'music',
       data: function () {
-        window.setInterval(function() {
+        window.setInterval(function () {
           if (document.getElementById('ot-sdk-btn-floating')) {
             document.getElementById('ot-sdk-btn-floating').remove()
           }
@@ -2041,7 +2046,7 @@ const sites = {
       condition: () => document.location.pathname.indexOf('/album-review') !== -1 && document.querySelector('a.tag[href*="/artist/"'),
       type: 'music',
       data: function () {
-        window.setInterval(function() {
+        window.setInterval(function () {
           if (document.getElementById('ot-sdk-btn-floating')) {
             document.getElementById('ot-sdk-btn-floating').remove()
           }
@@ -2098,7 +2103,7 @@ const sites = {
     products: [{
       condition: Always,
       type: 'tv',
-      data: function() {
+      data: function () {
         const years = document.querySelector('#title h1 .years').textContent.trim()
         const title = document.querySelector('#title h1').textContent.replace(years, '').trim()
         return title
@@ -2127,7 +2132,7 @@ const sites = {
       data: function () {
         const album = document.querySelector('.Root__main-view h1').textContent.trim()
         let artist = []
-        document.querySelector('.Root__main-view h1').parentNode.parentNode.parentNode.querySelectorAll('a[href*="/artist/"]').forEach(function(a) {
+        document.querySelector('.Root__main-view h1').parentNode.parentNode.parentNode.querySelectorAll('a[href*="/artist/"]').forEach(function (a) {
           artist.push(a.textContent.trim())
         })
         artist = artist.join(' ')
@@ -2219,9 +2224,9 @@ const sites = {
     host: ['cc.com'],
     condition: () => document.location.pathname.startsWith('/shows/'),
     products: [{
-      condition : () => document.location.pathname.split("/").length === 3 && document.querySelector("meta[property='og:title']"),
-      type : 'tv',
-      data : () => document.querySelector("meta[property='og:title']").content
+      condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
+      type: 'tv',
+      data: () => document.querySelector("meta[property='og:title']").content
     },
     {
       condition: () => document.location.pathname.split('/').length === 3 && document.title.match(/(.+?)\s+-\s+Series/),
@@ -2255,7 +2260,7 @@ const sites = {
   },
   RlsBB: {
     host: ['rlsbb.ru'],
-    condition: () => document.querySelectorAll('.post').length == 1,
+    condition: () => document.querySelectorAll('.post').length === 1,
     products: [
       {
         condition: () => document.querySelector('.post .postSubTitle a[href*="/category/movies/"]'),
@@ -2270,15 +2275,15 @@ const sites = {
   },
   newalbumreleases: {
     host: ['newalbumreleases.net'],
-    condition: () => document.querySelectorAll('#content .single').length == 1,
+    condition: () => document.querySelectorAll('#content .single').length === 1,
     products: [
       {
         condition: () => document.querySelector('#content .single .cover .entry'),
         type: 'music',
-        data: function() {
-          let mArtist = document.querySelector('#content .single .cover .entry').textContent.match(/Artist.\s*(.+)\s+/i)
+        data: function () {
+          const mArtist = document.querySelector('#content .single .cover .entry').textContent.match(/Artist.\s*(.+)\s+/i)
           if (mArtist) {
-            let mAlbum = document.querySelector('#content .single .cover .entry').textContent.match(/Album.\s*(.+)\s+/i)
+            const mAlbum = document.querySelector('#content .single .cover .entry').textContent.match(/Album.\s*(.+)\s+/i)
             if (mAlbum) {
               return [mArtist[1], mAlbum[1]]
             }
@@ -2317,7 +2322,8 @@ async function main () {
             data = site.products[i].data()
           } catch (e) {
             data = false
-            console.error('ShowMetacriticRatings: main() ' + e)
+            console.error(`ShowMetacriticRatings: Error in data() of site='${name}', type='${site.products[i].type}'`)
+            console.error(e)
           }
           if (data) {
             const params = [docurl]
