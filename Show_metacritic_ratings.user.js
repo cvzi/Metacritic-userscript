@@ -15,7 +15,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          68
+// @version          69
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -104,8 +104,10 @@
 // @include          http://www.cc.com/*
 // @include          https://www.tvhoard.com/*
 // @include          https://www.amc.com/*
-// @include          http://rlsbb.ru/*/
+// @include          https://www.amcplus.com/*
+// @include          https://rlsbb.ru/*/
 // @include          https://newalbumreleases.net/*
+// @include          https://www.sho.com/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -276,7 +278,7 @@ function parseLDJSON (keys, condition) {
 function name2metacritic (s) {
   const mc = s.normalize('NFKD').replace(/\//g, '').replace(/[\u0300-\u036F]/g, '').replace(/&/g, 'and').replace(/\W+/g, ' ').toLowerCase().trim().replace(/\W+/g, '-')
   if (!mc) {
-    throw new Error("name2metacritic converted '"+s+"' to empty string")
+    throw new Error("name2metacritic converted '" + s + "' to empty string")
   }
   return mc
 }
@@ -2262,19 +2264,29 @@ const sites = {
         data: () => document.querySelector('.video-card-description h1').textContent.trim()
       }]
   },
+  AMCplus: {
+    host: ['amcplus.com'],
+    condition: () => Always,
+    products: [
+      {
+        condition: () => document.title.match(/Watch .+? |/),
+        type: 'tv',
+        data: () => document.title.match(/Watch (.+?) |/)[1].trim()
+      }]
+  },
   RlsBB: {
     host: ['rlsbb.ru'],
     condition: () => document.querySelectorAll('.post').length === 1,
     products: [
       {
-        condition: () => document.querySelector('.post .postSubTitle a[href*="/category/movies/"]'),
+        condition: () => document.querySelector('#post-wrapper .entry-meta a[href*="/category/movies/"]'),
         type: 'movie',
-        data: () => document.querySelector('h1.postTitle').textContent.match(/(.+?)\s+\d{4}/)[1].trim()
+        data: () => document.querySelector('h1.entry-title').textContent.match(/(.+?)\s+\d{4}/)[1].trim()
       },
       {
-        condition: () => document.querySelector('.post .postSubTitle a[href*="/category/tv-shows/"]'),
+        condition: () => document.querySelector('#post-wrapper .entry-meta a[href*="/category/tv-shows/"]'),
         type: 'tv',
-        data: () => document.querySelector('h1.postTitle').textContent.match(/(.+?)\s+S\d{2}/)[1].trim()
+        data: () => document.querySelector('h1.entry-title').textContent.match(/(.+?)\s+S\d{2}/)[1].trim()
       }]
   },
   newalbumreleases: {
@@ -2293,6 +2305,21 @@ const sites = {
             }
           }
         }
+      }]
+  },
+  showtime: {
+    host: ['sho.com'],
+    condition: Always,
+    products: [
+      {
+        condition: () => parseLDJSON('@type') === 'Movie',
+        type: 'movie',
+        data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
+      },
+      {
+        condition: () => parseLDJSON('@type') === 'TVSeries',
+        type: 'tv',
+        data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
       }]
   }
 
