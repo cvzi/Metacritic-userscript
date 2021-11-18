@@ -13,6 +13,8 @@ Tested with Firefox/**Tampermonkey** and Chrome/**Tampermonkey**.
 I develop a similar script for the [Rotten Tomatoes](https://www.rottentomatoes.com/) score, see [cvzi/Rottentomatoes-userscript](https://github.com/cvzi/Rottentomatoes-userscript)  
 and for the [Letterboxd.com](https://letterboxd.com/) rating, see [cvzi/Letterboxd-userscript](https://github.com/cvzi/Letterboxd-userscript/)
 
+### Contributors:
+[![Contributors](https://contrib.rocks/image?repo=cvzi/Metacritic-userscript)](https://github.com/cvzi/Metacritic-userscript/graphs/contributors)
 
 Supported sites and products:
  * Bandcamp
