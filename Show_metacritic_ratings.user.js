@@ -15,7 +15,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          69
+// @version          70
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -108,6 +108,7 @@
 // @include          https://rlsbb.ru/*/
 // @include          https://newalbumreleases.net/*
 // @include          https://www.sho.com/*
+// @include          https://www.epicgames.com/store/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -2321,7 +2322,16 @@ const sites = {
         type: 'tv',
         data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
       }]
-  }
+  },
+  epicgames: {
+    host: ['www.epicgames.com'],
+    condition: () => document.querySelector('div[data-component="PDPTitleHeader"]'),
+    products: [{
+      condition: Always,
+      type: 'pcgame',
+      data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
+    }]
+  },
 
 }
 
