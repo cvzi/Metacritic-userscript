@@ -108,6 +108,7 @@
 // @include          https://rlsbb.ru/*/
 // @include          https://newalbumreleases.net/*
 // @include          https://www.sho.com/*
+// @include          https://www.epicgames.com/store/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -2321,7 +2322,16 @@ const sites = {
         type: 'tv',
         data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
       }]
-  }
+  },
+	epicgames: {
+    host: ['www.epicgames.com'],
+    condition: () => document.querySelector('div[data-component="PDPTitleHeader"]'),
+    products: [{
+      condition: Always,
+      type: 'pcgame',
+      data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
+    }]
+  },
 
 }
 
