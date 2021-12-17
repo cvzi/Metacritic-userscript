@@ -332,18 +332,17 @@ function removeAnythingAfterDash (str) {
   return str.trim()
 }
 
-function broadenSearch (currentData, step, type) {
+function broadenSearch (data, step, type) {
   if (type === 'pcgame') {
-    console.log("step: "+ step)
     if (step > 0) {
-      currentData[0] = replaceBrackets(currentData[0])
+      data[0] = replaceBrackets(data[0])
     } else if (step > 1) {
-      currentData[0] = removeSymbols(currentData[0])
+      data[0] = removeSymbols(data[0])
     } else if (step > 2) {
-      currentData[0] = removeAnythingAfterDash(currentData[0])
+      data[0] = removeAnythingAfterDash(data[0])
     }
   }
-  return currentData
+  return data
 }
 
 function balloonAlert (message, timeout, title, css, click) {
@@ -1623,7 +1622,7 @@ function showHoverInfo (response, orgMetaUrl) {
   }
 }
 
-function metacritic_general_product_setup() {
+function metacritic_general_product_setup () {
   current.broadenCounter = 0
 }
 
