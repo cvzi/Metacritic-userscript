@@ -12,7 +12,7 @@
 // @grant            GM.setValue
 // @grant            GM.getValue
 // @grant            GM.registerMenuCommand
-// @require          http://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js
+// @require          http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
 // @version          70
@@ -315,6 +315,35 @@ function metacritic2searchType (type) {
     'WIIU Game': 'xxxxx',
     '3DS Game': 'xxxx'
   })[type]
+}
+
+function replaceBrackets (str) {
+  str = str.replace(/\([^\(]*\)/g, '')
+  str = str.replace(/\[[^\]]*\]/g, '')
+  return str.trim()
+}
+function removeSymbols (str) {
+  str = str.replace(/[^\s0-9A-Za-zÀ-ÖØ-öø-ÿ]*/gi, '').trim()
+  return str.trim()
+}
+const dashRegExp = new RegExp('[-\u2010\u2011\u2012\u2013\u2014\u2015\uFE58\uFE63\uFF0D]')
+function removeAnythingAfterDash (str) {
+  str = str.split(dashRegExp)[0]
+  return str.trim()
+}
+
+function broadenSearch (currentData, step, type) {
+  if (type === 'pcgame') {
+    console.log("step: "+ step)
+    if (step > 0) {
+      currentData[0] = replaceBrackets(currentData[0])
+    } else if (step > 1) {
+      currentData[0] = removeSymbols(currentData[0])
+    } else if (step > 2) {
+      currentData[0] = removeAnythingAfterDash(currentData[0])
+    }
+  }
+  return currentData
 }
 
 function balloonAlert (message, timeout, title, css, click) {
@@ -1004,7 +1033,10 @@ async function loadHoverInfo () {
   if (response.status === 200 && response.responseText) {
     return response
   } else {
-    throw new Error('ShowMetacriticRatings: loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
+    const error = new Error('ShowMetacriticRatings: loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
+    error.status = response.status
+    error.responseText = response.responseText
+    throw error
   }
 }
 
@@ -1013,7 +1045,9 @@ const current = {
   docurl: false,
   type: false,
   data: [], // Array of raw search keys
-  searchTerm: false
+  searchTerm: false,
+  product: null,
+  broadenCounter: 0
 }
 
 async function loadMetacriticUrl (fromSearch) {
@@ -1033,9 +1067,34 @@ async function loadMetacriticUrl (fromSearch) {
     return
   }
 
-  const response = await loadHoverInfo().catch(function (response) {
+  const response = await loadHoverInfo().catch(async function (response) {
     if (response instanceof Error || (response && response.stack && response.message)) {
-      console.error(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) current.metaurl = ${current.metaurl}. Error in loadHoverInfo():`, response)
+      if (!fromSearch && ('status' in response && response.status === 404)) {
+        // No results
+        let broadenFct = broadenSearch // global broadenSearch function is the default
+        if ('broaden' in current.product) {
+          // try product 'broaden'-function if it is defined
+          broadenFct = current.product.broaden
+        }
+        const newData = await broadenFct(current.data.slice(0), ++current.broadenCounter, current.type)
+        if (newData !== current.data) {
+          current.data = newData
+          metacritic[current.type](current.docurl, current.product, ...newData)
+        } else if (newData === current.data) {
+          // Same data as before, try once again to broaden
+          const newData2 = await broadenFct(current.data.slice(0), ++current.broadenCounter, current.type)
+          if (newData2 !== current.data) {
+            current.data = newData2
+            metacritic[current.type](current.docurl, current.product, ...newData2)
+          } else {
+            console.debug('ShowMetacriticRatings: loadMetacriticUrl(): ' + ('broaden' in current.product ? 'product specific' : 'global') + " 'broaden search' did not change after " + current.broadenCounter + ' steps')
+          }
+        } else {
+          console.debug("ShowMetacriticRatings: loadMetacriticUrl(): Unexpected result from 'broaden'-function: ", newData)
+        }
+      } else {
+        console.error(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) current.metaurl = ${current.metaurl}. Error in loadHoverInfo():\n`, response)
+      }
     }
 
     if (fromSearch) {
@@ -1564,67 +1623,78 @@ function showHoverInfo (response, orgMetaUrl) {
   }
 }
 
+function metacritic_general_product_setup() {
+  current.broadenCounter = 0
+}
+
 const metacritic = {
-  mapped: function metacriticMapped (docurl, metaurl, type) {
+  mapped: function metacriticMapped (docurl, product, metaurl, type) {
     // url was in the map/whitelist
     current.data = []
     current.docurl = docurl
+    current.product = product
     current.metaurl = metaurl
     current.type = type
     current.searchTerm = null
     loadMetacriticUrl()
   },
-  music: function metacriticMusic (docurl, artistname, albumname) {
+  music: function metacriticMusic (docurl, product, artistname, albumname) {
     current.data = [albumname.trim(), artistname.trim()]
     artistname = name2metacritic(artistname)
     albumname = albumname.replace('&', ' ')
     albumname = name2metacritic(albumname)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLmusic + albumname + '/' + artistname
     current.type = 'music'
     current.searchTerm = albumname + '/' + artistname
     loadMetacriticUrl()
   },
-  movie: function metacriticMovie (docurl, moviename) {
+  movie: function metacriticMovie (docurl, product, moviename) {
     current.data = [moviename.trim()]
     moviename = name2metacritic(moviename)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLmovie + moviename
     current.type = 'movie'
     current.searchTerm = moviename
     loadMetacriticUrl()
   },
-  tv: function metacriticTv (docurl, seriesname) {
+  tv: function metacriticTv (docurl, product, seriesname) {
     current.data = [seriesname.trim()]
     seriesname = name2metacritic(seriesname)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLtv + seriesname
     current.type = 'tv'
     current.searchTerm = seriesname
     loadMetacriticUrl()
   },
-  pcgame: function metacriticPcgame (docurl, gamename) {
+  pcgame: function metacriticPcgame (docurl, product, gamename) {
     current.data = [gamename.trim()]
     gamename = name2metacritic(gamename)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLpcgame + gamename
     current.type = 'pcgame'
     current.searchTerm = gamename
     loadMetacriticUrl()
   },
-  ps4game: function metacriticPs4game (docurl, gamename) {
+  ps4game: function metacriticPs4game (docurl, product, gamename) {
     current.data = [gamename.trim()]
     gamename = name2metacritic(gamename)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLps4 + gamename
     current.type = 'ps4game'
     current.searchTerm = gamename
     loadMetacriticUrl()
   },
-  xonegame: function metacriticXonegame (docurl, gamename) {
+  xonegame: function metacriticXonegame (docurl, product, gamename) {
     current.data = [gamename.trim()]
     gamename = name2metacritic(gamename)
     current.docurl = docurl
+    current.product = product
     current.metaurl = baseURLxone + gamename
     current.type = 'xonegame'
     current.searchTerm = gamename
@@ -2331,7 +2401,7 @@ const sites = {
       type: 'pcgame',
       data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
     }]
-  },
+  }
 
 }
 
@@ -2353,7 +2423,8 @@ async function main () {
           if (docurl in map) {
             // Found in map, show result
             const metaurl = map[docurl]
-            metacritic.mapped.apply(undefined, [docurl, absoluteMetaURL(metaurl), site.products[i].type])
+            metacritic_general_product_setup()
+            metacritic.mapped.apply(undefined, [docurl, site.products[i], absoluteMetaURL(metaurl), site.products[i].type])
             dataFound = true
             break
           }
@@ -2367,12 +2438,13 @@ async function main () {
             console.error(e)
           }
           if (data) {
-            const params = [docurl]
+            const params = [docurl, site.products[i]]
             if (Array.isArray(data)) {
               params.push(...data)
             } else {
               params.push(data)
             }
+            metacritic_general_product_setup()
             metacritic[site.products[i].type].apply(undefined, params)
             dataFound = true
           }
