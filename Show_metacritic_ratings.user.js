@@ -109,6 +109,7 @@
 // @include          https://newalbumreleases.net/*
 // @include          https://www.sho.com/*
 // @include          https://www.epicgames.com/store/*
+// @include          https://www.gog.com/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -2400,7 +2401,23 @@ const sites = {
       type: 'pcgame',
       data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
     }]
-  }
+  },
+  	gog: {
+		host: ['www.gog.com'],
+		condition: () => document.querySelector('.productcard-basics__title'),
+		products: [
+			{
+				condition: () => document.location.pathname.slice(1,5) == "game",
+				type: 'pcgame',
+				data: () => document.querySelector('.productcard-basics__title').textContent
+			},
+			{
+				condition: () => document.location.pathname.slice(1,6) == "movie",
+				type: 'pcgame',
+				data: () => document.querySelector('.productcard-basics__title').textContent
+			}
+		]
+	}
 
 }
 
