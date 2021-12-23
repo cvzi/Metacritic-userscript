@@ -2403,21 +2403,21 @@ const sites = {
     }]
   },
   	gog: {
-		host: ['www.gog.com'],
-		condition: () => document.querySelector('.productcard-basics__title'),
-		products: [
-			{
-				condition: () => document.location.pathname.slice(1,5) == "game",
-				type: 'pcgame',
-				data: () => document.querySelector('.productcard-basics__title').textContent
-			},
-			{
-				condition: () => document.location.pathname.slice(1,6) == "movie",
-				type: 'movie',
-				data: () => document.querySelector('.productcard-basics__title').textContent
-			}
-		]
-	}
+    host: ['www.gog.com'],
+    condition: () => document.querySelector('.productcard-basics__title'),
+    products: [
+      {
+        condition: () => document.location.pathname.slice(1, 5) == 'game',
+        type: 'pcgame',
+        data: () => document.querySelector('.productcard-basics__title').textContent
+      },
+      {
+        condition: () => document.location.pathname.slice(1, 6) == 'movie',
+        type: 'movie',
+        data: () => document.querySelector('.productcard-basics__title').textContent
+      }
+    ]
+  }
 
 }
 
