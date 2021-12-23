@@ -2413,7 +2413,7 @@ const sites = {
 			},
 			{
 				condition: () => document.location.pathname.slice(1,6) == "movie",
-				type: 'pcgame',
+				type: 'movie',
 				data: () => document.querySelector('.productcard-basics__title').textContent
 			}
 		]
