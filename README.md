@@ -7,7 +7,7 @@ It's primarily designed for Firefox and Chrome with
 or
 [FireMonkey ![Firefox logo](https://raw.githubusercontent.com/OpenUserJS/OpenUserJS.org/master/public/images/ua/firefox16.png)](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/).
 
-[**Click here for install**](https://openuserjs.org/install/cuzi/Show_Metacritic.com_ratings.user.js)  
+[**Click here for install**](https://greasyfork.org/scripts/13858-show-metacritic-com-ratings/code/Show%20Metacriticcom%20ratings.user.js)  
 Tested with Firefox/**Tampermonkey** and Chrome/**Tampermonkey**.
 
 I develop a similar script for the [Rotten Tomatoes](https://www.rottentomatoes.com/) score, see [cvzi/Rottentomatoes-userscript](https://github.com/cvzi/Rottentomatoes-userscript)  
