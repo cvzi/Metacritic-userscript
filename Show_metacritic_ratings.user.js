@@ -15,7 +15,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          71
+// @version          72
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -66,6 +66,7 @@
 // @include          https://www.allmovie.com/movie/*
 // @include          https://en.wikipedia.org/*
 // @include          https://www.fandango.com/*
+// @include          https://www.flixster.com/movie/*
 // @include          https://www.themoviedb.org/movie/*
 // @include          https://www.themoviedb.org/tv/*
 // @include          http://letterboxd.com/film/*
@@ -81,6 +82,7 @@
 // @include          https://thetvdb.com/movies/*
 // @include          http://consequenceofsound.net/*
 // @include          https://consequenceofsound.net/*
+// @include          https://consequence.net/*
 // @include          http://pitchfork.com/*
 // @include          https://pitchfork.com/*
 // @include          http://www.last.fm/*
@@ -99,9 +101,12 @@
 // @include          https://itunes.apple.com/*/tv-season/*
 // @include          http://epguides.com/*
 // @include          http://www.epguides.com/*
+// @include          https://epguides.com/*
+// @include          https://www.epguides.com/*
 // @include          https://sharetv.com/shows/*
 // @include          https://www.netflix.com/*
 // @include          http://www.cc.com/*
+// @include          https://www.cc.com/*
 // @include          https://www.tvhoard.com/*
 // @include          https://www.amc.com/*
 // @include          https://www.amcplus.com/*
@@ -1991,11 +1996,11 @@ const sites = {
   },
   AllMovie: {
     host: ['allmovie.com'],
-    condition: () => document.querySelector('h2[itemprop=name].movie-title'),
+    condition: () => document.querySelector('h2.movie-title'),
     products: [{
-      condition: () => document.querySelector('h2[itemprop=name].movie-title'),
+      condition: () => document.querySelector('h2.movie-title'),
       type: 'movie',
-      data: () => document.querySelector('h2[itemprop=name].movie-title').firstChild.data.trim()
+      data: () => document.querySelector('h2.movie-title').firstChild.data.trim()
     }]
   },
   'en.wikipedia': {
@@ -2031,6 +2036,15 @@ const sites = {
       condition: Always,
       type: 'movie',
       data: () => document.querySelector("meta[property='og:title']").content.match(/(.+?)\s+\(\d{4}\)/)[1].trim()
+    }]
+  },
+  flixster: {
+    host: ['www.flixster.com'],
+    condition: () => Always,
+    products: [{
+      condition: () => parseLDJSON('@type') === 'Movie',
+      type: 'movie',
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
     }]
   },
   themoviedb: {
@@ -2104,38 +2118,74 @@ const sites = {
     }]
   },
   ConsequenceOfSound: {
-    host: ['consequenceofsound.net'],
+    host: ['consequence.net', 'consequenceofsound.net'],
     condition: () => document.querySelector('#main-content .review-summary'),
-    products: [{
-      condition: () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
-      type: 'music',
-      data: function () {
-        window.setInterval(function () {
-          if (document.getElementById('ot-sdk-btn-floating')) {
-            document.getElementById('ot-sdk-btn-floating').remove()
+    products: [
+      {
+        condition: () => document.querySelector('meta[name="cXenseParse:cns-artist-names"]') && document.querySelector('em'),
+        type: 'music',
+        data: function () {
+          window.setInterval(function () {
+            if (document.getElementById('ot-sdk-btn-floating')) {
+              document.getElementById('ot-sdk-btn-floating').remove()
+            }
+          }, 5000)
+          const artist = document.querySelector('meta[name="cXenseParse:cns-artist-names"]').content
+          const arr = Array.from(document.querySelectorAll('em')).map((em) => em.textContent.trim())
+          const counts = {}
+          for (const num of arr) {
+            counts[num] = counts[num] ? counts[num] + 1 : 1
           }
-        }, 5000)
-        const m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
-        return [m[1], m[2]]
-      }
-    },
-    {
-      condition: () => document.location.pathname.indexOf('/album-review') !== -1 && document.querySelector('a.tag[href*="/artist/"'),
-      type: 'music',
-      data: function () {
-        window.setInterval(function () {
-          if (document.getElementById('ot-sdk-btn-floating')) {
-            document.getElementById('ot-sdk-btn-floating').remove()
-          }
-        }, 5000)
-        const artistAndTitleWithDash = document.location.pathname.match(/album-review-([\w-]+)/)[1]
-        const artistWithDash = document.querySelector('a.tag[href*="/artist/"').pathname.match(/artist\/([\w-]+)/)[1]
-        const titleWithDash = artistAndTitleWithDash.replace(artistWithDash, '')
-        const title = titleWithDash.replace('-', ' ').trim()
-        const artist = artistWithDash.replace('-', ' ').trim()
-        return [artist, title]
-      }
-    }]
+          const max = Math.max(...Object.values(counts))
+          const maxIndex = Object.values(counts).indexOf(max)
+          const title = Object.keys(counts)[maxIndex]
+          return [artist, title]
+        }
+      },
+      {
+        condition: () => document.title.match(/'(.*?)'\s*Album/i) && document.querySelector('meta[name="cXenseParse:cns-artist-names"]'),
+        type: 'music',
+        data: function () {
+          window.setInterval(function () {
+            if (document.getElementById('ot-sdk-btn-floating')) {
+              document.getElementById('ot-sdk-btn-floating').remove()
+            }
+          }, 5000)
+          const title = document.title.match(/'(.*?)'\s*Album/i)[1]
+          const artist = document.querySelector('meta[name="cXenseParse:cns-artist-names"]').content
+          return [artist, title]
+        }
+      },
+      {
+        condition: () => document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/),
+        type: 'music',
+        data: function () {
+          window.setInterval(function () {
+            if (document.getElementById('ot-sdk-btn-floating')) {
+              document.getElementById('ot-sdk-btn-floating').remove()
+            }
+          }, 5000)
+          const m = document.title.match(/(.+?)\s+\u2013\s+(.+?) \| Album Review/)
+          return [m[1], m[2]]
+        }
+      },
+      {
+        condition: () => document.location.pathname.indexOf('/album-review') !== -1 && document.querySelector('a.tag[href*="/artist/"'),
+        type: 'music',
+        data: function () {
+          window.setInterval(function () {
+            if (document.getElementById('ot-sdk-btn-floating')) {
+              document.getElementById('ot-sdk-btn-floating').remove()
+            }
+          }, 5000)
+          const artistAndTitleWithDash = document.location.pathname.match(/album-review-([\w-]+)/)[1]
+          const artistWithDash = document.querySelector('a.tag[href*="/artist/"').pathname.match(/artist\/([\w-]+)/)[1]
+          const titleWithDash = artistAndTitleWithDash.replace(artistWithDash, '')
+          const title = titleWithDash.replace('-', ' ').trim()
+          const artist = artistWithDash.replace('-', ' ').trim()
+          return [artist, title]
+        }
+      }]
   },
   Pitchfork: {
     host: ['pitchfork.com'],
@@ -2226,21 +2276,25 @@ const sites = {
         type: 'movie',
         data: function () {
           try {
-            return document.querySelector('h1.tdb-title-text').textContent.match(/‘(.+?)’/)[1]
+            return document.title.match(/[‘'](.+?)[’']/)[1]
           } catch (e) {
-            return document.querySelector('h1').textContent.match(/:\s*(.+)/)[1].trim()
+            try {
+              return document.querySelector('h1.tdb-title-text').textContent.match(/[‘'](.+?)[’']/)[1]
+            } catch (e) {
+              return document.querySelector('h1').textContent.match(/:\s*(.+)/)[1].trim()
+            }
           }
         }
       },
       {
-        condition: () => document.querySelector('.tdb-breadcrumbs a[href*="/reviews/album"]'),
+        condition: () => document.querySelector('#nme-music-header'),
         type: 'music',
-        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/\s*(.+?)\s*.\s*‘(.+?)’/).slice(1)
+        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/\s*(.+?)\s*.\s*[‘'](.+?)[’']/).slice(1)
       },
       {
         condition: () => document.querySelector('.tdb-breadcrumbs a[href*="/reviews/tv-reviews"]'),
         type: 'tv',
-        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/‘(.+?)’/)[1]
+        data: () => document.querySelector('h1.tdb-title-text').textContent.match(/[‘'](.+?)[’']/)[1]
       }]
   },
   albumoftheyear: {
@@ -2303,7 +2357,7 @@ const sites = {
     products: [{
       condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
       type: 'tv',
-      data: () => document.querySelector("meta[property='og:title']").content
+      data: () => document.querySelector("meta[property='og:title']").content.replace('| Comedy Central', '').trim()
     },
     {
       condition: () => document.location.pathname.split('/').length === 3 && document.title.match(/(.+?)\s+-\s+Series/),
@@ -2329,6 +2383,11 @@ const sites = {
     host: ['amc.com'],
     condition: () => document.location.pathname.startsWith('/shows/'),
     products: [
+      {
+        condition: () => document.querySelector('.feeds[itemtype="http://schema.org/TVSeries"] h1'),
+        type: 'tv',
+        data: () => document.querySelector('.feeds[itemtype="http://schema.org/TVSeries"] h1').textContent
+      },
       {
         condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:type']") && document.querySelector("meta[property='og:type']").content.indexOf('tv_show') !== -1,
         type: 'tv',
@@ -2402,17 +2461,17 @@ const sites = {
       data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
     }]
   },
-  	gog: {
+  gog: {
     host: ['www.gog.com'],
     condition: () => document.querySelector('.productcard-basics__title'),
     products: [
       {
-        condition: () => document.location.pathname.slice(1, 5) == 'game',
+        condition: () => document.location.pathname.slice(1, 5) === 'game',
         type: 'pcgame',
         data: () => document.querySelector('.productcard-basics__title').textContent
       },
       {
-        condition: () => document.location.pathname.slice(1, 6) == 'movie',
+        condition: () => document.location.pathname.slice(1, 6) === 'movie',
         type: 'movie',
         data: () => document.querySelector('.productcard-basics__title').textContent
       }
