@@ -15,7 +15,7 @@
 // @require          http://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; http://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          72
+// @version          73
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -1806,13 +1806,13 @@ const sites = {
             name = name.replace(/\(\d{4}\)/, '').trim()
             return name
           } else if (document.querySelector('.originalTitle') && document.querySelector('.title_wrapper h1')) { // Use English title 2018
-            return document.querySelector('.title_wrapper h1').firstChild.data.trim()
+            return document.querySelector('.title_wrapper h1').firstChild.textContent.trim()
           } else if (document.querySelector('script[type="application/ld+json"]')) { // Use original language title
             return parseLDJSON('name')
           } else if (document.querySelector('h1[itemprop=name]')) { // Movie homepage (New design 2015-12)
             return document.querySelector('h1[itemprop=name]').firstChild.textContent.trim()
-          } else if (document.querySelector('*[itemprop=name] a') && document.querySelector('*[itemprop=name] a').firstChild.data) { // Subpage of a move
-            return document.querySelector('*[itemprop=name] a').firstChild.data.trim()
+          } else if (document.querySelector('*[itemprop=name] a') && document.querySelector('*[itemprop=name] a').firstChild.textContent) { // Subpage of a move
+            return document.querySelector('*[itemprop=name] a').firstChild.textContent.trim()
           } else if (document.querySelector('.title-extra[itemprop=name]')) { // Movie homepage: sub-/alternative-/original title
             return document.querySelector('.title-extra[itemprop=name]').firstChild.textContent.replace(/"/g, '').trim()
           } else if (document.querySelector('*[itemprop=name]')) { // Movie homepage (old design)
@@ -1991,7 +1991,7 @@ const sites = {
       // Old page design
         condition: () => ~document.location.search.indexOf('id=') && document.querySelector('#body table:nth-child(2) tr:first-child b'),
         type: 'movie',
-        data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.data
+        data: () => document.querySelector('#body table:nth-child(2) tr:first-child b').firstChild.textContent
       }]
   },
   AllMovie: {
@@ -2000,7 +2000,7 @@ const sites = {
     products: [{
       condition: () => document.querySelector('h2.movie-title'),
       type: 'movie',
-      data: () => document.querySelector('h2.movie-title').firstChild.data.trim()
+      data: () => document.querySelector('h2.movie-title').firstChild.textContent.trim()
     }]
   },
   'en.wikipedia': {
@@ -2012,10 +2012,10 @@ const sites = {
           return false
         }
         const r = /\d\d\d\d films/
-        return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
+        return $('#catlinks a').filter((i, e) => e.firstChild.textContent.match(r)).length
       },
       type: 'movie',
-      data: () => document.querySelector('.infobox .summary').firstChild.data
+      data: () => document.querySelector('.infobox .summary').firstChild.textContent
     },
     {
       condition: function () {
@@ -2023,10 +2023,10 @@ const sites = {
           return false
         }
         const r = /television series/
-        return $('#catlinks a').filter((i, e) => e.firstChild.data.match(r)).length
+        return $('#catlinks a').filter((i, e) => e.firstChild.textContent.match(r)).length
       },
       type: 'tv',
-      data: () => document.querySelector('.infobox .summary').firstChild.data
+      data: () => document.querySelector('.infobox .summary').firstChild.textContent
     }]
   },
   fandango: {
@@ -2076,7 +2076,7 @@ const sites = {
     products: [{
       condition: Always,
       type: 'tv',
-      data: () => document.querySelector('h1').firstChild.data
+      data: () => document.querySelector('h1').firstChild.textContent
     }]
   },
   TVGuide: {
@@ -2109,12 +2109,12 @@ const sites = {
     products: [{
       condition: () => document.location.pathname.startsWith('/series/'),
       type: 'tv',
-      data: () => document.getElementById('series_title').firstChild.data.trim()
+      data: () => document.getElementById('series_title').firstChild.textContent.trim()
     },
     {
       condition: () => document.location.pathname.startsWith('/movies/'),
       type: 'movie',
-      data: () => document.getElementById('series_title').firstChild.data.trim()
+      data: () => document.getElementById('series_title').firstChild.textContent.trim()
     }]
   },
   ConsequenceOfSound: {
