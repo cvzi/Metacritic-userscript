@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          73
+// @version          74
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -176,7 +176,7 @@ async function acceptGDPR (showDialog) {
       const space = div.appendChild(document.createElement('div'))
       space.style = 'height:2000px;'
       div.scrollIntoView()
-      window.setTimeout(function() {
+      window.setTimeout(function () {
         alert('ShowMetacriticRatings:\n\nWhen you use this script, data will be sent to our database and to metacritic.com. This data includes the url of the website that you are browsing, the metacritic page url, your IP adress, browser configuration and language preferences. We only store the url of the website and the metacritic url and no personal information. Log files are temporarily retained and contain your IP address. We have no control over which data is stored by metacritic.com and our hoster heroku.com, see their respective privacy policies for more information (see "Third Party Privacy Policies").\n\nPlease read and accept our privacy policy now or uninstall this userscript.')
       }, 20)
     })
