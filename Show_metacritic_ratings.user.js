@@ -1832,15 +1832,6 @@ const sites = {
       data: () => document.querySelector('*[itemprop=name]').textContent
     }]
   },
-  'tv.com': {
-    host: ['www.tv.com'],
-    condition: () => document.querySelector("meta[property='og:type']"),
-    products: [{
-      condition: () => document.querySelector("meta[property='og:type']").content === 'tv_show' && document.querySelector('h1[data-name]'),
-      type: 'tv',
-      data: () => document.querySelector('h1[data-name]').dataset.name
-    }]
-  },
   rottentomatoes: {
     host: ['rottentomatoes.com'],
     condition: Always,
