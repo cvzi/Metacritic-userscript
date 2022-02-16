@@ -1967,7 +1967,12 @@ const sites = {
         }
       },
       {
-        condition: () => (document.querySelector('[data-automation-id=title]') && (document.getElementsByClassName('av-season-single').length || document.querySelector('[data-automation-id="num-of-seasons-badge"]'))),
+        condition: () => (document.querySelector('[data-automation-id=title]') && (
+          document.getElementsByClassName('av-season-single').length ||
+          document.querySelector('[data-automation-id="num-of-seasons-badge"]') ||
+          document.getElementById('tab-selector-episodes') ||
+          document.getElementById('av-droplist-av-atf-season-selector')
+        )),
         type: 'tv',
         data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
       },
