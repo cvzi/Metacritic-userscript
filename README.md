@@ -22,7 +22,6 @@ Supported sites and products:
  * Amazon (only Music, Movies and TV Shows)
  * IMDb
  * Google Play (only Music and Movies)
- * TV.com
  * Steam
  * Gamespot (only PS4, XONE and PC games)
  * Rotten Tomatoes
