@@ -24,6 +24,12 @@
 // @include          https://music.amazon.com/*
 // @include          http://www.amazon.com/*
 // @include          https://www.amazon.com/*
+// @include          https://smile.amazon.com/*
+// @include          https://www.amazon.co.uk/*
+// @include          https://smile.amazon.co.uk/*
+// @include          https://www.amazon.fr/*
+// @include          https://www.amazon.de/*
+// @include          https://smile.amazon.de/*
 // @include          http://www.amazon.co.uk/*
 // @include          https://www.amazon.co.uk/*
 // @include          http://www.amazon.fr/*
