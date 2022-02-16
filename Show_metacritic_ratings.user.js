@@ -1983,6 +1983,16 @@ const sites = {
         data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
       },
       {
+        condition: () => ((
+          document.getElementsByClassName('av-season-single').length ||
+          document.querySelector('[data-automation-id="num-of-seasons-badge"]') ||
+          document.getElementById('tab-selector-episodes') ||
+          document.getElementById('av-droplist-av-atf-season-selector')
+        ) && Array.from(document.querySelectorAll('script[type="text/template"]')).map(e => e.innerHTML.match(/parentTitle"\s*:\s*"(.+?)"/)).some((x) => x != null)),
+        type: 'tv',
+        data: () => Array.from(document.querySelectorAll('script[type="text/template"]')).map(e => e.innerHTML.match(/parentTitle"\s*:\s*"(.+?)"/)).filter((x) => x != null)[0][1]
+      },
+      {
         condition: () => document.querySelector('[data-automation-id=title]'),
         type: 'movie',
         data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
