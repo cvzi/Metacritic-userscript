@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          74
+// @version          75
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -88,6 +88,7 @@
 // @include          https://www.sho.com/*
 // @include          https://www.epicgames.com/store/*
 // @include          https://www.gog.com/*
+// @include          https://www.allmusic.com/album/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -1721,7 +1722,7 @@ const sites = {
       data: function () {
         const ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
         const album = ld[0]
-        const artist = ld[1].name
+        const artist = 'name' in ld[1] ? ld[1].name : ld[1].map(x => x.name).join(' ')
         return [artist, album]
       }
     }]
@@ -1730,12 +1731,12 @@ const sites = {
     host: ['music.apple.com'],
     condition: Always,
     products: [{
-      condition: () => ~document.location.href.indexOf('/album/'),
+      condition: () => ~document.location.href.indexOf('/album/') && parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum')).length > 1,
       type: 'music',
       data: function () {
         const ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
         const album = ld[0]
-        const artist = ld[1].name
+        const artist = 'name' in ld[1] ? ld[1].name : ld[1].map(x => x.name).join(' ')
         return [artist, album]
       }
     }]
@@ -2460,6 +2461,20 @@ const sites = {
         data: () => document.querySelector('.productcard-basics__title').textContent
       }
     ]
+  },
+  allmusic: {
+    host: ['allmusic.com'],
+    condition: Always,
+    products: [{
+      condition: () => document.location.pathname.indexOf('/album/') !== -1,
+      type: 'music',
+      data: function () {
+        const ld = parseLDJSON(['name', 'byArtist'], (j) => (j['@type'] === 'MusicAlbum'))
+        const album = ld[0]
+        const artist = 'name' in ld[1] ? ld[1].name : ld[1].map(x => x.name).join(' ')
+        return [artist, album]
+      }
+    }]
   }
 
 }
