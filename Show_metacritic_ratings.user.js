@@ -15,27 +15,27 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          75
+// @version          76
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
 // @include          https://play.google.com/store/music/album/*
 // @include          https://play.google.com/store/movies/details/*
 // @include          https://music.amazon.com/*
-// @include          https://www.amazon.com/*
-// @include          https://smile.amazon.com/*
+// @include          https://www.amazon.ca/*
+// @include          https://www.amazon.co.jp/*
 // @include          https://www.amazon.co.uk/*
 // @include          https://smile.amazon.co.uk/*
-// @include          https://www.amazon.fr/*
+// @include          https://www.amazon.com.au/*
+// @include          https://www.amazon.com.mx/*
+// @include          https://www.amazon.com/*
+// @include          https://smile.amazon.com/*
 // @include          https://www.amazon.de/*
 // @include          https://smile.amazon.de/*
 // @include          https://www.amazon.es/*
-// @include          https://www.amazon.ca/*
+// @include          https://www.amazon.fr/*
 // @include          https://www.amazon.in/*
 // @include          https://www.amazon.it/*
-// @include          https://www.amazon.co.jp/*
-// @include          https://www.amazon.com.mx/*
-// @include          https://www.amazon.com.au/*
 // @include          https://www.imdb.com/title/*
 // @include          https://store.steampowered.com/app/*
 // @include          https://www.gamespot.com/*
@@ -1959,7 +1959,7 @@ const sites = {
       {
         condition: () => document.querySelector('[data-automation-id=title]'),
         type: 'movie',
-        data: () => document.querySelector('[data-automation-id=title]').textContent.trim()
+        data: () => document.querySelector('[data-automation-id=title]').textContent.trim().replace(/\[.{1,8}\]/, '')
       }
     ]
   },
