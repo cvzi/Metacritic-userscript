@@ -23,6 +23,8 @@ Supported sites and products:
  * IMDb
  * Google Play (only Music and Movies)
  * Steam
+ * GOG
+ * Epic Games Store
  * Gamespot (only PS4, XONE and PC games)
  * Rotten Tomatoes
  * Serienjunkies
