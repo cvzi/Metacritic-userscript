@@ -89,6 +89,7 @@
 // @include          https://www.epicgames.com/store/*
 // @include          https://www.gog.com/*
 // @include          https://www.allmusic.com/album/*
+// @include          https://store.epicgames.com/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -2438,7 +2439,7 @@ const sites = {
       }]
   },
   epicgames: {
-    host: ['www.epicgames.com'],
+     host: ['www.epicgames.com', 'store.epicgames.com'],
     condition: () => document.querySelector('div[data-component="PDPTitleHeader"]'),
     products: [{
       condition: Always,
