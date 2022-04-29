@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster heroku.com and contain your IP address and browser configuration.
-// @version          77
+// @version          78
 // @connect          metacritic.com
 // @connect          php-cuzi.herokuapp.com
 // @include          https://*.bandcamp.com/*
@@ -1454,10 +1454,10 @@ function showHoverInfo (response, orgMetaUrl) {
   #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}
   .score_tbd { background: #eaeaea; color: #333; font-size: 14px;}
   #hover_div .score_tbd a { color: #333}
-  .negative, .score_terrible, .score_unfavorable, .carousel_set a.product_terrible:hover, .carousel_set a.product_unfavorable:hover { background-color: #f00}
-  .mixed, .neutral, .score_mixed, .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}
+  #hover_div .negative,#hover_div .score_terrible,#hover_div .score_unfavorable,#hover_div .carousel_set a.product_terrible:hover,#hover_div .carousel_set a.product_unfavorable:hover { background-color: #f00}
+  #hover_div.mixed, .neutral,#hover_div .score_mixed,#hover_div .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}
   #hover_div .score_mixed a { color: #333}
-  .positive, .score_favorable, .score_outstanding, .carousel_set a.product_favorable:hover, .carousel_set a.product_outstanding:hover { background-color: #6c3}
+  #hover_div .positive,#hover_div .score_favorable,#hover_div .score_outstanding,#hover_div .carousel_set a.product_favorable:hover,#hover_div .carousel_set a.product_outstanding:hover { background-color: #6c3}
   .critscore_terrible, .critscore_unfavorable { border-color: #f00}
   .critscore_mixed { border-color: #fc3}
   .critscore_favorable, .critscore_outstanding { border-color: #6c3}
