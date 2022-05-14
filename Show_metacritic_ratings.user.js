@@ -2464,15 +2464,15 @@ const sites = {
       }
     ]
   },
-  	steamgifts: {
-		host: ['www.steamgifts.com'],
-		condition: () => document.location.href.indexOf("/giveaway/") && document.querySelector('.featured__heading__medium'),
-		products: [{
-			condition: Always,
-			type: 'pcgame',
-			data: () => document.querySelector('.featured__heading__medium').innerText
-		}]
-	},
+steamgifts: {
+	host: ['www.steamgifts.com'],
+	condition: () => document.querySelector('.featured__heading__medium'),
+	products: [{
+		condition: Always,
+		type: 'pcgame',
+		data: () => document.querySelector('.featured__heading__medium').innerText
+	}]
+},
   allmusic: {
     host: ['allmusic.com'],
     condition: Always,
