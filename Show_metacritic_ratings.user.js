@@ -90,6 +90,7 @@
 // @include          https://www.gog.com/*
 // @include          https://www.allmusic.com/album/*
 // @include          https://store.epicgames.com/*
+// @include          https://www.steamgifts.com/giveaway/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
@@ -2463,6 +2464,15 @@ const sites = {
       }
     ]
   },
+  	steamgifts: {
+		host: ['www.steamgifts.com'],
+		condition: () => document.location.href.indexOf("/giveaway/") && document.querySelector('.featured__heading__medium'),
+		products: [{
+			condition: Always,
+			type: 'pcgame',
+			data: () => document.querySelector('.featured__heading__medium').innerText
+		}]
+	},
   allmusic: {
     host: ['allmusic.com'],
     condition: Always,
