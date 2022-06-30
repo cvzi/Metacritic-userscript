@@ -2439,15 +2439,15 @@ const sites = {
         data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
       }]
   },
-  epicgames: {
-    host: ['www.epicgames.com', 'store.epicgames.com'],
-    condition: () => document.querySelector('div[data-component="PDPTitleHeader"]'),
-    products: [{
-      condition: Always,
-      type: 'pcgame',
-      data: () => document.querySelector('div[data-component="PDPTitleHeader"]').firstElementChild.textContent
-    }]
-  },
+	epicgames: {
+		host: ['www.epicgames.com', 'store.epicgames.com'],
+		condition: () => document.querySelector('.meta-schema'),
+		products: [{
+			condition: Always,
+			type: 'pcgame',
+			data: () => document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
+		}]
+	},
   gog: {
     host: ['www.gog.com'],
     condition: () => document.querySelector('.productcard-basics__title'),
