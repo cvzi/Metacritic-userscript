@@ -17,7 +17,6 @@
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
 // @version          81
 // @connect          metacritic.com
-// @connect          php-cuzi.herokuapp.com
 // @connect          met.acritic.workers.dev
 // @include          https://*.bandcamp.com/*
 // @include          https://play.google.com/store/music/album/*
