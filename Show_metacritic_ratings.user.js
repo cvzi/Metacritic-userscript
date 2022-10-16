@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          81
+// @version          82
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @include          https://*.bandcamp.com/*
@@ -93,7 +93,7 @@
 // @include          https://www.steamgifts.com/giveaway/*
 // ==/UserScript==
 
-/* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob */
+/* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
 
 const baseURL = 'https://www.metacritic.com/'
 
@@ -305,7 +305,7 @@ function metacritic2searchType (type) {
 }
 
 function replaceBrackets (str) {
-  str = str.replace(/\([^\(]*\)/g, '')
+  str = str.replace(/\([^(]*\)/g, '')
   str = str.replace(/\[[^\]]*\]/g, '')
   return str.trim()
 }
@@ -313,7 +313,7 @@ function removeSymbols (str) {
   str = str.replace(/[^\s0-9A-Za-zÀ-ÖØ-öø-ÿ]*/gi, '').trim()
   return str.trim()
 }
-const dashRegExp = new RegExp('[-\u2010\u2011\u2012\u2013\u2014\u2015\uFE58\uFE63\uFF0D]')
+const dashRegExp = /[-\u2010\u2011\u2012\u2013\u2014\u2015\uFE58\uFE63\uFF0D]/
 function removeAnythingAfterDash (str) {
   str = str.split(dashRegExp)[0]
   return str.trim()
@@ -560,32 +560,32 @@ function waitForHotkeysMETA () {
 }
 
 function asyncRequest (data) {
-  return new Promise(async function (resolve, reject) {
-    const cachedValue = await isInRequestCache(data)
-    if (cachedValue) {
-      return resolve(cachedValue)
-    }
-    const defaultHeaders = {
-      Referer: data.url,
-      // Host: getHostname(data.url),
-      'User-Agent': navigator.userAgent
-    }
-    const defaultData = {
-      method: 'GET',
-      onload: function (response) {
-        storeInRequestCache(data, response)
-        resolve(response)
-      },
-      onerror: (response) => reject(response)
-    }
-    if ('headers' in data) {
-      data.headers = Object.assign(defaultHeaders, data.headers)
-    } else {
-      data.headers = defaultHeaders
-    }
-
-    data = Object.assign(defaultData, data)
-    GM.xmlHttpRequest(data)
+  return new Promise(function (resolve, reject) {
+    isInRequestCache(data).then(function (cachedValue) {
+      if (cachedValue) {
+        return window.setTimeout(() => resolve(cachedValue), 10)
+      }
+      const defaultHeaders = {
+        Referer: data.url,
+        // Host: getHostname(data.url),
+        'User-Agent': navigator.userAgent
+      }
+      const defaultData = {
+        method: 'GET',
+        onload: function (response) {
+          storeInRequestCache(data, response)
+          resolve(response)
+        },
+        onerror: (response) => reject(response)
+      }
+      if ('headers' in data) {
+        data.headers = Object.assign(defaultHeaders, data.headers)
+      } else {
+        data.headers = defaultHeaders
+      }
+      data = Object.assign(defaultData, data)
+      GM.xmlHttpRequest(data)
+    })
   })
 }
 
@@ -832,13 +832,11 @@ function extractHoverFromFullPage (response) {
 }
 
 async function storeInRequestCache (requestData, response) {
-  if ('onload' in requestData) {
-    delete requestData.onload
-  }
-  if ('onerror' in requestData) {
-    delete requestData.onerror
-  }
-  const newkey = JSON.stringify(requestData)
+  const newkey = JSON.stringify({
+    url: requestData.url,
+    method: requestData.method || 'GET',
+    data: requestData.data || null
+  })
   const cache = JSON.parse(await GM.getValue('requestcache', '{}'))
   const now = (new Date()).getTime()
   const timeout = 15 * 60 * 1000
@@ -865,13 +863,11 @@ async function storeInRequestCache (requestData, response) {
 }
 
 async function isInRequestCache (requestData) {
-  if ('onload' in requestData) {
-    delete requestData.onload
-  }
-  if ('onerror' in requestData) {
-    delete requestData.onerror
-  }
-  const key = JSON.stringify(requestData)
+  const key = JSON.stringify({
+    url: requestData.url,
+    method: requestData.method || 'GET',
+    data: requestData.data || null
+  })
 
   const cache = JSON.parse(await GM.getValue('requestcache', '{}'))
   const now = (new Date()).getTime()
@@ -1056,6 +1052,7 @@ async function loadMetacriticUrl (fromSearch) {
   const response = await loadHoverInfo().catch(async function (response) {
     if (response instanceof Error || (response && response.stack && response.message)) {
       if (!fromSearch && ('status' in response && response.status === 404)) {
+        console.debug('ShowMetacriticRatings: loadMetacriticUrl(): status=404')
         // No results
         let broadenFct = broadenSearch // global broadenSearch function is the default
         if ('broaden' in current.product) {
@@ -1063,13 +1060,13 @@ async function loadMetacriticUrl (fromSearch) {
           broadenFct = current.product.broaden
         }
         const newData = await broadenFct(current.data.slice(0), ++current.broadenCounter, current.type)
-        if (newData !== current.data) {
+        if (JSON.stringify(newData) !== JSON.stringify(current.data)) {
           current.data = newData
           metacritic[current.type](current.docurl, current.product, ...newData)
-        } else if (newData === current.data) {
+        } else if (JSON.stringify(newData) === JSON.stringify(current.data)) {
           // Same data as before, try once again to broaden
           const newData2 = await broadenFct(current.data.slice(0), ++current.broadenCounter, current.type)
-          if (newData2 !== current.data) {
+          if (JSON.stringify(newData2) !== JSON.stringify(current.data)) {
             current.data = newData2
             metacritic[current.type](current.docurl, current.product, ...newData2)
           } else {
@@ -1248,7 +1245,7 @@ async function searchBoxSearch (ev, query) {
   const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
 
   const response = await asyncRequest({
-    url: url,
+    url,
     data: 'search_term=' + encodeURIComponent(current.searchTerm) + '&image_size=98&search_each=1&sort_type=popular',
     headers: {
       Referer: url,
@@ -1353,7 +1350,7 @@ function showHoverInfo (response, orgMetaUrl) {
     // Load external image, bypass CSP
     GM.xmlHttpRequest({
       method: 'GET',
-      url: url,
+      url,
       responseType: 'arraybuffer',
       onload: function (response) {
         myframe.contentWindow.postMessage({
@@ -1509,48 +1506,46 @@ function showHoverInfo (response, orgMetaUrl) {
   .chart .count{font-size:10px}`
 
   let framesrc = 'data:text/html,'
-  framesrc += encodeURIComponent('<!DOCTYPE html>\
-    <html lang="en">\
-      <head>\
-        <meta charset="utf-8">\
-        <title>Metacritic info</title>\
-        <style>body { margin:0px; padding:0px; background:white; }' + css +
-        '\
-        </style>\
-        <script>\
-        const failedImages = {};\
-        function detectCSP(img) {\
-          if(img.complete && (!img.naturalWidth || !img.naturalHeight)) {\
-            return true;\
-          }\
-          return false;\
-        }\
-        function findCSPerrors() {\
-          const imgs = document.querySelectorAll("img");\
-          for(let i = 0; i < imgs.length; i++) {\
-            if(imgs[i].complete && detectCSP(imgs[i])) {\
-              fixCSP(imgs[i]);\
-            }\
-          }\
-        }\
-        function fixCSP(img) {\
-          console.debug("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");\
-          failedImages[img.src] = img;\
-          parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*"); \
-        }\
-        function on_load() {\
-          (' + functions.frame.toString() + ')();\
-          window.setTimeout(findCSPerrors, 500);\
-          \
-        }\
-        </script>\
-      </head>\
-      <body onload="on_load();">\
-        <div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
-          <div class="hover_content">' + html + '</div>\
-        </div>\
-      </body>\
-    </html>')
+  framesrc += encodeURIComponent(`<!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>Metacritic info</title>
+        <style>body { margin:0px; padding:0px; background:white; }${css}
+        </style>
+        <script>
+        const failedImages = {};
+        function detectCSP(img) {
+          if(img.complete && (!img.naturalWidth || !img.naturalHeight)) {
+            return true;
+          }
+          return false;
+        }
+        function findCSPerrors() {
+          const imgs = document.querySelectorAll("img");
+          for(let i = 0; i < imgs.length; i++) {
+            if(imgs[i].complete && detectCSP(imgs[i])) {
+              fixCSP(imgs[i]);
+            }
+          }
+        }
+        function fixCSP(img) {
+          console.debug("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");
+          failedImages[img.src] = img;
+          parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*");
+        }
+        function on_load() {
+          (${functions.frame.toString()})();
+          window.setTimeout(findCSPerrors, 500);
+        }
+        </script>
+      </head>
+      <body onload="on_load();">
+        <div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">
+          <div class="hover_content">${html}</div>
+        </div>
+      </body>
+    </html>`)
 
   const frame = $('<iframe></iframe>').appendTo(div)
   frame.attr('id', 'mciframe123')
@@ -1566,10 +1561,10 @@ function showHoverInfo (response, orgMetaUrl) {
     if (!frameStatus) { // Loading frame content failed.
       //  Directly inject the html without an iframe (this may break the site or the metacritic)
       console.debug('ShowMetacriticRatings: Loading iframe content failed. Injecting directly.')
-      $('head').append('<style>' + css + '</style>')
-      const noframe = $('<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">\
-          <div class="hover_content">' + html + '</div>\
-          </div>')
+      $('head').append(`<style>${css}</style>`)
+      const noframe = $(`<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">
+          <div class="hover_content">${html}</div>
+          </div>`)
       frame.replaceWith(noframe)
     }
   }, 2000)
@@ -1609,7 +1604,7 @@ function showHoverInfo (response, orgMetaUrl) {
   }
 }
 
-function metacritic_general_product_setup () {
+function metacriticGeneralProductSetup () {
   current.broadenCounter = 0
 }
 
@@ -2439,15 +2434,15 @@ const sites = {
         data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
       }]
   },
-	epicgames: {
-		host: ['www.epicgames.com', 'store.epicgames.com'],
-		condition: () => document.querySelector('.meta-schema'),
-		products: [{
-			condition: Always,
-			type: 'pcgame',
-			data: () => document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
-		}]
-	},
+  epicgames: {
+    host: ['www.epicgames.com', 'store.epicgames.com'],
+    condition: () => document.querySelector('.meta-schema'),
+    products: [{
+      condition: Always,
+      type: 'pcgame',
+      data: () => document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
+    }]
+  },
   gog: {
     host: ['www.gog.com'],
     condition: () => document.querySelector('.productcard-basics__title'),
@@ -2508,7 +2503,7 @@ async function main () {
           if (docurl in map) {
             // Found in map, show result
             const metaurl = map[docurl]
-            metacritic_general_product_setup()
+            metacriticGeneralProductSetup()
             metacritic.mapped.apply(undefined, [docurl, site.products[i], absoluteMetaURL(metaurl), site.products[i].type])
             dataFound = true
             break
@@ -2529,7 +2524,7 @@ async function main () {
             } else {
               params.push(data)
             }
-            metacritic_general_product_setup()
+            metacriticGeneralProductSetup()
             metacritic[site.products[i].type].apply(undefined, params)
             dataFound = true
           }
