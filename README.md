@@ -48,6 +48,7 @@ Supported sites and products:
  * itunes.apple.com
  * epguides.com
  * ShareTV
+ * save.tv
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
