@@ -80,7 +80,7 @@
 // @match            https://www.tvhoard.com/*
 // @match            https://www.amc.com/*
 // @match            https://www.amcplus.com/*
-// @match            https://rlsbb.ru/*/
+// @match            https://comment.rlsbb.ru/*/
 // @match            https://newalbumreleases.net/*
 // @match            https://www.sho.com/*
 // @match            https://www.epicgames.com/store/*
@@ -2446,7 +2446,7 @@ const sites = {
       }]
   },
   RlsBB: {
-    host: ['rlsbb.ru'],
+    host: ['comment.rlsbb.ru'],
     condition: () => document.querySelectorAll('.post').length === 1,
     products: [
       {
