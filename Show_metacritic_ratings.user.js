@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          85
+// @version          86
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @match            https://*.bandcamp.com/*
@@ -111,6 +111,25 @@ const baseURLwhitelist = 'https://met.acritic.workers.dev/whitelist.php'
 const baseURLblacklist = 'https://met.acritic.workers.dev/blacklist.php'
 
 const TEMPORARY_BLACKLIST_TIMEOUT = 5 * 60
+
+const windowPositions = [
+  {
+    bottom: 0,
+    left: 0
+  },
+  {
+    bottom: 0,
+    right: 0
+  },
+  {
+    top: 0,
+    right: 0
+  },
+  {
+    top: 0,
+    left: 0
+  }
+]
 
 // http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
 const CSS = '#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}'
@@ -1021,6 +1040,22 @@ async function loadHoverInfo () {
   }
 }
 
+function changePosition () {
+  // Cycle through positions
+  GM.getValue('position', JSON.stringify(windowPositions[0])).then(function (s) {
+    let index
+    for (index = 0; index < windowPositions.length; index++) {
+      if (JSON.stringify(windowPositions[index]) === s) {
+        break
+      }
+    }
+    const nextIndex = (index + 1) % windowPositions.length
+    GM.setValue('position', JSON.stringify(windowPositions[nextIndex])).then(function () {
+      document.location.reload()
+    })
+  })
+}
+
 const current = {
   metaurl: false,
   docurl: false,
@@ -1218,6 +1253,19 @@ function openSearchBox (search) {
     padding: ' 3px',
     zIndex: '2147483601'
   })
+
+  GM.getValue('position', false).then(function (s) {
+    if (s) {
+      div.css({
+        top: '',
+        left: '',
+        bottom: '',
+        right: ''
+      })
+      div.css(JSON.parse(s))
+    }
+  })
+
   $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function (e) {
     const code = e.keyCode || e.which
     if (code === 13) { // Enter key
@@ -1339,6 +1387,18 @@ function showHoverInfo (response, orgMetaUrl) {
     color: '#000',
     padding: ' 3px',
     zIndex: '2147483601'
+  })
+
+  GM.getValue('position', false).then(function (s) {
+    if (s) {
+      div.css({
+        top: '',
+        left: '',
+        bottom: '',
+        right: ''
+      })
+      div.css(JSON.parse(s))
+    }
   })
 
   // Functions for communication between page and iframe
@@ -2593,6 +2653,7 @@ async function main () {
   const firstRunResult = await main()
 
   GM.registerMenuCommand('Show Metacritic.com ratings - Search now', () => openSearchBox())
+  GM.registerMenuCommand('Show Metacritic.com ratings - Change corner', () => changePosition())
 
   let lastLoc = document.location.href
   let lastContent = document.body.innerText
