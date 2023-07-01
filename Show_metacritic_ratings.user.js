@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name             Show Metacritic.com ratings
-// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com, GOG, Epic Games Store, save.tv
+// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com, GOG, Epic Games Store, save.tv, argenteam.net
 // @namespace        cuzi
 // @icon             https://www.metacritic.com/MC_favicon.png
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          86
+// @version          87
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @match            https://*.bandcamp.com/*
@@ -90,6 +90,7 @@
 // @match            https://www.steamgifts.com/giveaway/*
 // @match            https://psa.pm/*
 // @match            https://www.save.tv/*
+// @match            https://argenteam.net/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
@@ -2585,6 +2586,28 @@ const sites = {
           }
           return [title, year]
         }
+      }
+    ]
+  },
+  aRGENTeaM: {
+    host: ['argenteam.net'],
+    condition: Always,
+    products: [
+      {
+        condition: () => document.location.pathname.startsWith('/movie/'),
+        type: 'movie',
+        data: function () {
+          const partes = document.title.split('•')
+          const SinArgenteam = partes[1].trim()
+          const SoloTitulo = SinArgenteam.split('(')[0].trim()
+          const Year = SinArgenteam.split('(')[1].split(')')[0]
+          return [SoloTitulo, Year]
+        }
+      },
+      {
+        condition: () => document.location.pathname.startsWith('/episode/'),
+        type: 'tv',
+        data: () => document.querySelector('.pserie h1').firstChild.textContent.trim()
       }
     ]
   }
