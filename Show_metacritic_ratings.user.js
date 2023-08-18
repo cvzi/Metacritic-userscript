@@ -1834,7 +1834,11 @@ const sites = {
           if (document.querySelector('[data-testid="hero-title-block__title"]')) {
             // New design 2020-12
             return document.querySelector('[data-testid="hero-title-block__title"]').textContent
-          } else if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // English/Worldwide title, this is the prefered title for search
+          }  else if (document.querySelector("[data-testid=\"hero__pageTitle\"]") && document.querySelector("[data-testid=\"hero__pageTitle\"]").nextElementSibling.textContent) { // English/Worldwide title, taking from page discription
+              let name = document.querySelector("[data-testid=\"hero__pageTitle\"]").nextElementSibling.textContent.trim().substring("Original title: ".length);
+              return name;
+          }
+          else if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // This title taken from meta is no longer worldwide, but localized. Probably worth deleting this if
             let name = document.querySelector("meta[property='og:title']").content.trim()
             if (name.indexOf('- IMDb') !== -1) {
               name = name.replace('- IMDb', '').trim()
