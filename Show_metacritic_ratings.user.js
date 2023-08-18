@@ -15,9 +15,10 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          88
+// @version          89
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
+// @connect          imdb.com
 // @match            https://*.bandcamp.com/*
 // @match            https://play.google.com/store/music/album/*
 // @match            https://play.google.com/store/movies/details/*
@@ -235,6 +236,28 @@ function absoluteMetaURL (url) {
 const parseLDJSONCache = {}
 function parseLDJSON (keys, condition) {
   if (document.querySelector('script[type="application/ld+json"]')) {
+    const xmlEntitiesElement = document.createElement('div')
+    const xmlEntitiesPattern = /&(?:#x[a-f0-9]+|#[0-9]+|[a-z0-9]+);?/ig
+    const xmlEntities = function (s) {
+      s = s.replace(xmlEntitiesPattern, (m) => {
+        xmlEntitiesElement.innerHTML = m
+        return xmlEntitiesElement.textContent
+      })
+      return s
+    }
+    const decodeXmlEntities = function (jsonObj) {
+      // Traverse through object, decoding all strings
+      if (jsonObj !== null && typeof jsonObj === 'object') {
+        Object.entries(jsonObj).forEach(([key, value]) => {
+          // key is either an array index or object key
+          jsonObj[key] = decodeXmlEntities(value)
+        })
+      } else if (typeof jsonObj === 'string') {
+        return xmlEntities(jsonObj)
+      }
+      return jsonObj
+    }
+
     const data = []
     const scripts = document.querySelectorAll('script[type="application/ld+json"]')
     for (let i = 0; i < scripts.length; i++) {
@@ -266,18 +289,18 @@ function parseLDJSON (keys, condition) {
             for (let j = 0; j < keys.length; j++) {
               r.push(data[i][keys[j]])
             }
-            return r
+            return decodeXmlEntities(r)
           } else if (keys) {
-            return data[i][keys]
+            return decodeXmlEntities(data[i][keys])
           } else if (typeof condition === 'function') {
-            return data[i] // Return whole object
+            return decodeXmlEntities(data[i]) // Return whole object
           }
         }
       } catch (e) {
         continue
       }
     }
-    return data
+    return decodeXmlEntities(data)
   }
   return null
 }
@@ -578,35 +601,6 @@ function waitForHotkeysMETA () {
   listenForHotkeys('meta', (ev) => openSearchBox())
 }
 
-function asyncRequest (data) {
-  return new Promise(function (resolve, reject) {
-    isInRequestCache(data).then(function (cachedValue) {
-      if (cachedValue) {
-        return window.setTimeout(() => resolve(cachedValue), 10)
-      }
-      const defaultHeaders = {
-        Referer: data.url,
-        // Host: getHostname(data.url),
-        'User-Agent': navigator.userAgent
-      }
-      const defaultData = {
-        method: 'GET',
-        onload: function (response) {
-          storeInRequestCache(data, response)
-          resolve(response)
-        },
-        onerror: (response) => reject(response)
-      }
-      if ('headers' in data) {
-        data.headers = Object.assign(defaultHeaders, data.headers)
-      } else {
-        data.headers = defaultHeaders
-      }
-      data = Object.assign(defaultData, data)
-      GM.xmlHttpRequest(data)
-    })
-  })
-}
 
 async function handleJSONredirect (response) {
   let blacklistedredirect = false
@@ -848,6 +842,36 @@ function extractHoverFromFullPage (response) {
     }
   }
   return html
+}
+
+function asyncRequest (data) {
+  return new Promise(function (resolve, reject) {
+    isInRequestCache(data).then(function (cachedValue) {
+      if (cachedValue) {
+        return window.setTimeout(() => resolve(cachedValue), 10)
+      }
+      const defaultHeaders = {
+        Referer: data.url,
+        // Host: getHostname(data.url),
+        'User-Agent': navigator.userAgent
+      }
+      const defaultData = {
+        method: 'GET',
+        onload: function (response) {
+          storeInRequestCache(data, response)
+          resolve(response)
+        },
+        onerror: (response) => reject(response)
+      }
+      if ('headers' in data) {
+        data.headers = Object.assign(defaultHeaders, data.headers)
+      } else {
+        data.headers = defaultHeaders
+      }
+      data = Object.assign(defaultData, data)
+      GM.xmlHttpRequest(data)
+    })
+  })
 }
 
 async function storeInRequestCache (requestData, response) {
@@ -1819,45 +1843,61 @@ const sites = {
     condition: () => !~document.location.pathname.indexOf('/mediaviewer') && !~document.location.pathname.indexOf('/mediaindex') && !~document.location.pathname.indexOf('/videoplayer'),
     products: [
       {
+        condition: () => document.querySelector('a[href*="/criticreviews/"'),
+        type: 'mapped',
+        data: async function () {
+          // This is used if there is a metacritic link on the imdb page
+          const criticsUrl = document.querySelector('a[href*="/criticreviews/"').href.toString()
+          const response = await asyncRequest({ url: criticsUrl }).catch(function (response) {
+            console.warn('ShowMetacriticRatings: Error imdb01\nurl=' + criticsUrl + '\nstatus=' + response.status)
+          })
+          const m = response.responseText.match(/(https:\/\/www\.metacritic\.com\/\w+\/[^?&"']+)/)
+          console.debug('ShowMetacriticRatings: Metacritic link found on imdb:', m[1])
+          return m[1]
+        }
+      },
+      {
         condition: function () {
           const e = document.querySelector("meta[property='og:type']")
           if (e && e.content === 'video.movie') {
             return true
-          } else if (document.querySelector('[data-testid="hero-title-block__title"]') && !document.querySelector('[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
-            // New design 2020-12
+          } else if (document.querySelector('[data-testid="hero__pageTitle"]') && !document.querySelector('[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
             return true
           }
           return false
         },
         type: 'movie',
-        data: function () {
-          if (document.querySelector('[data-testid="hero-title-block__title"]')) {
-            // New design 2020-12
-            return document.querySelector('[data-testid="hero-title-block__title"]').textContent
-          }  else if (document.querySelector("[data-testid=\"hero__pageTitle\"]") && document.querySelector("[data-testid=\"hero__pageTitle\"]").nextElementSibling.textContent) { // English/Worldwide title, taking from page discription
-              let name = document.querySelector("[data-testid=\"hero__pageTitle\"]").nextElementSibling.textContent.trim().substring("Original title: ".length);
-              return name;
-          }
-          else if (document.querySelector("meta[property='og:title']") && document.querySelector("meta[property='og:title']").content) { // This title taken from meta is no longer worldwide, but localized. Probably worth deleting this if
-            let name = document.querySelector("meta[property='og:title']").content.trim()
-            if (name.indexOf('- IMDb') !== -1) {
-              name = name.replace('- IMDb', '').trim()
+        data: async function () {
+          // If the page is not in English or the browser is not in English, request page in English.
+          // Then the title in <h1> will be the English title and Metacritic always uses the English title.
+          if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+            // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
+            const langM = document.cookie.match(/lc-main=([^;]+)/)
+            const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
+            document.cookie = 'lc-main=en-US'
+            const response = await asyncRequest({
+              url: document.location.href,
+              headers: {
+                'Accept-Language': 'en-US,en'
+              }
+            }).catch(function (response) {
+              console.warn('ShowMetacriticRatings: Error imdb02\nurl=' + document.location.href + '\nstatus=' + response.status)
+            })
+            document.cookie = 'lc-main=' + langBefore
+            // Extract <h1> title
+            const parts = response.responseText.split('</span></h1>')[0].split('>')
+            console.debug('ShowMetacriticRatings: Movie title from English page:', parts[parts.length - 1])
+            return parts[parts.length - 1]
+          } else if (document.querySelector('script[type="application/ld+json"]')) {
+            const ld = parseLDJSON(['name', 'alternateName'])
+            if (ld.length > 1 && ld[1]) {
+              console.debug('ShowMetacriticRatings: Movie ld+json alternateName', ld[1])
+              return ld[1]
             }
-            name = name.replace(/\(\d{4}\)/, '').trim()
-            return name
-          } else if (document.querySelector('.originalTitle') && document.querySelector('.title_wrapper h1')) { // Use English title 2018
-            return document.querySelector('.title_wrapper h1').firstChild.textContent.trim()
-          } else if (document.querySelector('script[type="application/ld+json"]')) { // Use original language title
-            return parseLDJSON('name')
-          } else if (document.querySelector('h1[itemprop=name]')) { // Movie homepage (New design 2015-12)
-            return document.querySelector('h1[itemprop=name]').firstChild.textContent.trim()
-          } else if (document.querySelector('*[itemprop=name] a') && document.querySelector('*[itemprop=name] a').firstChild.textContent) { // Subpage of a move
-            return document.querySelector('*[itemprop=name] a').firstChild.textContent.trim()
-          } else if (document.querySelector('.title-extra[itemprop=name]')) { // Movie homepage: sub-/alternative-/original title
-            return document.querySelector('.title-extra[itemprop=name]').firstChild.textContent.replace(/"/g, '').trim()
-          } else if (document.querySelector('*[itemprop=name]')) { // Movie homepage (old design)
-            return document.querySelector('*[itemprop=name]').firstChild.textContent.trim()
+            console.debug('ShowMetacriticRatings: Movie ld+json name', ld[0])
+            return ld[0]
           } else {
+            console.debug('ShowMetacriticRatings: Movie <title>', document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1])
             return document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1]
           }
         }
@@ -1868,22 +1908,40 @@ const sites = {
           if (e && e.content === 'video.tv_show') {
             return true
           } else if (document.querySelector('[data-testid="hero-subnav-bar-left-block"] a[href*="episodes/"]')) {
-            // New design 2020-12
             return true
           }
           return false
         },
         type: 'tv',
-        data: function () {
-          if (document.querySelector('[data-testid="hero-title-block__title"]')) {
-            // New design 2020-12
-            return document.querySelector('[data-testid="hero-title-block__title"]').textContent
-          } else if (document.querySelector('*[itemprop=name]')) {
-            return document.querySelector('*[itemprop=name]').textContent
+        data: async function () {
+          if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+            // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
+            const langM = document.cookie.match(/lc-main=([^;]+)/)
+            const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
+            document.cookie = 'lc-main=en-US'
+            const response = await asyncRequest({
+              url: document.location.href,
+              headers: {
+                'Accept-Language': 'en-US,en'
+              }
+            }).catch(function (response) {
+              console.warn('ShowMetacriticRatings: Error imdb03\nurl=' + document.location.href + '\nstatus=' + response.status)
+            })
+            document.cookie = 'lc-main=' + langBefore
+            // Extract <h1> title
+            const parts = response.responseText.split('</span></h1>')[0].split('>')
+            console.debug('ShowMetacriticRatings: TV title from English page:', parts[parts.length - 1])
+            return parts[parts.length - 1]
           } else if (document.querySelector('script[type="application/ld+json"]')) {
-            const jsonld = JSON.parse(document.querySelector('script[type="application/ld+json"]').innerText)
-            return jsonld.name
+            const ld = parseLDJSON(['name', 'alternateName'])
+            if (ld.length > 1 && ld[1]) {
+              console.debug('ShowMetacriticRatings: TV ld+json alternateName', ld[1])
+              return ld[1]
+            }
+            console.debug('ShowMetacriticRatings: TV ld+json name', ld[0])
+            return ld[0]
           } else {
+            console.debug('ShowMetacriticRatings: TV <title>', document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1])
             return document.title.match(/(.+?)\s+\(TV/)[1]
           }
         }
@@ -2644,7 +2702,7 @@ async function main () {
           // Try to retrieve item name from page
           let data
           try {
-            data = site.products[i].data()
+            data = await site.products[i].data()
           } catch (e) {
             data = false
             console.error(`ShowMetacriticRatings: Error in data() of site='${name}', type='${site.products[i].type}'`)
