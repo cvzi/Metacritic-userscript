@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          89
+// @version          90
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -1693,14 +1693,14 @@ function metacriticGeneralProductSetup () {
 }
 
 const metacritic = {
-  mapped: function metacriticMapped (docurl, product, metaurl, type) {
+  mapped: function metacriticMapped (docurl, product, metaurl, type, searchTerm) {
     // url was in the map/whitelist
-    current.data = []
+    current.data = searchTerm ? [searchTerm] : []
     current.docurl = docurl
     current.product = product
     current.metaurl = metaurl
     current.type = type
-    current.searchTerm = null
+    current.searchTerm = searchTerm || null
     loadMetacriticUrl()
   },
   music: function metacriticMusic (docurl, product, artistname, albumname) {
@@ -1851,9 +1851,10 @@ const sites = {
           const response = await asyncRequest({ url: criticsUrl }).catch(function (response) {
             console.warn('ShowMetacriticRatings: Error imdb01\nurl=' + criticsUrl + '\nstatus=' + response.status)
           })
-          const m = response.responseText.match(/(https:\/\/www\.metacritic\.com\/\w+\/[^?&"']+)/)
-          console.debug('ShowMetacriticRatings: Metacritic link found on imdb:', m[1])
-          return m[1]
+          const m = response.responseText.match(/(https:\/\/www\.metacritic\.com\/(\w+)\/[^?&"']+)/)
+          console.debug('ShowMetacriticRatings: Metacritic link found on imdb:', m[2], m[1])
+          const query = document.querySelector('[data-testid="hero__pageTitle"]') ? document.querySelector('[data-testid="hero__pageTitle"]').textContent : null
+          return [m[1], m[2], query]
         }
       },
       {
