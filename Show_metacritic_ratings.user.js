@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          90
+// @version          91
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -146,7 +146,7 @@ function domParser () {
 
 async function versionUpdate () {
   const version = parseInt(await GM.getValue('version', 0))
-  if (version <= 51) {
+  if (version <= 90) {
     // Reset database
     await GM.setValue('map', '{}')
     await GM.setValue('black', '[]')
@@ -156,8 +156,8 @@ async function versionUpdate () {
     await GM.setValue('autosearchcache', '{}')
     await GM.setValue('temporaryblack', '{}')
   }
-  if (version < 55) {
-    await GM.setValue('version', 55)
+  if (version < 91) {
+    await GM.setValue('version', 91)
   }
 }
 
@@ -630,13 +630,7 @@ async function handleJSONredirect (response) {
     // Load redirect
     current.metaurl = absoluteMetaURL(j.jsonRedirect)
     response = await asyncRequest({
-      method: 'POST',
-      url: current.metaurl,
-      data: 'hoverinfo=1',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
+      url: current.metaurl
     }).catch(function (response) {
       console.error('ShowMetacriticRatings: Error 01')
     })
@@ -671,28 +665,36 @@ function extractHoverFromFullPage (response) {
     let userCharts = ''
 
     pageUrl = response.finalUrl + (response.finalUrl.endsWith('/') ? '' : '/')
-    imgSrc = doc.querySelector('.summary_img').src
-    imgAlt = doc.querySelector('.summary_img').alt
-    title = doc.querySelector('.product_page_title h1').textContent
-    if (doc.querySelector('.details_section .distributor a')) { publisher = doc.querySelector('.details_section .distributor a').textContent }
+    imgSrc = doc.querySelector('picture img[src]').src
+    imgAlt = doc.querySelector('picture img[src]').alt
+    title = doc.querySelector('.c-productHero_title').textContent
+    if (doc.querySelector('.details_section .distributor a')) {
+        publisher = doc.querySelector('.c-heroMetadata').textContent
+    }
 
-    if (doc.querySelector('.details_section .release_date span:nth-child(2)')) {
-      const date = doc.querySelector('.details_section .release_date span:nth-child(2)').textContent
+   const releaseArr = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).filter(e => e.textContent.indexOf('Release Date') !== -1)
+   if (releaseArr.length) {
+      const span = releaseArr[0].querySelectorAll('span')
+      if (span.length > 1) {
       releaseDate = `
             <div class="summary_detail release_data">
                 <span class="label">Release Date:</span>
-                <span class="data">${date}</span>
+                <span class="data">${span[1].textContent}</span>
             </div>`
+      }
     }
 
-    if (doc.querySelector('.details_section.summary_cast span:nth-child(2)')) {
-      const stars = doc.querySelector('.details_section.summary_cast span:nth-child(2)').innerHTML
+    if (doc.querySelector('.c-globalCarousel .c-globalPersonCard')) {
+      const stars = Array.from(doc.querySelectorAll('.c-globalCarousel .c-globalPersonCard')).map(e => {
+          const n = e.querySelector('.c-globalPersonCard_name')
+          return n ? n.textContent : ''
+      })
       starring = `
         <div>
             <div class="summary_detail product_credits">
                 <span class="label">Starring:</span>
                 <span class="data">
-                    ${stars}
+                    ${stars.join(", ")}
                 </span>
             </div>
         </div>`
@@ -721,28 +723,22 @@ function extractHoverFromFullPage (response) {
       label.remove()
       label = doc.querySelector('#nav_to_metascore .charts .label.fl')
     }
-    const scores = doc.querySelectorAll('#nav_to_metascore .distribution .metascore_w')
-    if (scores.length === 2) {
-      criticsScore = scores[0].innerText
-      criticsClass = scores[0].className.replace('larger', 'medium')
-      scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
-      criticsCharts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
-      userScore = scores[1].innerText
-      userClass = scores[1].className.replace('larger', 'medium')
-      scores[1].parentNode.parentNode.querySelector('.charts').style.width = '40px'
-      userCharts = '<td class="usr">' + scores[1].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
-    } else if (scores.length === 1) {
-      if (scores[0].className.indexOf('user') === -1) {
-        criticsScore = scores[0].innerText
-        criticsClass = scores[0].className.replace('larger', 'medium')
-        scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
-        criticsCharts = '<td class="meta">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
-      } else {
-        userScore = scores[0].innerText
-        userClass = scores[0].className.replace('larger', 'medium')
-        scores[0].parentNode.parentNode.querySelector('.charts').style.width = '40px'
-        userCharts = '<td class="usr">' + scores[0].parentNode.parentNode.querySelector('.charts').outerHTML + '</td>'
-      }
+
+    const criticsDiv = doc.querySelector('.c-productHero_score-container .c-siteReviewScore:not([class*=_user])')
+    if (criticsDiv) {
+      criticsScore = criticsDiv.innerText
+      criticsClass = 'todo' //  TODO
+      criticsCharts = '' //  TODO '<td class="meta">Unclear what goes here</td>'
+      criticsNumber = '' //  TODO
+    }
+
+    const userDiv = doc.querySelector('.c-productHero_score-container .c-siteReviewScore_user')
+    if (userDiv) {
+      userScore = userDiv.innerText
+      userClass = 'todo' //  TODO
+      userCharts = '' // TODO '<td class="meta">Unclear what goes here</td>'
+      userNumber = '' //  TODO
+
     }
 
     html = `
@@ -750,7 +746,7 @@ function extractHoverFromFullPage (response) {
     <div class="hover_left">
         <div class="product_image_wrapper">
             <a target="_blank" href="${pageUrl}">
-                <img class="product_image large_image" src="${imgSrc}" alt="${imgAlt}" />
+                <img class="product_image large_image" src="${imgSrc}" alt="${imgAlt}" style="max-width: 200px; max-height: 200px;" />
             </a>
         </div>
     </div>
@@ -813,28 +809,10 @@ function extractHoverFromFullPage (response) {
   `
   } catch (e) {
     console.warn('ShowMetacriticRatings: Error parsing HTML: ' + e)
-
     // fallback to cutting out the relevant parts
+    let parts = response.responseText.split('c-productHero_score-container')
 
-    let parts = response.responseText.split('class="score_details')
-    const textPart = '<div class="' + parts[1].split('</div>')[0] + '</div>'
-
-    let titleText = '<div class="product_page_title' + response.responseText.split('class="product_page_title')[1].split('</div>')[0]
-    titleText = titleText.split('<h1>').join('<h1 style="padding:0px; margin:2px">') + '</div>'
-
-    parts = response.responseText.split('id="nav_to_metascore"')
-    let metaScorePart = '<div ' + parts[1].split('<div class="subsection_title"')[0] + '</div></div>'
-
-    metaScorePart = metaScorePart.split('href="">').join('href="' + response.finalUrl + '">')
-    metaScorePart = metaScorePart.split('section_title bold">').join('section_title bold">' + titleText)
-
-    html = metaScorePart.split('<div class="distribution">').join(textPart + '<div class="distribution">')
-
-    if (html.indexOf('products_module') !== -1) {
-      // Critic reviews are not available for this Series yet -> Cut the preview for other series
-      html = html.split('products_module')[0] + '"></div>'
-    }
-
+    html = '<div class="' + parts[1].split('c-ratingReviewWrapper')[0] + '"></div></div>'
     if (html.length > 5000) {
       // Probably something went wrong, let's cut the response to prevent too long content
       console.warn('ShowMetacriticRatings: Cutting response to 5000 chars')
@@ -1038,19 +1016,13 @@ async function loadHoverInfo () {
     }
   }
 
-  if (response.responseText && response.responseText.indexOf('<title>500 Page') !== -1) {
-    // Hover info not available for this url, try again with GET
-    response = await asyncRequest({ url: current.metaurl }).catch(function (response) {
-      console.warn('ShowMetacriticRatings: Error 03\nurl=' + current.metaurl + '\nstatus=' + response.status)
-    })
-
-    const newobj = {}
-    for (const key in response) {
-      newobj[key] = response[key]
-    }
-    newobj.responseText = extractHoverFromFullPage(response)
-    response = newobj
+  // Extract relevant data from HTMl
+  const newobj = {}
+  for (const key in response) {
+    newobj[key] = response[key]
   }
+  newobj.responseText = extractHoverFromFullPage(response)
+  response = newobj
 
   if (!('time' in response)) {
     response.time = (new Date()).toJSON()
