@@ -2,7 +2,7 @@
 // @name             Show Metacritic.com ratings
 // @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com, GOG, Epic Games Store, save.tv, argenteam.net
 // @namespace        cuzi
-// @icon             https://www.metacritic.com/MC_favicon.png
+// @icon             https://www.metacritic.com/a/img/favicon.svg
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
 // @updateURL        https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings.meta.js
 // @contributionURL  https://buymeacoff.ee/cuzi
@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          91
+// @version          92
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -146,7 +146,7 @@ function domParser () {
 
 async function versionUpdate () {
   const version = parseInt(await GM.getValue('version', 0))
-  if (version <= 90) {
+  if (version <= 91) {
     // Reset database
     await GM.setValue('map', '{}')
     await GM.setValue('black', '[]')
@@ -156,8 +156,8 @@ async function versionUpdate () {
     await GM.setValue('autosearchcache', '{}')
     await GM.setValue('temporaryblack', '{}')
   }
-  if (version < 91) {
-    await GM.setValue('version', 91)
+  if (version < 92) {
+    await GM.setValue('version', 92)
   }
 }
 
@@ -601,7 +601,6 @@ function waitForHotkeysMETA () {
   listenForHotkeys('meta', (ev) => openSearchBox())
 }
 
-
 async function handleJSONredirect (response) {
   let blacklistedredirect = false
   const j = JSON.parse(response.responseText)
@@ -643,180 +642,26 @@ function extractHoverFromFullPage (response) {
   try {
     // Try parsing HTML
     const doc = domParser().parseFromString(response.responseText, 'text/html')
-    doc.querySelector('.product_page_title h1')
-    doc.querySelector('.summary_img')
-    doc.querySelectorAll('.details_section')
-    doc.querySelectorAll('#nav_to_metascore .distribution')
 
-    let pageUrl = ''
-    let imgSrc = ''
-    let imgAlt = ''
-    let title = ''
-    let publisher = ''
-    let releaseDate = ''
-    let starring = ''
-    let criticsScore = ''
-    let criticsClass = ''
-    let criticsNumber = ''
-    let criticsCharts = ''
-    let userScore = ''
-    let userClass = ''
-    let userNumber = ''
-    let userCharts = ''
-
-    pageUrl = response.finalUrl + (response.finalUrl.endsWith('/') ? '' : '/')
-    imgSrc = doc.querySelector('picture img[src]').src
-    imgAlt = doc.querySelector('picture img[src]').alt
-    title = doc.querySelector('.c-productHero_title').textContent
-    if (doc.querySelector('.details_section .distributor a')) {
-        publisher = doc.querySelector('.c-heroMetadata').textContent
-    }
-
-   const releaseArr = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).filter(e => e.textContent.indexOf('Release Date') !== -1)
-   if (releaseArr.length) {
-      const span = releaseArr[0].querySelectorAll('span')
-      if (span.length > 1) {
-      releaseDate = `
-            <div class="summary_detail release_data">
-                <span class="label">Release Date:</span>
-                <span class="data">${span[1].textContent}</span>
-            </div>`
-      }
-    }
-
-    if (doc.querySelector('.c-globalCarousel .c-globalPersonCard')) {
-      const stars = Array.from(doc.querySelectorAll('.c-globalCarousel .c-globalPersonCard')).map(e => {
-          const n = e.querySelector('.c-globalPersonCard_name')
-          return n ? n.textContent : ''
-      })
-      starring = `
-        <div>
-            <div class="summary_detail product_credits">
-                <span class="label">Starring:</span>
-                <span class="data">
-                    ${stars.join(", ")}
-                </span>
-            </div>
-        </div>`
-    }
-
-    criticsClass = 'metascore_w medium tbd'
-    criticsScore = 'tbd'
-    userClass = 'metascore_w medium user tbd'
-    userScore = 'tbd'
-
-    if (doc.querySelector('.score_details .based_on')) {
-      criticsNumber = doc.querySelector('.score_details .based_on').textContent.match(/\d+/)
-    } else {
-      criticsNumber = 'By'
-    }
-    if (doc.querySelector('.user_score_summary .based_on')) {
-      userNumber = doc.querySelector('.user_score_summary .based_on').textContent.match(/\d+/)
-    } else {
-      userNumber = 'User'
-    }
-
-    // Remove text from distribution charts:
-    let label = doc.querySelector('#nav_to_metascore .charts .label.fl')
-    while (label) {
-      label.parentNode.title = label.textContent.trim() + ' ' + label.parentNode.querySelector('.count').textContent.trim()
-      label.remove()
-      label = doc.querySelector('#nav_to_metascore .charts .label.fl')
-    }
-
-    const criticsDiv = doc.querySelector('.c-productHero_score-container .c-siteReviewScore:not([class*=_user])')
-    if (criticsDiv) {
-      criticsScore = criticsDiv.innerText
-      criticsClass = 'todo' //  TODO
-      criticsCharts = '' //  TODO '<td class="meta">Unclear what goes here</td>'
-      criticsNumber = '' //  TODO
-    }
-
-    const userDiv = doc.querySelector('.c-productHero_score-container .c-siteReviewScore_user')
-    if (userDiv) {
-      userScore = userDiv.innerText
-      userClass = 'todo' //  TODO
-      userCharts = '' // TODO '<td class="meta">Unclear what goes here</td>'
-      userNumber = '' //  TODO
-
-    }
+    const content = Array.from(doc.querySelectorAll('.c-reviewsSection_carouselContainer .c-reviewsOverview_overviewDetails')).map(e => e.outerHTML).join('\n\n')
 
     html = `
-  <div class="hoverinfo">
-    <div class="hover_left">
-        <div class="product_image_wrapper">
-            <a target="_blank" href="${pageUrl}">
-                <img class="product_image large_image" src="${imgSrc}" alt="${imgAlt}" style="max-width: 200px; max-height: 200px;" />
-            </a>
-        </div>
-    </div>
-    <div class="hover_right">
-        <h2 class="product_title">
-            <a target="_blank" href="${pageUrl}">${title}</a>
-        </h2>
-        <div>
-            <div class="summary_detail publisher">
-                <span class="data">${publisher}</span>
-                <span>&nbsp;|&nbsp;&nbsp;</span>
-            </div>
-            ${releaseDate}
-            <div class="clr"></div>
-        </div>
-        ${starring}
-        <div class="hr">
-            &nbsp;
-        </div>
+<div id="hover_div_a20230915">
 
-        <table class="hover_scores ">
-            <tr>
-                <td class="meta num">
-                    <a target="_blank" class="metascore_anchor" href="${pageUrl}#nav_to_metascore">
-                        <span class="${criticsClass}">${criticsScore}</span>
-                    </a>
-                </td>
-                <td class="meta txt">
-                    <div class="metascore_label">Metascore</div>
-                    <div class="metascore_review_count">
-                        <a target="_blank" href="${pageUrl}#nav_to_metascore">
-                            <span>${criticsNumber}</span> critics
-                        </a>
-                    </div>
-                </td>
-                ${criticsCharts}
-                <td class="usr num">
+${content}
 
-                    <a target="_blank" class="metascore_anchor" href="${pageUrl}#nav_to_metascore">
-                        <span class="${userClass}">${userScore}</span>
-                    </a>
-
-                </td>
-                <td class="usr txt">
-                    <div class="userscore_label">User Score</div>
-                    <div class="userscore_review_count">
-                        <a target="_blank" href="${pageUrl}#nav_to_metascore">
-                            <span>${userNumber}</span> Ratings
-                        </a>
-                    </div>
-                </td>
-                ${userCharts}
-            </tr>
-        </table>
-
-    </div>
-
-    <div class="clr"></div>
-  </div>
+</div>
   `
   } catch (e) {
     console.warn('ShowMetacriticRatings: Error parsing HTML: ' + e)
     // fallback to cutting out the relevant parts
-    let parts = response.responseText.split('c-productHero_score-container')
+    const parts = response.responseText.split('c-productHero_score-container')
 
     html = '<div class="' + parts[1].split('c-ratingReviewWrapper')[0] + '"></div></div>'
     if (html.length > 5000) {
       // Probably something went wrong, let's cut the response to prevent too long content
       console.warn('ShowMetacriticRatings: Cutting response to 5000 chars')
-      html = html.substr(0, 5000)
+      html = html.substring(0, 5000)
     }
   }
   return html
@@ -1376,7 +1221,7 @@ function showHoverInfo (response, orgMetaUrl) {
     position: 'fixed',
     bottom: 0,
     left: 0,
-    minWidth: 300,
+    minWidth: 150,
     backgroundColor: '#fff',
     border: '2px solid #bbb',
     borderRadius: ' 6px',
@@ -1427,14 +1272,13 @@ function showHoverInfo (response, orgMetaUrl) {
         } else if ('mcimessage0' in e.data) {
           frameStatus = true // Frame content was loaded successfully
         } else if ('mcimessage1' in e.data) {
-          f.style.width = parseInt(f.style.width) + 10 + 'px'
+          f.style.width = parseInt(f.style.width) + 5 + 'px'
           if (e.data.heightdiff === lastdiff) {
-            f.style.height = parseInt(f.style.height) + 5 + 'px'
+            f.style.height = parseInt(f.style.height) + 10 + 'px'
           }
           lastdiff = e.data.heightdiff
         } else if ('mcimessage2' in e.data) {
-          f.style.height = parseInt(f.style.height) + 15 + 'px'
-          f.style.width = '400px'
+          f.style.height = parseInt(f.style.height) + 10 + 'px'
         } else if ('mcimessage_loadImg' in e.data) {
           loadExternalImage(e.data.mcimessage_imgUrl, f)
         } else {
@@ -1467,11 +1311,11 @@ function showHoverInfo (response, orgMetaUrl) {
         if (!('mcimessage3' in e.data)) return
 
         if (e.data.mciframe123_clientHeight < document.body.scrollHeight && i < 100) {
-          parent.postMessage({ mcimessage1: 1, heightdiff: document.body.scrollHeight - e.data.mciframe123_clientHeight }, '*')
+          parent.postMessage({ mcimessage2: 1 }, '*')
           i++
         }
         if (i >= 100) {
-          parent.postMessage({ mcimessage2: 1 }, '*')
+          parent.postMessage({ mcimessage1: 1, heightdiff: document.body.scrollHeight - e.data.mciframe123_clientHeight }, '*')
           i = 0
         }
       })
@@ -1480,86 +1324,9 @@ function showHoverInfo (response, orgMetaUrl) {
 
   }
 
-  const css = `#hover_div .clr { clear: both}
-  #hover_div .fl{float: left}
-  #hover_div { background-color: #fff; color: #666; font-family:Arial,Helvetica,sans-serif; font-size:12px; font-weight:400; font-style:normal;}
-  #hover_div .hoverinfo .hover_left { float: left}
-  #hover_div .hoverinfo .product_image_wrapper { color: #999; font-size: 6px; font-weight: normal; min-height: 98px; min-width: 98px;}
-  #hover_div .hoverinfo .product_image_wrapper a { color: #999; font-size: 6px; font-weight: normal;}
-  #hover_div a * { cursor: pointer}
-  #hover_div a { color: #09f; font-weight: bold;}
-  #hover_div a:link, #hover_div a:visited { text-decoration: none;}
-  #hover_div a:hover { text-decoration: underline;}
-  #hover_div .hoverinfo .hover_right { float: left; margin-left: 15px; max-width: 395px;}
-  #hover_div .hoverinfo .product_title { color: #333; font-family: georgia,serif; font-size: 24px; line-height: 26px; margin-bottom: 10px;}
-  #hover_div .hoverinfo .product_title a {  color:#333; font-family: georgia,serif; font-size: 24px;}
-  #hover_div .hoverinfo .summary_detail.publisher, .hoverinfo .summary_detail.release_data { float: left}
-  #hover_div .hoverinfo .summary_detail { font-size: 11px; margin-bottom: 10px;}
-  #hover_div .hoverinfo .summary_detail.product_credits a { color: #999; font-weight: normal; }
-  #hover_div .hoverinfo .hr { background-color: #ccc; height: 2px; margin: 15px 0 10px;}
-  #hover_div .hoverinfo .hover_scores { width: 100%; border-collapse: collapse; border-spacing: 0;}
-  #hover_div .hoverinfo .hover_scores td.num { width: 39px}
-  #hover_div .hoverinfo .hover_scores td { vertical-align: middle}
-  #hover_div caption, #hover_div th, #hover_div td { font-weight: normal; text-align: left;}
-  #hover_div .metascore_anchor, #hover_div a.metascore_w { text-decoration: none !important}
-  #hover_div span.metascore_w, #hover_div a.metascore_w { display: inline-block; padding:0px;}
-  .metascore_w { background-color: transparent; color: #fff !important; font-family: Arial,Helvetica,sans-serif; font-size: 17px; font-style: normal !important; font-weight: bold !important; height: 2em; line-height: 2em; text-align: center; vertical-align: middle; width: 2em;}
-  #hover_div .metascore, #hover_div .metascore a, #hover_div .avguserscore, #hover_div .avguserscore a { color: #fff}
-  #hover_div .critscore, #hover_div .critscore a, #hover_div .userscore, #hover_div .userscore a { color: #333}
-  .score_tbd { background: #eaeaea; color: #333; font-size: 14px;}
-  #hover_div .score_tbd a { color: #333}
-  #hover_div .negative,#hover_div .score_terrible,#hover_div .score_unfavorable,#hover_div .carousel_set a.product_terrible:hover,#hover_div .carousel_set a.product_unfavorable:hover { background-color: #f00}
-  #hover_div.mixed, .neutral,#hover_div .score_mixed,#hover_div .carousel_set a.product_mixed:hover { background-color: #fc3; color: #333;}
-  #hover_div .score_mixed a { color: #333}
-  #hover_div .positive,#hover_div .score_favorable,#hover_div .score_outstanding,#hover_div .carousel_set a.product_favorable:hover,#hover_div .carousel_set a.product_outstanding:hover { background-color: #6c3}
-  .critscore_terrible, .critscore_unfavorable { border-color: #f00}
-  .critscore_mixed { border-color: #fc3}
-  .critscore_favorable, .critscore_outstanding { border-color: #6c3}
-  .metascore .score_total, .userscore .score_total { display: none; visibility: hidden;}
-  .hoverinfo .metascore_label, .hoverinfo .userscore_label { font-size: 12px; font-weight: bold; line-height: 16px; margin-top: 2%;}
-  .hoverinfo .metascore_review_count, .hoverinfo .userscore_review_count { font-size: 11px}
-  .hoverinfo .hover_scores td { vertical-align: middle}
-  .hoverinfo .hover_scores td.num { width: 39px}
-  .hoverinfo .hover_scores td.usr.num { padding-left: 20px}
-  .metascore_anchor, a.metascore_w { text-decoration: none !important}
-  .metascore_w.album { padding-top:0px; !important}
-  .metascore_w.user { border-radius: 55%; color: #fff;}
-  .metascore_anchor, .metascore_w.album { padding: 0px;!important, padding-top: 0px;!important}
-  a.metascore_w { text-decoration: none!important}
-  .metascore_anchor:hover { text-decoration: none!important}
-  .metascore_w:hover { text-decoration: none!important}
-  span.metascore_w, a.metascore_w { display: inline-block}
-  .metascore_w.xlarge, .metascore_w.xl { font-size: 42px}
-  .metascore_w.large, .metascore_w.lrg { font-size: 25px}
-  .m .metascore_w.medium, .m .metascore_w.med { font-size: 19px}
-  .metascore_w.med_small { font-size: 14px}
-  .metascore_w.small, .metascore_w.sm { font-size: 12px}
-  .metascore_w.tiny { height: 1.9em; font-size: 11px; line-height: 1.9em;}
-  .metascore_w.user { border-radius: 55%; color: #fff;}
-  .metascore_w.user.small, .metascore_w.user.sm { font-size: 11px}
-  .metascore_w.tbd, .metascore_w.score_tbd { color: #000!important; background-color: #ccc;}
-  .metascore_w.tbd.hide_tbd, .metascore_w.score_tbd.hide_tbd { visibility: hidden}
-  .metascore_w.tbd.no_tbd, .metascore_w.score_tbd.no_tbd { display: none}
-  .metascore_w.noscore::before, .metascore_w.score_noscore::before { content: '\u2022\u2022\u2022'}
-  .metascore_w.noscore, .metascore_w.score_noscore { color: #fff!important; background-color: #ccc;}
-  .metascore_w.rip, .metascore_w.score_rip { border-radius: 4px; color: #fff!important; background-color: #999;}
-  .metascore_w.negative, .metascore_w.score_terrible, .metascore_w.score_unfavorable { background-color: #f00}
-  .metascore_w.mixed, .metascore_w.forty, .metascore_w.game.fifty, .metascore_w.score_mixed { background-color: #fc3}
-  .metascore_w.positive, .metascore_w.sixtyone, .metascore_w.game.seventyfive, .metascore_w.score_favorable, .metascore_w.score_outstanding { background-color: #6c3}
-  .metascore_w.indiv { height: 1.9em; width: 1.9em; font-size: 15px; line-height: 1.9em;}
-  .metascore_w.indiv.large, .metascore_w.indiv.lrg { font-size: 24px}
-  .m .metascore_w.indiv.medium, .m .metascore_w.indiv.med { font-size: 16px}
-  .metascore_w.indiv.small, .metascore_w.indiv.sm { font-size: 11px}
-  .metascore_w.indiv.perfect { padding-right: 1px}
-  .hover_esite { display:none; }
-  .promo_amazon .esite_btn { margin: 3px 0 0 7px;}
-  .esite_amazon { background-color: #fdc354; border: 1px solid #aaa;}
-  .esite_label_wrapper { display:none;}
-  .esite_btn { border-radius: 4px; color: #222; font-size: 12px; height: 40px; line-height: 40px; width: 120px;}
-  .chart{background-color:inherit!important;margin-top:-3px}
-  .chart_bg{width:100%;border-top:3px solid rgba(150,150,150,0.3)}
-  .chart .bar{width:100%;height:3px}
-  .chart .count{font-size:10px}`
+  const css = `
+    #hover_div_a20230915{font-family:sans-serif;color:#262626;font-size:1rem;line-height:1.625rem}#hover_div_a20230915 a,#hover_div_a20230915 a:hover{text-decoration:none}#hover_div_a20230915 a:hover{color:#09f}#hover_div_a20230915 a{color:#000}#hover_div_a20230915 a:focus{color:grey}#hover_div_a20230915 .g-border-black,#hover_div_a20230915 .g-border-gray100{border-color:#000}#hover_div_a20230915 .g-color-black,#hover_div_a20230915 .g-color-gray100{color:#000}#hover_div_a20230915 .g-border-gray98{border-color:#191919}#hover_div_a20230915 .g-color-gray98{color:#191919}#hover_div_a20230915 .g-border-gray90{border-color:#262626}#hover_div_a20230915 .g-color-gray90{color:#262626}#hover_div_a20230915 .g-border-gray80{border-color:#404040}#hover_div_a20230915 .g-color-gray80{color:#404040}#hover_div_a20230915 .g-border-gray70{border-color:#666}#hover_div_a20230915 .g-color-gray70{color:#666}#hover_div_a20230915 .g-border-gray60{border-color:grey}#hover_div_a20230915 .g-color-gray60{color:grey}#hover_div_a20230915 .g-border-gray50{border-color:#999}#hover_div_a20230915 .g-color-gray50{color:#999}#hover_div_a20230915 .g-border-gray40{border-color:#bfbfbf}#hover_div_a20230915 .g-color-gray40{color:#bfbfbf}#hover_div_a20230915 .g-border-gray30{border-color:#d8d8d8}#hover_div_a20230915 .g-color-gray30{color:#d8d8d8}#hover_div_a20230915 .g-border-gray20{border-color:#e6e6e6}#hover_div_a20230915 .g-color-gray20{color:#e6e6e6}#hover_div_a20230915 .g-border-gray10{border-color:#f2f2f2}#hover_div_a20230915 .g-color-gray10{color:#f2f2f2}#hover_div_a20230915 .g-border-gray0,#hover_div_a20230915 .g-border-white{border-color:#fff}#hover_div_a20230915 .g-color-gray0,#hover_div_a20230915 .g-color-white{color:#fff}#hover_div_a20230915 .g-border-red{border-color:#eb0036}#hover_div_a20230915 .g-color-red{color:#eb0036}#hover_div_a20230915 .g-border-green{border-color:#01b44f}#hover_div_a20230915 .g-color-green{color:#01b44f}#hover_div_a20230915 .g-width-large{width:1.5rem}#hover_div_a20230915 .g-height-large{height:1.5rem}#hover_div_a20230915 .g-width-100{width:100%}#hover_div_a20230915 .g-height-100{height:100%}#hover_div_a20230915 .g-text-large{font-size:1.5rem;line-height:2rem}#hover_div_a20230915 .g-text-xxsmall{font-size:xx-small}#hover_div_a20230915 .g-text-bold{font-weight:700}#hover_div_a20230915 .g-text-link{text-decoration:underline}#hover_div_a20230915 .u-block{display:block}#hover_div_a20230915 .u-flexbox{display:flex}#hover_div_a20230915 .u-flexbox-column{display:flex;flex-direction:column}#hover_div_a20230915 .u-flexbox-justifyCenter{justify-content:center}#hover_div_a20230915 .u-flexbox-alignCenter{align-items:center}#hover_div_a20230915 .u-grid{display:grid;grid-gap:0;grid-gap:var(--grid-gap,0)}#hover_div_a20230915 .u-grid-2column{-ms-grid-columns:50% 50%;display:grid;grid-template:auto/repeat(2,1fr)}#hover_div_a20230915 .u-grid-3column{-ms-grid-columns:33.3% 33.3% 33.3%;display:grid;grid-template:auto/repeat(3,1fr)}#hover_div_a20230915 .u-grid-4column{-ms-grid-columns:25% 25% 25% 25%;display:grid;grid-template:auto/repeat(4,1fr)}#hover_div_a20230915 .u-grid-5column{-ms-grid-columns:20% 20% 20% 20% 20%;display:grid;grid-template:auto/repeat(5,1fr)}#hover_div_a20230915 .u-grid-7column{-ms-grid-columns:14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857%;display:grid;grid-template:auto/repeat(7,1fr)}#hover_div_a20230915 .u-grid-column-span2{grid-column-end:span 2}#hover_div_a20230915 .u-grid-column-span3{grid-column-end:span 3}#hover_div_a20230915 .u-grid-column-span4{grid-column-end:span 4}#hover_div_a20230915 .u-text-center{text-align:center}#hover_div_a20230915 .c-siteReviewScore_large{border-radius:0.5rem;height:4rem;width:4rem;font-size:2rem}#hover_div_a20230915 .c-siteReviewScore_user{border-radius:50%}#hover_div_a20230915 .c-reviewsStats{padding:1rem 0;grid-template-columns:1fr 1fr 1fr;justify-content:space-evenly;font-size:0.75rem;line-height:1.25rem}#hover_div_a20230915 div[class^=c-reviewsStats_]:first-child,#hover_div_a20230915 div[class^=c-reviewsStats_]:nth-child(2){border-right:0.0625rem solid #d8d8d8}#hover_div_a20230915 .c-ScoreCardGraph{overflow:hidden;white-space:nowrap}#hover_div_a20230915 .c-ScoreCardGraph > div{margin-left:0.25rem;padding:0 0.25rem;text-align:right;height:0.5rem;min-width:2rem;line-height:1rem}#hover_div_a20230915 .c-ScoreCardGraph > div:first-child{margin-left:0}#hover_div_a20230915 .c-ScoreCardGraph_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreSentiment{color:#00ce7a}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphPositive{background:#00ce7a;border-radius:0.25rem 0 0 0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNeutral{background:#ffbd3f}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNegative{background:#ff6874;border-radius:0 0.25rem 0.25rem 0}#hover_div_a20230915 .gray{background:#bfbfbf;height:1rem;display:inline-block}#hover_div_a20230915 .c-ScoreCard_scoreContent{display:flex;align-content:flex-start;flex-wrap:nowrap;grid-gap:10px;gap:10px;width:100%;justify-content:space-between;align-items:stretch}#hover_div_a20230915 .c-ScoreCard_scoreContent_text{line-height:normal;display:flex;flex-direction:column;justify-content:space-between}#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large,#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large .c-siteReviewScore_large{width:4rem;height:4rem}#hover_div_a20230915 .c-ScoreCard_scoreSentiment{font-size:1rem;line-height:1.25rem;text-transform:capitalize}#hover_div_a20230915 .c-ScoreCard_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-reviewsOverview_overviewDetails{grid-template-columns:1fr 1fr;grid-gap:1.25rem;border-top:1px solid #262626;margin-top:auto;padding:2px}#hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child{border-top:0 solid #262626}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915 .o-inlineScore{border-radius:0.25rem;font-size:1.25rem;font-weight:700;color:#404040;width:2.5rem;height:2.5rem;display:inline-flex;justify-content:center;align-items:center;text-decoration:none!important}#hover_div_a20230915 .o-inlineScore-green{background:#00ce7a}#hover_div_a20230915 .o-inlineScore-yellow{background:#ffbd3f}#hover_div_a20230915 .o-inlineScore-red{background:#ff6874}#hover_div_a20230915 .o-inlineScore-tbd{border:1px solid grey}#hover_div_a20230915 .u-pointer{cursor:pointer}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915{max-width:440px}
+  `
 
   let framesrc = 'data:text/html,'
   framesrc += encodeURIComponent(`<!DOCTYPE html>
@@ -1608,8 +1375,8 @@ function showHoverInfo (response, orgMetaUrl) {
   frame.attr('src', framesrc)
   frame.attr('scrolling', 'auto')
   frame.css({
-    width: 380,
-    height: 150,
+    width: 440,
+    height: 110,
     border: 'none'
   })
 
