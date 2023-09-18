@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          92
+// @version          93
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -105,7 +105,7 @@ const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
 const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-const baseURLsearch = 'https://www.metacritic.com/search/{type}/{query}/results'
+const baseURLsearch = 'https://www.metacritic.com/search/{query}?page=1&category={type}'
 const baseURLautosearch = 'https://www.metacritic.com/autosearch'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
@@ -325,12 +325,12 @@ function fixMetacriticURLs (html) {
 }
 function searchType2metacritic (type) {
   return ({
-    movie: 'movie',
-    pcgame: 'game',
-    xonegame: 'game',
-    ps4game: 'game',
-    music: 'album',
-    tv: 'tv'
+    movie: '2',
+    pcgame: '13',
+    xonegame: '13',
+    ps4game: '13',
+    music: '4', // TODO this is probably wrong
+    tv: '1'
   })[type]
 }
 function metacritic2searchType (type) {
@@ -370,6 +370,8 @@ function broadenSearch (data, step, type) {
     } else if (step > 2) {
       data[0] = removeAnythingAfterDash(data[0])
     }
+  } else {
+    data = data.map(removeSymbols)
   }
   return data
 }
@@ -643,7 +645,19 @@ function extractHoverFromFullPage (response) {
     // Try parsing HTML
     const doc = domParser().parseFromString(response.responseText, 'text/html')
 
-    const content = Array.from(doc.querySelectorAll('.c-reviewsSection_carouselContainer .c-reviewsOverview_overviewDetails')).map(e => e.outerHTML).join('\n\n')
+    let content = null
+    // Try to get the review containers from the bottom of the page below the actors
+    const carouselItems = doc.querySelectorAll('.c-reviewsSection_carouselContainer .c-reviewsOverview_overviewDetails')
+    if (carouselItems.length > 0) {
+      content = Array.from(carouselItems).map(e => e.outerHTML).join('\n\n')
+    } else {
+      // Fallback: Try to get the review containers from the right side of the page next to the poster/screenshot
+      content = doc.querySelector('.c-productHero_scoreInfo').innerHTML
+    }
+
+    if (!content) {
+      throw new Error('No content found')
+    }
 
     html = `
 <div id="hover_div_a20230915">
@@ -861,18 +875,17 @@ async function loadHoverInfo () {
     }
   }
 
-  // Extract relevant data from HTMl
-  const newobj = {}
-  for (const key in response) {
-    newobj[key] = response[key]
-  }
-  newobj.responseText = extractHoverFromFullPage(response)
-  response = newobj
-
+  // Extract relevant data from HTML
   if (!('time' in response)) {
     response.time = (new Date()).toJSON()
   }
   if (response.status === 200 && response.responseText) {
+    const newobj = {}
+    for (const key in response) {
+      newobj[key] = response[key]
+    }
+    newobj.responseText = extractHoverFromFullPage(response)
+    response = newobj
     return response
   } else {
     const error = new Error('ShowMetacriticRatings: loadHoverInfo()\nUrl: ' + response.finalUrl + '\nStatus: ' + response.status)
@@ -928,7 +941,7 @@ async function loadMetacriticUrl (fromSearch) {
   const response = await loadHoverInfo().catch(async function (response) {
     if (response instanceof Error || (response && response.stack && response.message)) {
       if (!fromSearch && ('status' in response && response.status === 404)) {
-        console.debug('ShowMetacriticRatings: loadMetacriticUrl(): status=404')
+        console.debug('ShowMetacriticRatings: loadMetacriticUrl(): status=404', response)
         // No results
         let broadenFct = broadenSearch // global broadenSearch function is the default
         if ('broaden' in current.product) {
@@ -1115,6 +1128,7 @@ function openSearchBox (search) {
     }
   })
   $('<button id="mcisearchbutton" style="background:silver;color:black;">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
+  $('<div style="color:red; font-family:sans-serif; padding:5px;">Sorry, the search function is currently broken because of the new website design of metacritic.com 😭</div>').appendTo(div)
 }
 async function searchBoxSearch (ev, query) {
   if (!query) { // Use values from search form
@@ -1135,11 +1149,7 @@ async function searchBoxSearch (ev, query) {
 
   const response = await asyncRequest({
     url,
-    data: 'search_term=' + encodeURIComponent(current.searchTerm) + '&image_size=98&search_each=1&sort_type=popular',
     headers: {
-      Referer: url,
-      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-      // Host: 'www.metacritic.com',
       'User-Agent': 'MetacriticUserscript ' + navigator.userAgent
     }
   }).catch(function (response) {
@@ -1149,8 +1159,15 @@ async function searchBoxSearch (ev, query) {
   const results = []
   if (!~response.responseText.indexOf('No search results found.')) {
     const d = $('<html>').html(response.responseText)
-    d.find('ul.search_results.module .result').each(function () {
-      results.push(this.innerHTML)
+    d.find('.c-pageSiteSearch-results .g-grid-container').each(function () {
+      const item = this.querySelector('.c-pageSiteSearch-results-item')
+      if (item) {
+        item.querySelectorAll('.c-globalImagePlaceholder').forEach(e => e.remove())
+        item.querySelectorAll('picture img').forEach(e => (e.style.display = ''))
+        item.querySelectorAll('c-pageSiteSearch-results-item-image').forEach(e => (e.style.float = 'left'))
+
+        results.push(item.innerHTML)
+      }
     })
   }
 
@@ -1182,7 +1199,16 @@ async function searchBoxSearch (ev, query) {
       })
     }
 
-    const resultdiv = $('#mcdiv123searchresults').length ? $('#mcdiv123searchresults').html('') : $('<div id="mcdiv123searchresults"></div>').css('max-width', '95%').appendTo(div)
+    const resultdiv = $('#mcdiv123searchresults').length
+      ? $('#mcdiv123searchresults').html('')
+      : $('<div id="mcdiv123searchresults"></div>').css({
+        'max-width': '95%',
+        '--grid-cols': '2',
+        display: 'grid',
+        'grid-gap': '1rem',
+        gap: '1rem',
+        'grid-template-columns': '1fr'
+      }).appendTo(div)
     results.forEach(function (html) {
       const singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html) + '<div style="clear:left"></div>').appendTo(resultdiv)
       $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept)
@@ -1247,6 +1273,59 @@ function showHoverInfo (response, orgMetaUrl) {
   // Mozilla can access parent.document
   // Chrome can use postMessage()
   let frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
+  function tryToLoadMoreMetacriticDetails (myframe) {
+    console.log('ShowMetacriticRatings: tryToLoadMoreMetacriticDetails current', current)
+    if (!current.metaurl) {
+      return
+    }
+
+    let url = current.metaurl
+    if (url.endsWith('/')) {
+      url = url + 'details/'
+    } else {
+      url = url + '/details/'
+    }
+
+    GM.xmlHttpRequest({
+      url,
+      onload: function (response) {
+        const doc = domParser().parseFromString(response.responseText, 'text/html')
+
+        const titleA = doc.querySelector('.c-productSubpageHeader_back')
+        titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
+        const titleHTML = titleA.outerHTML
+
+        const image = doc.querySelector('picture img')
+        image.style.display = ''
+        const imageHTML = image.outerHTML
+
+        let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
+
+        detailsTable = detailsTable.filter(columns => {
+          if (columns[0].search(/release date/i) !== -1) {
+            return true
+          }
+          if (columns[0].search(/genres/i) !== -1) {
+            return true
+          }
+          if (columns[0].search(/developer/i) !== -1) {
+            return true
+          }
+          if (columns[0].search(/publisher/i) !== -1) {
+            return true
+          }
+          return false
+        }).map(columns => columns.join(': '))
+
+        const html = imageHTML + '<br>' + titleHTML + '<br>' + detailsTable.join('<br>')
+
+        myframe.contentWindow.postMessage({
+          mcimessage_addhtml: true,
+          mcimessage_html: html
+        }, '*')
+      }
+    })
+  }
   function loadExternalImage (url, myframe) {
     // Load external image, bypass CSP
     GM.xmlHttpRequest({
@@ -1271,6 +1350,7 @@ function showHoverInfo (response, orgMetaUrl) {
           return
         } else if ('mcimessage0' in e.data) {
           frameStatus = true // Frame content was loaded successfully
+          tryToLoadMoreMetacriticDetails(f)
         } else if ('mcimessage1' in e.data) {
           f.style.width = parseInt(f.style.width) + 5 + 'px'
           if (e.data.heightdiff === lastdiff) {
@@ -1306,6 +1386,10 @@ function showHoverInfo (response, orgMetaUrl) {
           const imageUrl = urlCreator.createObjectURL(blob)
           const img = failedImages[e.data.mcimessage_imgOrgSrc]
           img.src = imageUrl
+        }
+        if (typeof e.data === 'object' && 'mcimessage_addhtml' in e.data) {
+          const div = document.body.appendChild(document.createElement('div'))
+          div.innerHTML = e.data.mcimessage_html
         }
 
         if (!('mcimessage3' in e.data)) return
