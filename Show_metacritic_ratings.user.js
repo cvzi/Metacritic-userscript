@@ -12,7 +12,7 @@
 // @grant            GM.setValue
 // @grant            GM.getValue
 // @grant            GM.registerMenuCommand
-// @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
+// @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
 // @version          94
