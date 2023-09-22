@@ -15,10 +15,11 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          93
+// @version          94
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
+// @connect          fandom-prod.apigee.net
 // @match            https://*.bandcamp.com/*
 // @match            https://play.google.com/store/music/album/*
 // @match            https://play.google.com/store/movies/details/*
@@ -105,8 +106,7 @@ const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
 const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-const baseURLsearch = 'https://www.metacritic.com/search/{query}?page=1&category={type}'
-const baseURLautosearch = 'https://www.metacritic.com/autosearch'
+const baseURLsearch = 'https://fandom-prod.apigee.net/v1/xapi/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
 const baseURLwhitelist = 'https://met.acritic.workers.dev/whitelist.php'
@@ -133,9 +133,6 @@ const windowPositions = [
   }
 ]
 
-// http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/
-const CSS = '#mcdiv123 .grespinner{height:16px;width:16px;margin:0 auto;position:relative;animation:rotation .6s infinite linear;border-left:6px solid rgba(0,174,239,.15);border-right:6px solid rgba(0,174,239,.15);border-bottom:6px solid rgba(0,174,239,.15);border-top:6px solid rgba(0,174,239,.8);border-radius:100%}@keyframes rotation{from{transform:rotate(0)}to{transform:rotate(359deg)}}#mcdiv123searchresults .result{font:12px arial,helvetica,serif;border-top-width:1px;border-top-color:#ccc;border-top-style:solid;padding:5px}#mcdiv123searchresults .result .result_type{display:inline}#mcdiv123searchresults .result .result_wrap{float:left;width:100%}#mcdiv123searchresults .result .has_score{padding-left:42px}#mcdiv123searchresults .result .basic_stats{height:1%;overflow:hidden}#mcdiv123searchresults .result h3{font-size:14px;font-weight:700}#mcdiv123searchresults .result a{color:#09f;font-weight:700;text-decoration:none}#mcdiv123searchresults .metascore_w.game.seventyfive,#mcdiv123searchresults .metascore_w.positive,#mcdiv123searchresults .metascore_w.score_favorable,#mcdiv123searchresults .metascore_w.score_outstanding,#mcdiv123searchresults .metascore_w.sixtyone{background-color:#6c3}#mcdiv123searchresults .metascore_w.forty,#mcdiv123searchresults .metascore_w.game.fifty,#mcdiv123searchresults .metascore_w.mixed,#mcdiv123searchresults .metascore_w.score_mixed{background-color:#fc3}#mcdiv123searchresults .metascore_w.negative,#mcdiv123searchresults .metascore_w.score_terrible,#mcdiv123searchresults .metascore_w.score_unfavorable{background-color:red}#mcdiv123searchresults a.metascore_w,#mcdiv123searchresults span.metascore_w{display:inline-block}#mcdiv123searchresults .result .metascore_w{color:#fff!important;font-family:Arial,Helvetica,sans-serif;font-size:17px;font-style:normal!important;font-weight:700!important;height:2em;line-height:2em;text-align:center;vertical-align:middle;width:2em;float:left;margin:0 0 0 -42px}#mcdiv123searchresults .result .more_stats{font-size:10px;color:#444}#mcdiv123searchresults .result .release_date .data{font-weight:700;color:#000}#mcdiv123searchresults ol,#mcdiv123searchresults ul{list-style:none}#mcdiv123searchresults .result li.stat{background:0 0;display:inline;float:left;margin:0;padding:0 6px 0 0;white-space:nowrap}#mcdiv123searchresults .result .deck{margin:3px 0 0}#mcdiv123searchresults .result .basic_stat{display:inline;float:right;overflow:hidden;width:100%}'
-
 let myDOMParser = null
 function domParser () {
   if (myDOMParser === null) {
@@ -146,20 +143,179 @@ function domParser () {
 
 async function versionUpdate () {
   const version = parseInt(await GM.getValue('version', 0))
-  if (version <= 91) {
+  if (version <= 93) {
     // Reset database
     await GM.setValue('map', '{}')
     await GM.setValue('black', '[]')
     await GM.setValue('hovercache', '{}')
     await GM.setValue('requestcache', '{}')
-    await GM.setValue('searchcache', '{}')
-    await GM.setValue('autosearchcache', '{}')
     await GM.setValue('temporaryblack', '{}')
+    await GM.setValue('searchcache', false) // Unused
+    await GM.setValue('autosearchcache', false) // Unused
   }
-  if (version < 92) {
-    await GM.setValue('version', 92)
+  if (version < 94) {
+    await GM.setValue('version', 94)
   }
 }
+
+const BOX_CSS = `
+  #mcdiv123 {
+    position: fixed;
+    background-color: #fff;
+    border: 2px solid #bbb;
+    border-radius: 6px;
+    box-shadow: 0 0 3px 3px rgba(100, 100, 100, 0.2);
+    color: #000;
+    min-width: 150;
+    max-height: 80%;
+    max-width: 640;
+    overflow: auto;
+    padding: 3px;
+    z-index: 2147483601;
+  }
+
+  #mcisearchquery {
+    background: white;
+    color: black;
+    width: 450px;
+    display: inline;
+  }
+
+  #mcisearchbutton {
+    background: silver;
+    color: black;
+    border: 2px solid black;
+    padding: 3px;
+    display: inline;
+    margin: 0px 5px;
+    cursor: pointer;
+  }
+
+  /* http://www.designcouch.com/home/why/2013/05/23/dead-simple-pure-css-loading-spinner/ */
+  #mcdiv123 .grespinner {
+    display: inline-block;
+    height: 20px;
+    width: 20px;
+    margin: 0 auto;
+    position: relative;
+    animation: rotation .6s infinite linear;
+    border-left: 6px solid rgba(0,174,239,.15);
+    border-right: 6px solid rgba(0,174,239,.15);
+    border-bottom: 6px solid rgba(0,174,239,.15);
+    border-top: 6px solid rgba(0,174,239,.8);
+    border-radius: 100%
+  }
+
+  @keyframes rotation {
+    from {
+      transform: rotate(0)
+    }
+
+    to {
+      transform: rotate(359deg)
+    }
+  }
+
+  #mcdiv123searchresults {
+    font-size: 12px;
+    max-width: 95%
+  }
+
+  .mcdiv123_correct_entry {
+    cursor: pointer;
+    color: green;
+    font-size: 25px;
+    margin-top: 10px;
+  }
+  .mcdiv123_correct_entry:hover {
+    color: #41fd41;
+  }
+
+  .mcdiv123_incorrect {
+    cursor: pointer;
+    float: right;
+    color: crimson;
+    font-size: 11px;
+  }
+  .mcdiv123_incorrect {
+    cursor: pointer;
+    float: right;
+    color: crimson;
+    font-size: 15px;
+    margin-right: 10px;
+  }
+  .mcdiv123_incorrect:hover {
+    cursor: pointer;
+    float: right;
+    color: crimson;
+    font-size: 15px;
+    margin-right: 10px;
+    border:2px solid white;
+  }
+  .mcdiv123_incorrect:hover {
+    border-color: crimson;
+  }
+
+  #mcdiv123searchresults .result {
+    font: 12px arial,helvetica,serif;
+    border-top-width: 1px;
+    border-top-color: #ccc;
+    border-top-style: solid;
+    padding: 5px
+  }
+
+  .mcdiv123_cover {
+    max-width: 200px;
+    max-height: 140px;
+  }
+
+  #mcdiv123searchresults .result .mcdiv123_score_badge {
+    display: inline-block;
+    margin: 3px;
+    font-weight: 600;
+    border-radius: 6px;
+    color: black;
+    padding: 5px;
+  }
+
+  #mcdiv123searchresults .result .floatleft {
+    float: left;
+  }
+
+  #mcdiv123searchresults .result .clearleft {
+    clear: left;
+  }
+
+  #mcdiv123searchresults .result .resultcontent {
+    max-width: 360px;
+    margin-left: 10px;
+  }
+
+  #mcdiv123searchresults .result .mcdiv_release_date {
+    color: silver
+  }
+
+  .mcdiv123_image_placeholder {
+    width: 82px;
+    height: 82px;
+    background: rgb(64, 64, 64);
+    border-radius: 8px;
+  }
+
+  #mcdiv123searchresults .result a {
+    color: #09f;
+    font-weight: 700;
+    text-decoration: none
+  }
+
+  #mcdiv123searchresults .mcdiv_desc {
+    max-height:120px;
+    overflow-y: auto;
+    scrollbar-color: #d9d9d9 #eee;
+    scrollbar-width: thin;
+  }
+
+`
 
 async function acceptGDPR (showDialog) {
   if (showDialog === true) {
@@ -212,11 +368,6 @@ function delay (ms) {
   })
 }
 
-function getHostname (url) {
-  const a = document.createElement('a')
-  a.href = url
-  return a.hostname
-}
 function absoluteMetaURL (url) {
   if (url.startsWith('https://')) {
     return url
@@ -323,27 +474,70 @@ function randomStringId () {
 function fixMetacriticURLs (html) {
   return html.replace(/<a /g, '<a target="_blank" ').replace(/href="\//g, 'href="' + baseURL).replace(/src="\//g, 'src="' + baseURL)
 }
-function searchType2metacritic (type) {
+function searchType2fandomProdApigee (type) {
   return ({
+    tv: '1',
     movie: '2',
     pcgame: '13',
     xonegame: '13',
     ps4game: '13',
-    music: '4', // TODO this is probably wrong
-    tv: '1'
+    music: '4' // TODO this is probably wrong, music seems to be unsupported at the moment
   })[type]
 }
-function metacritic2searchType (type) {
+function fandomProdApigee2metacriticUrl (type) {
   return ({
-    Album: 'music',
-    TV: 'tv',
-    Movie: 'movie',
-    'PC Game': 'pcgame',
-    'PS4 Game': 'ps4game',
-    'XONE Game': 'onegame',
-    'WIIU Game': 'xxxxx',
-    '3DS Game': 'xxxx'
+    1: 'tv',
+    2: 'movie',
+    13: 'game',
+    4: 'music' // TODO this is probably wrong, music seems to be unsupported at the moment
   })[type]
+}
+
+function badgeColor (score, type = '') {
+  const colors = {
+    universalAcclaim: '#6c3',
+    generallyFavorable: '#00ce7a',
+    mixedOrAverage: '#ffbd3f',
+    generallyUnfavorable: '#ff6874',
+    overwhelmingDislike: '#f00',
+    tbd: '#fff'
+  }
+
+  if (type.indexOf('game') !== -1) {
+    if (score > 89) {
+      return colors.universalAcclaim
+    }
+    if (score > 74) {
+      return colors.generallyFavorable
+    }
+    if (score > 49) {
+      return colors.mixedOrAverage
+    }
+    if (score > 19) {
+      return colors.generallyUnfavorable
+    }
+    if (score > 0) {
+      return colors.overwhelmingDislike
+    }
+    return colors.tbd
+  } else {
+    if (score > 80) {
+      return colors.universalAcclaim
+    }
+    if (score > 60) {
+      return colors.generallyFavorable
+    }
+    if (score > 39) {
+      return colors.mixedOrAverage
+    }
+    if (score > 19) {
+      return colors.generallyUnfavorable
+    }
+    if (score > 0) {
+      return colors.overwhelmingDislike
+    }
+    return colors.tbd
+  }
 }
 
 function replaceBrackets (str) {
@@ -470,16 +664,6 @@ async function addToMap (url, metaurl) {
 
   (new Image()).src = baseURLwhitelist + '?docurl=' + encodeURIComponent(url) + '&metaurl=' + encodeURIComponent(metaurl) + '&ref=' + encodeURIComponent(randomStringId())
   return [url, metaurl]
-}
-
-async function removeFromMap (url) {
-  const data = JSON.parse(await GM.getValue('map', '{}'))
-
-  url = filterUniversalUrl(url)
-  if (url in data) {
-    delete data[url]
-    await GM.setValue('map', JSON.stringify(data))
-  }
 }
 
 async function addToTemporaryBlacklist (metaurl) {
@@ -689,7 +873,6 @@ function asyncRequest (data) {
       }
       const defaultHeaders = {
         Referer: data.url,
-        // Host: getHostname(data.url),
         'User-Agent': navigator.userAgent
       }
       const defaultData = {
@@ -969,7 +1152,7 @@ async function loadMetacriticUrl (fromSearch) {
       }
     }
 
-    if (fromSearch) {
+    if (!fromSearch) {
       startSearch()
     }
   })
@@ -989,97 +1172,62 @@ async function loadMetacriticUrl (fromSearch) {
 async function startSearch () {
   waitForHotkeysMETA()
 
-  const cache = JSON.parse(await GM.getValue('autosearchcache', '{}'))
-  const now = (new Date()).getTime()
-  const timeout = 2 * 60 * 60 * 1000
-  for (const prop in cache) {
-    // Delete cached values, that are older than 2 hours
-    if (now - (new Date(cache[prop].time)).getTime() > timeout) {
-      delete cache[prop]
-    }
-  }
-
   if (current.type === 'music') {
     current.searchTerm = current.data[0]
   } else {
     current.searchTerm = current.data.join(' ')
   }
-  let response
-  if (current.searchTerm in cache) {
-    response = cache[current.searchTerm]
-  } else {
-    response = await asyncRequest({
-      method: 'POST',
-      url: baseURLautosearch,
-      data: 'search_term=' + encodeURIComponent(current.searchTerm) + '&image_size=98&search_each=1&sort_type=popular',
-      headers: {
-        Referer: current.metaurl,
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        // Host: 'www.metacritic.com',
-        'User-Agent': 'MetacriticUserscript Mozilla/5.0 (Android 4.4; Mobile; rv:41.0) Gecko/41.0 Firefox/41.0',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    })
-    response = {
-      time: (new Date()).toJSON(),
-      json: JSON.parse(response.responseText)
-    }
-    cache[current.searchTerm] = response
-    await GM.setValue('autosearchcache', JSON.stringify(cache))
+  const items = await fandomProdApigeeSearch(current.searchTerm, current.type)
+
+  if (!items) {
+    alert('ShowMetacriticRatings: Error 05 item=', items)
   }
 
-  if (!response || !('json' in response)) {
-    alert('ShowMetacriticRatings: Error 05')
-  }
-  const data = response.json
   let multiple = false
-  if (data && data.autoComplete && data.autoComplete.results && data.autoComplete.results.length) {
-    // Remove data with wrong type
-    data.autoComplete = data.autoComplete.results
-
-    const newdata = []
-    data.autoComplete.forEach(function (result) {
-      if (metacritic2searchType(result.refType) === current.type) {
-        newdata.push(result)
+  if (items.length === 0) {
+    // No results
+    console.debug('ShowMetacriticRatings: No results for searchTerm=' + current.searchTerm)
+  } else if (items.length === 1) {
+    // One result, let's show it
+    const itemURL = absoluteMetaURL(items[0].metacriticUrl)
+    if (!await isBlacklistedUrl(document.location.href, itemURL)) {
+      current.metaurl = itemURL
+      loadMetacriticUrl(true)
+      return
+    }
+  } else {
+    // More than one result
+    multiple = true
+    console.debug('ShowMetacriticRatings: Multiple results for searchTerm=' + current.searchTerm)
+    const exactMatches = []
+    items.forEach(function (result, i) { // Try to find the correct result by matching the search term to exactly one movie title
+      if (current.searchTerm.toLowerCase() === result.title.toLowerCase()) {
+        exactMatches.push(result)
       }
     })
-    data.autoComplete = newdata
-    if (data.autoComplete.length === 0) {
-      // No results
-      console.debug('ShowMetacriticRatings: No results (after filtering by type) for searchTerm=' + current.searchTerm)
-    } else if (data.autoComplete.length === 1) {
-      // One result, let's show it
-      if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(data.autoComplete[0].url))) {
-        current.metaurl = absoluteMetaURL(data.autoComplete[0].url)
-        loadMetacriticUrl(true)
-        return
-      }
-    } else {
-      // More than one result
-      multiple = true
-      console.debug('ShowMetacriticRatings: Multiple results for searchTerm=' + current.searchTerm)
-      const exactMatches = []
-      data.autoComplete.forEach(function (result, i) { // Try to find the correct result by matching the search term to exactly one movie title
-        if (current.searchTerm === result.name) {
+    if (exactMatches.length === 0) {
+      // Try to be a bit more fuzzy
+      items.forEach(function (result, i) {
+        if (removeSymbols(current.searchTerm.toLowerCase()) === removeSymbols(result.title.toLowerCase())) {
           exactMatches.push(result)
         }
       })
-      if (exactMatches.length === 1) {
-        // Only one exact match, let's show it
-        console.debug('ShowMetacriticRatings: Only one exact match for searchTerm=' + current.searchTerm)
-        if (!await isBlacklistedUrl(document.location.href, absoluteMetaURL(exactMatches[0].url))) {
-          current.metaurl = absoluteMetaURL(exactMatches[0].url)
-          loadMetacriticUrl(true)
-          return
-        }
+    }
+    if (exactMatches.length === 1) {
+      // Only one exact match, let's show it
+      console.debug('ShowMetacriticRatings: Only one exact match for searchTerm=' + current.searchTerm)
+      const itemURL = absoluteMetaURL(exactMatches[0].metacriticUrl)
+      if (!await isBlacklistedUrl(document.location.href, itemURL)) {
+        current.metaurl = itemURL
+        loadMetacriticUrl(true)
+        return
       }
     }
-  } else {
-    console.debug('ShowMetacriticRatings: No results (at all) for searchTerm=' + current.searchTerm)
   }
+
   // HERE: multiple results or no result. The user may type "meta" now
   if (multiple) {
-    balloonAlert('Multiple metacritic results. Type &#34;meta&#34; for manual search.', 10000, false, { bottom: 5, top: 'auto', maxWidth: 400, paddingRight: 5 }, () => openSearchBox(true))
+    balloonAlert('Multiple metacritic results. Type &#34;meta&#34; for manual search.', 10000, false, { bottom: 5, top: 'auto', maxWidth: 400, paddingRight: 5, cursor: 'pointer' }, () => openSearchBox(true))
   }
 }
 
@@ -1091,22 +1239,12 @@ function openSearchBox (search) {
     query = current.data.join(' ')
   }
   $('#mcdiv123').remove()
+
   const div = $('<div id="mcdiv123"></div>').appendTo(document.body)
   div.css({
-    position: 'fixed',
-    bottom: 0,
-    left: 0,
     minWidth: 300,
-    maxHeight: '80%',
-    maxWidth: 640,
-    overflow: 'auto',
-    backgroundColor: '#fff',
-    border: '2px solid #bbb',
-    borderRadius: ' 6px',
-    boxShadow: '0 0 3px 3px rgba(100, 100, 100, 0.2)',
-    color: '#000',
-    padding: ' 3px',
-    zIndex: '2147483601'
+    bottom: 0,
+    left: 0
   })
 
   GM.getValue('position', false).then(function (s) {
@@ -1121,62 +1259,146 @@ function openSearchBox (search) {
     }
   })
 
-  $('<input type="text" size="60" id="mcisearchquery" style="background:white;color:black;">').appendTo(div).focus().val(query).on('keypress', function (e) {
+  $('<input type="text" id="mcisearchquery">').appendTo(div).focus().val(query).on('keypress', function (e) {
     const code = e.keyCode || e.which
     if (code === 13) { // Enter key
       searchBoxSearch(e, $('#mcisearchquery').val())
     }
   })
-  $('<button id="mcisearchbutton" style="background:silver;color:black;">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
-  $('<div style="color:red; font-family:sans-serif; padding:5px;">Sorry, the search function is currently broken because of the new website design of metacritic.com 😭</div>').appendTo(div)
+  $('<button id="mcisearchbutton">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
 }
+
+async function getFandomProdApigeeApiKey () {
+  let apiKey = await GM.getValue('fandomProdApigeeKey', false)
+  if (!apiKey) {
+    apiKey = await findFandomProdApigeeApiKey()
+  }
+
+  const lastUpdate = await GM.getValue('fandomProdApigeeTime', false)
+  if (!lastUpdate || (new Date()).getTime() - (new Date(lastUpdate)).getTime() > 7 * 24 * 60 * 60 * 1000) {
+    // Update api key once a week
+    const newApiKey = await findFandomProdApigeeApiKey()
+    if (newApiKey) {
+      apiKey = newApiKey
+    }
+  }
+
+  if (!apiKey) {
+    console.debug('ShowMetacriticRatings: Fallback to hard-coded api key')
+    apiKey = '1MOZgmNFxvmljaQR1X9KAij9Mo4xAY3u'
+  }
+  return apiKey
+}
+
+async function findFandomProdApigeeApiKey () {
+  // Get a new Api key from the metacritic website search results page
+  const url = 'https://www.metacritic.com/search/Fly/'
+  try {
+    const response = await asyncRequest({ url })
+    const m = response.responseText.match(/\?apiKey=(\w{20,})/)
+    if (m) {
+      const apiKey = m[1]
+      console.debug('ShowMetacriticRatings: Api key updated', apiKey)
+      await GM.setValue('fandomProdApigeeKey', apiKey)
+      await GM.setValue('fandomProdApigeeTime', (new Date()).toJSON())
+      return apiKey
+    }
+  } catch (e) {
+    console.error('ShowMetacriticRatings: findFandomProdApigeeApiKey() Error:', e)
+  }
+  console.error('ShowMetacriticRatings: Could not find fandomProdApigee api key')
+  return false
+}
+
+async function fandomProdApigeeSearch (query, searchType) {
+  const apiKey = await getFandomProdApigeeApiKey()
+
+  const type = searchType2fandomProdApigee(searchType)
+  const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query)).replace('{apiKey}', encodeURIComponent(apiKey))
+
+  const response = await asyncRequest({ url })
+
+  if (response.status !== 200) {
+    console.error('ShowMetacriticRatings: fandomProdApigeeSearch() response != 200: ', response)
+  }
+
+  const obj = JSON.parse(response.responseText)
+  return obj.data.items.map(item => {
+    // Improve results by adding the metacritic url
+    let itemUrl = 'criticScoreSummary' in item && 'url' in item.criticScoreSummary ? item.criticScoreSummary.url : null
+    if (!itemUrl) {
+      itemUrl = `${baseURL}${fandomProdApigee2metacriticUrl(item.typeId)}/${item.slug}/`
+    }
+    item.metacriticUrl = itemUrl.replace('/critic-reviews/', '/')
+    return item
+  })
+}
+
 async function searchBoxSearch (ev, query) {
   if (!query) { // Use values from search form
     query = current.searchTerm
   }
 
-  const type = searchType2metacritic(current.type)
-
-  const style = document.createElement('style')
-  style.type = 'text/css'
-  style.innerHTML = CSS
-  document.head.appendChild(style)
-
   const div = $('#mcdiv123')
-  const loader = $('<div style="width:20px; height:20px;display:inline-block" class="grespinner"></div>').appendTo($('#mcisearchbutton'))
+  div.css({
+    minWidth: '550px'
+  })
+  const loader = $('<div class="grespinner"></div>').appendTo($('#mcisearchbutton'))
 
-  const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
-
-  const response = await asyncRequest({
-    url,
-    headers: {
-      'User-Agent': 'MetacriticUserscript ' + navigator.userAgent
-    }
-  }).catch(function (response) {
+  const resultItems = await fandomProdApigeeSearch(query, current.type).catch(function (response) {
     alert('Search failed!\n' + response.finalUrl + '\nStatus: ' + response.status + '\n' + response.responseText ? response.responseText.substring(0, 500) : 'Empty response')
   })
 
   const results = []
-  if (!~response.responseText.indexOf('No search results found.')) {
-    const d = $('<html>').html(response.responseText)
-    d.find('.c-pageSiteSearch-results .g-grid-container').each(function () {
-      const item = this.querySelector('.c-pageSiteSearch-results-item')
-      if (item) {
-        item.querySelectorAll('.c-globalImagePlaceholder').forEach(e => e.remove())
-        item.querySelectorAll('picture img').forEach(e => (e.style.display = ''))
-        item.querySelectorAll('c-pageSiteSearch-results-item-image').forEach(e => (e.style.float = 'left'))
+  resultItems.forEach(item => {
+    let img = `<svg class="mcdiv123_image_placeholder" viewBox="0 0 176 40"">
+      <path d="M17.2088 32.937L20.6188 29.527L14.0522 22.9604C13.7757 22.6839 13.4762 22.3383 13.3149 21.9466C12.9462 21.1632 12.7849 19.942 13.6835 19.0434C14.7895 17.9375 16.2641 18.3983 17.6926 19.8268L24.0058 26.14L27.4159 22.73L20.8262 16.1403C20.5497 15.8638 20.2271 15.4491 20.0659 15.1034C19.6281 14.2049 19.6511 13.0758 20.4576 12.2694C21.5866 11.1404 23.0612 11.5551 24.6971 13.191L30.8259 19.3199L34.236 15.9099L27.6002 9.27409C24.2362 5.91013 21.0796 6.02534 18.9138 8.19118C18.0843 9.02065 17.5774 9.8962 17.324 10.887C17.1166 11.7395 17.0475 12.6841 17.2318 13.6979L17.1857 13.744C15.5268 13.0528 13.6374 13.4675 12.1859 14.9191C10.2504 16.8545 10.3196 18.9052 10.55 20.1033L10.4809 20.1724L8.79888 18.813L5.84965 21.7622C6.88648 22.7069 8.1307 23.859 9.53619 25.2645L17.2088 32.937V32.937Z"></path> <path d="M19.9822 8.05032e-06C14.6789 0.00472041 9.59462 2.11554 5.84741 5.86828C2.10021 9.62102 -0.00310998 14.7084 3.45157e-06 20.0117C0.00307557 25.315 2.11239 30.4 5.86407 34.1484C9.61575 37.8968 14.7026 40.0016 20.006 40C25.3093 39.9984 30.3949 37.8906 34.1443 34.14C37.8938 30.3893 40.0001 25.3031 40 19.9998V19.9764C39.9938 14.6731 37.8814 9.58935 34.1275 5.8432C30.3736 2.09705 25.2855 -0.00474688 19.9822 8.05032e-06ZM19.8908 4.27438C24.0447 4.27063 28.0301 5.91689 30.9704 8.85113C33.9107 11.7854 35.5652 15.7673 35.57 19.9212V19.9393C35.57 24.0932 33.9201 28.0769 30.9833 31.0145C28.0465 33.9522 24.0632 35.6031 19.9093 35.6043C15.7555 35.6055 11.7712 33.9569 8.83271 31.0209C5.89421 28.085 4.24207 24.1022 4.23964 19.9484C4.23727 15.7946 5.88474 11.8099 8.81975 8.87064C11.7548 5.93134 15.737 4.27808 19.8908 4.27438Z"></path> <path d="M46.5464 27.9426H51.1377V19.1013C51.1377 18.7291 51.1687 18.2948 51.3238 17.9225C51.603 17.147 52.3165 16.2163 53.5264 16.2163C55.0154 16.2163 55.6979 17.5192 55.6979 19.4426V27.9426H60.2891V19.0703C60.2891 18.6981 60.3512 18.2017 60.4753 17.8605C60.7855 16.9608 61.561 16.2163 62.6468 16.2163C64.1669 16.2163 64.8804 17.4882 64.8804 19.6908V27.9426H69.4716V19.0083C69.4716 14.4791 67.2691 12.4316 64.353 12.4316C63.2362 12.4316 62.3056 12.6798 61.468 13.1762C60.7545 13.6105 60.072 14.1999 59.5136 15.0065H59.4516C58.8001 13.4243 57.249 12.4316 55.2946 12.4316C52.6888 12.4316 51.3548 13.8587 50.7034 14.8203H50.6103L50.3932 12.7729H46.4224C46.4844 14.1068 46.5464 15.72 46.5464 17.6123V27.9426V27.9426Z"></path> <path d="M85.8077 21.8623C85.8697 21.5211 85.9628 20.8075 85.9628 20.001C85.9628 16.2473 84.1015 12.4316 79.2 12.4316C73.9263 12.4316 71.5376 16.6816 71.5376 20.5284C71.5376 25.2747 74.4847 28.2838 79.6343 28.2838C81.6817 28.2838 83.5741 27.9426 85.1252 27.3221L84.5047 24.1269C83.2328 24.5302 81.9299 24.7473 80.3168 24.7473C78.1142 24.7473 76.1909 23.8167 76.0358 21.8623H85.8077ZM76.0047 18.636C76.1288 17.3641 76.9354 15.5649 78.9208 15.5649C81.0923 15.5649 81.5887 17.4882 81.5887 18.636H76.0047Z"></path> <path d="M88.617 9.48442V12.7727H86.6006V16.2472H88.617V22.4516C88.617 24.5921 89.0513 26.0501 89.9199 26.9498C90.6645 27.7253 91.9363 28.2837 93.4564 28.2837C94.7904 28.2837 95.9071 28.0976 96.5276 27.8494L96.4966 24.2819C96.1553 24.3439 95.69 24.4059 95.1006 24.4059C93.6736 24.4059 93.2393 23.5684 93.2393 21.7381V16.2472H96.6207V12.7727H93.2393V8.42969L88.617 9.48442V9.48442Z"></path> <path d="M111.213 18.9773C111.213 15.4097 109.6 12.4316 104.543 12.4316C101.782 12.4316 99.704 13.1762 98.6492 13.7656L99.5179 16.8057C100.511 16.1853 102.155 15.6579 103.706 15.6579C106.032 15.6579 106.467 16.8057 106.467 17.6123V17.8294C101.1 17.7984 97.5635 19.6908 97.5635 23.6305C97.5635 26.0502 99.3938 28.2838 102.465 28.2838C104.264 28.2838 105.815 27.6324 106.808 26.4225H106.901L107.18 27.9426H111.43C111.275 27.105 111.213 25.709 111.213 24.251V18.9773V18.9773ZM106.622 22.4207C106.622 22.6999 106.591 22.9791 106.529 23.2273C106.219 24.1889 105.257 24.9645 104.078 24.9645C103.023 24.9645 102.217 24.3751 102.217 23.1652C102.217 21.3349 104.14 20.7455 106.622 20.7765V22.4207V22.4207Z"></path> <path d="M125.003 24.0648C124.289 24.3751 123.421 24.5612 122.304 24.5612C120.008 24.5612 118.147 23.1032 118.147 20.3112C118.116 17.8294 119.729 16.0612 122.211 16.0612C123.452 16.0612 124.289 16.2784 124.848 16.5265L125.592 13.0211C124.6 12.6488 123.235 12.4316 121.994 12.4316C116.348 12.4316 113.308 16.0612 113.308 20.4973C113.308 25.2747 116.441 28.2838 121.342 28.2838C123.142 28.2838 124.724 27.9426 125.561 27.5703L125.003 24.0648Z"></path> <path d="M127.373 27.9426H132.088V20.2492C132.088 19.8769 132.119 19.5046 132.181 19.1944C132.491 17.7364 133.67 16.8057 135.407 16.8057C135.935 16.8057 136.338 16.8678 136.679 16.9608V12.4937C136.338 12.4316 136.121 12.4316 135.686 12.4316C134.228 12.4316 132.367 13.3623 131.592 15.5649H131.468L131.312 12.7729H127.249C127.311 14.0758 127.373 15.5338 127.373 17.7674V27.9426V27.9426Z"></path> <path d="M143.042 27.9424V12.7727H138.327V27.9424H143.042ZM140.685 6.16504C139.165 6.16504 138.172 7.18877 138.203 8.55373C138.172 9.85665 139.165 10.9114 140.654 10.9114C142.205 10.9114 143.197 9.85665 143.197 8.55373C143.166 7.18877 142.205 6.16504 140.685 6.16504Z"></path> <path d="M146.661 9.48442V12.7727H144.645V16.2472H146.661V22.4516C146.661 24.5921 147.095 26.0501 147.964 26.9498C148.708 27.7253 149.98 28.2837 151.5 28.2837C152.834 28.2837 153.951 28.0976 154.572 27.8494L154.541 24.2819C154.199 24.3439 153.734 24.4059 153.145 24.4059C151.718 24.4059 151.283 23.5684 151.283 21.7381V16.2472H154.665V12.7727H151.283V8.42969L146.661 9.48442Z"></path> <path d="M161.316 27.9424V12.7727H156.6V27.9424H161.316ZM158.958 6.16504C157.438 6.16504 156.445 7.18877 156.476 8.55373C156.445 9.85665 157.438 10.9114 158.927 10.9114C160.478 10.9114 161.471 9.85665 161.471 8.55373C161.44 7.18877 160.478 6.16504 158.958 6.16504V6.16504Z"></path> <path d="M175.11 24.0648C174.396 24.3751 173.528 24.5612 172.411 24.5612C170.115 24.5612 168.254 23.1032 168.254 20.3112C168.223 17.8294 169.836 16.0612 172.318 16.0612C173.559 16.0612 174.396 16.2784 174.955 16.5265L175.699 13.0211C174.707 12.6488 173.342 12.4316 172.101 12.4316C166.455 12.4316 163.415 16.0612 163.415 20.4973C163.415 25.2747 166.548 28.2838 171.449 28.2838C173.248 28.2838 174.831 27.9426 175.668 27.5703L175.11 24.0648Z"></path>
+    </svg>`
+    if (item.images.length > 0) {
+      img = `<img class="mcdiv123_cover" src="https://www.metacritic.com/a/img/${item.images[0].bucketType}${item.images[0].bucketPath}">`
+    }
 
-        results.push(item.innerHTML)
-      }
-    })
-  }
+    let score = ''
+    if ('criticScoreSummary' in item && 'score' in item.criticScoreSummary && item.criticScoreSummary.score > 0) {
+      const bgColor = badgeColor(item.criticScoreSummary.score, item.type)
+      score = `<div class="mcdiv123_score_badge" style="background: ${bgColor}">${item.criticScoreSummary.score}</div>`
+    }
+
+    results.push(`
+    <div>
+      <div class="floatleft">
+        ${img}
+      </div>
+      <div class="floatleft resultcontent">
+        <a style="font-size:17px" href="${item.metacriticUrl}">
+          ${item.title}
+        </a>
+        <span style="font-weight:800;">${item.premiereYear ? item.premiereYear : (item.releaseDate ? item.releaseDate.substring(0, 4) : '')}</span>
+        ${score}
+        <div>
+          ${item.genres.map(g => g.name).join(' • ')}
+          <br>
+          <span class="mcdiv_release_date">${item.releaseDate ? item.releaseDate : ''}</span>
+          <div class="mcdiv_desc">
+            ${item.description}
+          </div>
+        </div>
+      </div>
+      <div class="floatleft mcdiv123_correct_entry" title="Assist us: This is the correct entry!">&check;</div>
+      <div class="clear:left"></div>
+    </div>
+    `
+    )
+  })
+
+  const websiteSearchUrl = `${baseURL}search/${encodeURIComponent(query)}/`
 
   if (results && results.length > 0) {
     // Show results
     loader.remove()
 
     const accept = function (ev) {
-      const parentDiv = $(this.parentNode)
+      const parentDiv = $(this).closest('.result')
       const a = parentDiv.find("a[href*='metacritic.com']")
       const metaurl = a.attr('href')
       const docurl = document.location.href
@@ -1201,27 +1423,20 @@ async function searchBoxSearch (ev, query) {
 
     const resultdiv = $('#mcdiv123searchresults').length
       ? $('#mcdiv123searchresults').html('')
-      : $('<div id="mcdiv123searchresults"></div>').css({
-        'max-width': '95%',
-        '--grid-cols': '2',
-        display: 'grid',
-        'grid-gap': '1rem',
-        gap: '1rem',
-        'grid-template-columns': '1fr'
-      }).appendTo(div)
+      : $('<div id="mcdiv123searchresults"></div>').appendTo(div)
     results.forEach(function (html) {
       const singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html) + '<div style="clear:left"></div>').appendTo(resultdiv)
-      $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; color:green; font-size: 13px;">&check;</span>').prependTo(singleresult).click(accept)
+      singleresult.find('.mcdiv123_correct_entry').click(accept)
     })
     resultdiv.find('.metascore_w.album').removeClass('album') // Remove some classes
     resultdiv.find('.must-see').remove() // Remove some elements
 
     const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + websiteSearchUrl + '" title="Open Metacritic">' + decodeURI(websiteSearchUrl.replace('https://www.', '')) + '</a>').appendTo(sub)
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
       document.body.removeChild(this.parentNode.parentNode)
     })
-    $('<span title="Assist us: None of the above is the correct item!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').appendTo(sub).click(function () { if (confirm('None of the above is the correct item\nConfirm?')) denyAll() })
+    $('<span class="mcdiv123_incorrect" title="Assist us: None of the above is the correct item!">&cross;</span>').appendTo(sub).click(function () { if (confirm('None of the above is the correct item\nConfirm?')) denyAll() })
   } else {
     // No results
     loader.remove()
@@ -1229,7 +1444,7 @@ async function searchBoxSearch (ev, query) {
     resultdiv.html('No search results.')
 
     const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
-    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
+    $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + websiteSearchUrl + '" title="Open Metacritic">' + decodeURI(websiteSearchUrl.replace('https://www.', '')) + '</a>').appendTo(sub)
     $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
       document.body.removeChild(this.parentNode.parentNode)
     })
@@ -1244,17 +1459,8 @@ function showHoverInfo (response, orgMetaUrl) {
   $('#mcdiv123').remove()
   const div = $('<div id="mcdiv123"></div>').appendTo(document.body)
   div.css({
-    position: 'fixed',
     bottom: 0,
-    left: 0,
-    minWidth: 150,
-    backgroundColor: '#fff',
-    border: '2px solid #bbb',
-    borderRadius: ' 6px',
-    boxShadow: '0 0 3px 3px rgba(100, 100, 100, 0.2)',
-    color: '#000',
-    padding: ' 3px',
-    zIndex: '2147483601'
+    left: 0
   })
 
   GM.getValue('position', false).then(function (s) {
@@ -1418,7 +1624,16 @@ function showHoverInfo (response, orgMetaUrl) {
       <head>
         <meta charset="utf-8">
         <title>Metacritic info</title>
-        <style>body { margin:0px; padding:0px; background:white; }${css}
+        <style>html {
+          scrollbar-width: thin;
+          scrollbar-color: #dfdfdf white;
+        }
+        body {
+          margin:0px;
+          padding:0px;
+          background:white;
+        }
+        ${css}
         </style>
         <script>
         const failedImages = {};
@@ -2559,6 +2774,14 @@ async function main () {
     return
   }
   await versionUpdate()
+
+  if (!document.getElementById('mcdiv123_box_css')) {
+    const style = document.createElement('style')
+    style.setAttribute('id', 'mcdiv123_box_css')
+    style.innerHTML = BOX_CSS
+    document.head.appendChild(style)
+  }
+
   const firstRunResult = await main()
 
   GM.registerMenuCommand('Show Metacritic.com ratings - Search now', () => openSearchBox())
