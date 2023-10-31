@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          94
+// @version          95
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -41,6 +41,7 @@
 // @match            https://www.imdb.com/title/*
 // @match            https://store.steampowered.com/app/*
 // @match            https://www.gamespot.com/*
+// @match            http://www.serienjunkies.de/*
 // @match            https://www.serienjunkies.de/*
 // @match            https://www.rottentomatoes.com/m/*
 // @match            https://rottentomatoes.com/m/*
@@ -76,7 +77,6 @@
 // @match            https://music.apple.com/*
 // @match            https://epguides.com/*
 // @match            https://www.epguides.com/*
-// @match            https://sharetv.com/shows/*
 // @match            https://www.netflix.com/*
 // @match            https://www.cc.com/*
 // @match            https://www.tvhoard.com/*
@@ -91,8 +91,10 @@
 // @match            https://store.epicgames.com/*
 // @match            https://www.steamgifts.com/giveaway/*
 // @match            https://psa.pm/*
+// @match            https://psa.wf/*
 // @match            https://www.save.tv/*
 // @match            https://argenteam.net/*
+// @match            https://www.wikiwand.com/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
@@ -2015,14 +2017,19 @@ const sites = {
     host: ['www.serienjunkies.de'],
     condition: Always,
     products: [{
-      condition: () => Always,
+      condition: () => document.getElementById('serienlinksbreit2aktuell'),
       type: 'tv',
-      data: () => parseLDJSON('name', (j) => (j['@type'] === 'TVSeries'))
+      data: () => document.querySelector('h1').textContent.trim()
+    },
+    {
+      condition: () => document.location.pathname.search(/vod\/film\/.{3,}/) !== -1,
+      type: 'movie',
+      data: () => document.querySelector('h1').textContent.trim()
     }]
   },
   gamespot: {
     host: ['gamespot.com'],
-    condition: () => document.querySelector('[itemprop=device]'),
+    condition: () => document.querySelector('[itemprop=device]') || document.location.pathname.startsWith('/reviews/'),
     products: [
       {
         condition: () => ~$('[itemprop=device]').text().indexOf('PC'),
@@ -2038,6 +2045,21 @@ const sites = {
         condition: () => ~$('[itemprop=device]').text().indexOf('XONE'),
         type: 'xonegame',
         data: () => parseLDJSON('name', (j) => (j['@type'] === 'VideoGame'))
+      },
+      {
+        condition: () => document.querySelector('.system.system--simple.system--pc'),
+        type: 'pcgame',
+        data: () => document.querySelector('h1').textContent.trim().split('Review')[0].trim()
+      },
+      {
+        condition: () => document.querySelector('.system.system--simple.system--ps5'),
+        type: 'ps4game',
+        data: () => document.querySelector('h1').textContent.trim().split('Review')[0].trim()
+      },
+      {
+        condition: () => document.querySelector('.system.system--simple.system--xbsx'),
+        type: 'xonegame',
+        data: () => document.querySelector('h1').textContent.trim().split('Review')[0].trim()
       }
     ]
   },
@@ -2118,6 +2140,11 @@ const sites = {
         condition: () => document.querySelector('[data-automation-id=title]'),
         type: 'movie',
         data: () => document.querySelector('[data-automation-id=title]').textContent.trim().replace(/\[.{1,8}\]/, '')
+      },
+      {
+        condition: () => document.querySelector('#watchNowContainer a[href*="/gp/video/"]'),
+        type: 'movie',
+        data: () => document.getElementById('productTitle').textContent.trim()
       }
     ]
   },
@@ -2194,12 +2221,15 @@ const sites = {
     host: ['themoviedb.org'],
     condition: () => document.querySelector("meta[property='og:type']"),
     products: [{
-      condition: () => document.querySelector("meta[property='og:type']").content === 'movie',
+      condition: () => document.querySelector("meta[property='og:type']").content === 'movie' ||
+        document.querySelector("meta[property='og:type']").content === 'video.movie',
       type: 'movie',
       data: () => document.querySelector("meta[property='og:title']").content
     },
     {
-      condition: () => document.querySelector("meta[property='og:type']").content === 'tv' || document.querySelector("meta[property='og:type']").content === 'tv_series',
+      condition: () => document.querySelector("meta[property='og:type']").content === 'tv' ||
+        document.querySelector("meta[property='og:type']").content === 'tv_series' ||
+        document.querySelector("meta[property='og:type']").content.indexOf('tv_show') !== -1,
       type: 'tv',
       data: () => document.querySelector("meta[property='og:title']").content
     }]
@@ -2462,15 +2492,6 @@ const sites = {
       data: () => document.querySelector('.center.titleblock h2').textContent.trim()
     }]
   },
-  ShareTV: {
-    host: ['sharetv.com'],
-    condition: () => document.location.pathname.startsWith('/shows/'),
-    products: [{
-      condition: () => document.location.pathname.split('/').length === 3 && document.querySelector("meta[property='og:title']"),
-      type: 'tv',
-      data: () => document.querySelector("meta[property='og:title']").content
-    }]
-  },
   /*
   netflix: {
     host: ['netflix.com'],
@@ -2510,16 +2531,18 @@ const sites = {
   },
   TVHoard: {
     host: ['tvhoard.com'],
-    condition: Always,
+    condition: () => document.location.pathname.split('/').length > 3 &&
+      document.location.pathname.split('/')[1] === 'titles' &&
+       document.querySelector('title-primary-details-panel h1.title a'),
     products: [{
-      condition: () => document.location.pathname.split('/').length === 3 && document.location.pathname.split('/')[1] === 'titles' && !document.querySelector('app-root title-secondary-details-panel .seasons') && document.querySelector('app-root title-page-container h1.title a'),
+      condition: () => !document.querySelector('title-secondary-details-panel .detail.seasons'),
       type: 'movie',
-      data: () => document.querySelector('app-root title-page-container h1.title a').textContent.trim()
+      data: () => document.querySelector('title-primary-details-panel h1.title a').textContent.trim()
     },
     {
-      condition: () => document.location.pathname.split('/').length === 3 && document.location.pathname.split('/')[1] === 'titles' && document.querySelector('app-root title-secondary-details-panel .seasons') && document.querySelector('app-root title-page-container h1.title a'),
+      condition: () => document.querySelector('title-secondary-details-panel .detail.seasons'),
       type: 'tv',
-      data: () => document.querySelector('app-root title-page-container h1.title a').textContent.trim()
+      data: () => document.querySelector('title-primary-details-panel h1.title a').textContent.trim()
     }]
   },
   AMC: {
@@ -2609,12 +2632,16 @@ const sites = {
     condition: () => document.querySelector('.productcard-basics__title'),
     products: [
       {
-        condition: () => document.location.pathname.slice(1, 5) === 'game',
+        condition: () => document.location.pathname.split('/').length > 2 && (
+          document.location.pathname.split('/')[1] === 'game' ||
+          document.location.pathname.split('/')[2] === 'game'),
         type: 'pcgame',
         data: () => document.querySelector('.productcard-basics__title').textContent
       },
       {
-        condition: () => document.location.pathname.slice(1, 6) === 'movie',
+        condition: () => document.location.pathname.split('/').length > 2 && (
+          document.location.pathname.split('/')[1] === 'movie' ||
+          document.location.pathname.split('/')[2] === 'movie'),
         type: 'movie',
         data: () => document.querySelector('.productcard-basics__title').textContent
       }
@@ -2644,7 +2671,7 @@ const sites = {
     }]
   },
   psapm: {
-    host: ['psa.pm'],
+    host: ['psa.pm', 'psa.wf'],
     condition: Always,
     products: [
       {
@@ -2711,6 +2738,38 @@ const sites = {
         data: () => document.querySelector('.pserie h1').firstChild.textContent.trim()
       }
     ]
+  },
+  wikiwand: {
+    host: ['www.wikiwand.com'],
+    condition: Always,
+    products: [{
+      condition: function () {
+        const title = document.querySelector('h1').textContent.toLowerCase()
+        const subtitle = document.querySelector('h2[class*="subtitle"]') ? document.querySelector('h2[class*="subtitle"]').textContent.toLowerCase() : ''
+        if (title.indexOf('film') === -1 && !subtitle) {
+          return false
+        }
+        return title.indexOf('film') !== -1 ||
+          subtitle.indexOf('film') !== -1 ||
+          subtitle.indexOf('movie') !== -1
+      },
+      type: 'movie',
+      data: () => document.querySelector('h1').textContent.replace(/\((\d{4} )?film\)/i, '').trim()
+    },
+    {
+      condition: function () {
+        const title = document.querySelector('h1').textContent.toLowerCase()
+        const subtitle = document.querySelector('h2[class*="subtitle"]') ? document.querySelector('h2[class*="subtitle"]').textContent.toLowerCase() : ''
+        if (title.indexOf('tv series') === -1 && !subtitle) {
+          return false
+        }
+        return title.indexOf('tv series') !== -1 ||
+          subtitle.indexOf('television') !== -1 ||
+          subtitle.indexOf('tv series') !== -1
+      },
+      type: 'tv',
+      data: () => document.querySelector('h1').textContent.replace(/\(tv series\)/i, '').trim()
+    }]
   }
 
 }

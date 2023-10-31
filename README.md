@@ -47,9 +47,9 @@ Supported sites and products:
  * albumoftheyear.org 
  * itunes.apple.com
  * epguides.com
- * ShareTV
  * save.tv
  * argenteam.net
+ * wikiwand.com (only Movies and TV Shows)
 
 Screenshot:
 ![Screenshot of amazon product page](https://raw.githubusercontent.com/cvzi/Metacritic-userscript/master/screenshot_amazon.jpg)
