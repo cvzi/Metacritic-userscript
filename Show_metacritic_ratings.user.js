@@ -95,6 +95,7 @@
 // @match            https://www.save.tv/*
 // @match            https://argenteam.net/*
 // @match            https://www.wikiwand.com/*
+// @match            http://localhost:7878/*
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
@@ -2770,6 +2771,15 @@ const sites = {
       type: 'tv',
       data: () => document.querySelector('h1').textContent.replace(/\(tv series\)/i, '').trim()
     }]
+  },
+  radarr: {
+    host: ['*'],
+    condition: () => document.location.pathname.startsWith('/movie/'),
+    products: [{
+      condition: () => document.querySelector('[class*="MovieDetails-title"] span'),
+      type: 'movie',
+      data: () => document.querySelector('[class*="MovieDetails-title"] span').textContent.trim()
+    }]
   }
 
 }
@@ -2781,7 +2791,7 @@ async function main () {
 
   for (const name in sites) {
     const site = sites[name]
-    if (site.host.some(function (e) { return ~this.indexOf(e) }, document.location.hostname) && site.condition()) {
+    if (site.host.some(function (e) { return ~this.indexOf(e) || e === '*' }, document.location.hostname) && site.condition()) {
       for (let i = 0; i < site.products.length; i++) {
         if (site.products[i].condition()) {
           // Check map for a match
