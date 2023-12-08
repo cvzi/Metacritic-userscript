@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          96
+// @version          97
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -692,6 +692,19 @@ async function addToTemporaryBlacklist (metaurl) {
   return true
 }
 
+async function removeFromTemporaryBlacklist (metaurl) {
+  const data = JSON.parse(await GM.getValue('temporaryblack', '{}'))
+
+  metaurl = metaurl.replace(/^https?:\/\/(www.)?metacritic\.com\//, '')
+  metaurl = metaurl.replace(/\/\//g, '/').replace(/\/\//g, '/')
+  metaurl = metaurl.replace(/^\/+/, '')
+
+  if (metaurl in data) {
+    delete data[metaurl]
+    await GM.setValue('temporaryblack', JSON.stringify(data))
+  }
+}
+
 async function isTemporaryBlacklisted (metaurl) {
   const data = JSON.parse(await GM.getValue('temporaryblack', '{}'))
 
@@ -1097,6 +1110,27 @@ function changePosition () {
   })
 }
 
+function onSizeChanged () {
+  GM.getValue('size', 100).then(function (size) {
+    if (size && size !== 100) {
+      size = parseInt(size)
+      $('#mcdiv123').css('transform', `scale(${size}%)`)
+    }
+  })
+}
+
+function changeSizeEnlarge () {
+  GM.getValue('size', 100).then((size) => {
+    GM.setValue('size', parseInt(size) + 5).then(onSizeChanged)
+  })
+}
+
+function changeSizeShrink () {
+  GM.getValue('size', 100).then((size) => {
+    GM.setValue('size', parseInt(size) - 5).then(onSizeChanged)
+  })
+}
+
 const current = {
   metaurl: false,
   docurl: false,
@@ -1107,6 +1141,16 @@ const current = {
   broadenCounter: 0
 }
 
+async function onBlacklistedPage () {
+  GM.registerMenuCommand('Show Metacritic.com ratings - Remove from Blacklist', () => removeFromBlacklistAndReload())
+}
+
+async function removeFromBlacklistAndReload () {
+  await removeFromBlacklist(current.docurl, current.metaurl)
+  await removeFromTemporaryBlacklist(current.metaurl)
+  main()
+}
+
 async function loadMetacriticUrl (fromSearch) {
   if (!current.metaurl) {
     alert('ShowMetacriticRatings: Error 04')
@@ -1115,12 +1159,14 @@ async function loadMetacriticUrl (fromSearch) {
   const orgMetaUrl = current.metaurl
   if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
     waitForHotkeysMETA()
+    onBlacklistedPage()
     return
   }
 
   if (await isTemporaryBlacklisted(current.metaurl)) {
     console.debug(`ShowMetacriticRatings: loadMetacriticUrl(fromSearch=${fromSearch}) ${current.metaurl} is temporary blacklisted`)
     waitForHotkeysMETA()
+    onBlacklistedPage()
     return
   }
 
@@ -1162,6 +1208,7 @@ async function loadMetacriticUrl (fromSearch) {
 
   if (await isBlacklistedUrl(document.location.href, current.metaurl)) {
     waitForHotkeysMETA()
+    onBlacklistedPage()
     return
   }
 
@@ -1197,6 +1244,9 @@ async function startSearch () {
       current.metaurl = itemURL
       loadMetacriticUrl(true)
       return
+    } else {
+      onBlacklistedPage()
+      return
     }
   } else {
     // More than one result
@@ -1223,6 +1273,9 @@ async function startSearch () {
       if (!await isBlacklistedUrl(document.location.href, itemURL)) {
         current.metaurl = itemURL
         loadMetacriticUrl(true)
+        return
+      } else {
+        onBlacklistedPage()
         return
       }
     }
@@ -1466,6 +1519,7 @@ function showHoverInfo (response, orgMetaUrl) {
     left: 0
   })
 
+  div.css('transform-origin', 'bottom left')
   GM.getValue('position', false).then(function (s) {
     if (s) {
       div.css({
@@ -1474,9 +1528,12 @@ function showHoverInfo (response, orgMetaUrl) {
         bottom: '',
         right: ''
       })
-      div.css(JSON.parse(s))
+      const parsedPosition = JSON.parse(s)
+      div.css(parsedPosition)
+      div.css('transform-origin', Object.keys(parsedPosition).join(' '))
     }
   })
+  onSizeChanged()
 
   // Functions for communication between page and iframe
   // Mozilla can access parent.document
@@ -2855,6 +2912,8 @@ async function main () {
 
   GM.registerMenuCommand('Show Metacritic.com ratings - Search now', () => openSearchBox())
   GM.registerMenuCommand('Show Metacritic.com ratings - Change corner', () => changePosition())
+  GM.registerMenuCommand('Show Metacritic.com ratings - Enlarge', () => changeSizeEnlarge())
+  GM.registerMenuCommand('Show Metacritic.com ratings - Shrink', () => changeSizeShrink())
 
   let lastLoc = document.location.href
   let lastContent = document.body.innerText
