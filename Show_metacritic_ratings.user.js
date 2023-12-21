@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          97
+// @version          98
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -95,6 +95,7 @@
 // @match            https://www.save.tv/*
 // @match            https://argenteam.net/*
 // @match            https://www.wikiwand.com/*
+// @match            https://trakt.tv/*
 // @match            http://localhost:7878/*
 // ==/UserScript==
 
@@ -2837,6 +2838,22 @@ const sites = {
       type: 'movie',
       data: () => document.querySelector('[class*="MovieDetails-title"] span').textContent.trim()
     }]
+  },
+  trakt: {
+    host: ['trakt.tv'],
+    condition: Always,
+    products: [
+      {
+        condition: () => document.location.pathname.startsWith('/movies/'),
+        type: 'movie',
+        data: () => Array.from(document.querySelector('.summary h1').childNodes).filter(node => node.nodeType === node.TEXT_NODE).map(node => node.textContent).join(' ').trim()
+      },
+      {
+        condition: () => document.location.pathname.startsWith('/shows/'),
+        type: 'tv',
+        data: () => Array.from(document.querySelector('.summary h1').childNodes).filter(node => node.nodeType === node.TEXT_NODE).map(node => node.textContent).join(' ').trim()
+      }
+    ]
   }
 
 }
