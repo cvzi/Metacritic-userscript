@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          98
+// @version          99
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -101,6 +101,8 @@
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
 
+const scriptName = 'Show Metacritic.com ratings'
+
 const baseURL = 'https://www.metacritic.com/'
 
 const baseURLmusic = 'https://www.metacritic.com/music/'
@@ -137,6 +139,9 @@ const windowPositions = [
   }
 ]
 
+// Detect dark theme of darkreader.org extension
+const darkTheme = 'darkreaderScheme' in document.documentElement.dataset && document.documentElement.dataset.darkreaderScheme
+
 let myDOMParser = null
 function domParser () {
   if (myDOMParser === null) {
@@ -161,6 +166,61 @@ async function versionUpdate () {
     await GM.setValue('version', 94)
   }
 }
+
+const BOX_CSS_DARK_THEME = `
+#mcdiv123 {
+  position: fixed;
+  background-color: #262626;
+  border: 2px solid #313131;
+  color: white;
+}
+
+#mcisearchquery {
+  background: #262626;
+  color: white;
+}
+
+#mcisearchbutton {
+  background: rgb(56, 56, 56);
+  color: white;
+  border: 2px solid white;
+}
+#mcdiv123 .grespinner {
+  border-left: 6px solid rgba(0,174,239,.15);
+  border-right: 6px solid rgba(0,174,239,.15);
+  border-bottom: 6px solid rgba(0,174,239,.15);
+  border-top: 6px solid rgba(0,174,239,.8);
+}
+
+#mcdiv123searchresults .result {
+  border-top-color: #525252;
+}
+
+
+#mcdiv123searchresults .result .mcdiv123_score_badge {
+  color: white;
+}
+
+
+#mcdiv123searchresults .result .mcdiv_release_date {
+  color: silver
+}
+
+.mcdiv123_image_placeholder {
+  background: rgb(64, 64, 64);
+}
+
+#mcdiv123searchresults .result a {
+  color: #09f;
+}
+
+#mcdiv123searchresults .mcdiv_desc {
+  scrollbar-color: #003c09 #00ce7a;
+}
+#mcdiv123searchresults .mcdiv_desc::-webkit-scrollbar-thumb {
+  background-color: #003c09;
+}
+`
 
 const BOX_CSS = `
   #mcdiv123 {
@@ -319,6 +379,13 @@ const BOX_CSS = `
     scrollbar-width: thin;
   }
 
+  @media (prefers-color-scheme: dark) {
+    ${BOX_CSS_DARK_THEME}
+  }
+
+  ${
+    darkTheme ? BOX_CSS_DARK_THEME : ''
+  }
 `
 
 async function acceptGDPR (showDialog) {
@@ -886,6 +953,7 @@ function asyncRequest (data) {
   return new Promise(function (resolve, reject) {
     isInRequestCache(data).then(function (cachedValue) {
       if (cachedValue) {
+        console.debug(`${scriptName}: asyncRequest() Cache hit for`, data)
         return window.setTimeout(() => resolve(cachedValue), 10)
       }
       const defaultHeaders = {
@@ -906,6 +974,7 @@ function asyncRequest (data) {
         data.headers = defaultHeaders
       }
       data = Object.assign(defaultData, data)
+      console.debug(`${scriptName}: asyncRequest() GM.xmlHttpRequest`, data)
       GM.xmlHttpRequest(data)
     })
   })
@@ -1540,7 +1609,7 @@ function showHoverInfo (response, orgMetaUrl) {
   // Mozilla can access parent.document
   // Chrome can use postMessage()
   let frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
-  function tryToLoadMoreMetacriticDetails (myframe) {
+  async function tryToLoadMoreMetacriticDetails (myframe) {
     console.log('ShowMetacriticRatings: tryToLoadMoreMetacriticDetails current', current)
     if (!current.metaurl) {
       return
@@ -1553,45 +1622,51 @@ function showHoverInfo (response, orgMetaUrl) {
       url = url + '/details/'
     }
 
-    GM.xmlHttpRequest({
-      url,
-      onload: function (response) {
-        const doc = domParser().parseFromString(response.responseText, 'text/html')
+    const response = await asyncRequest({ url })
+    const doc = domParser().parseFromString(response.responseText, 'text/html')
 
-        const titleA = doc.querySelector('.c-productSubpageHeader_back')
-        titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
-        const titleHTML = titleA.outerHTML
+    const titleA = doc.querySelector('.c-productSubpageHeader_back')
+    titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
+    const titleHTML = titleA.outerHTML
 
-        const image = doc.querySelector('picture img')
-        image.style.display = ''
-        const imageHTML = image.outerHTML
+    const image = doc.querySelector('picture img')
+    image.style.display = ''
+    const imageHTML = image.outerHTML
 
-        let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
+    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
 
-        detailsTable = detailsTable.filter(columns => {
-          if (columns[0].search(/release date/i) !== -1) {
-            return true
-          }
-          if (columns[0].search(/genres/i) !== -1) {
-            return true
-          }
-          if (columns[0].search(/developer/i) !== -1) {
-            return true
-          }
-          if (columns[0].search(/publisher/i) !== -1) {
-            return true
-          }
-          return false
-        }).map(columns => columns.join(': '))
-
-        const html = imageHTML + '<br>' + titleHTML + '<br>' + detailsTable.join('<br>')
-
-        myframe.contentWindow.postMessage({
-          mcimessage_addhtml: true,
-          mcimessage_html: html
-        }, '*')
+    detailsTable = detailsTable.filter(columns => {
+      if (columns[0].search(/release date/i) !== -1) {
+        return true
       }
-    })
+      if (columns[0].search(/genres/i) !== -1) {
+        return true
+      }
+      if (columns[0].search(/developer/i) !== -1) {
+        return true
+      }
+      if (columns[0].search(/publisher/i) !== -1) {
+        return true
+      }
+      return false
+    }).map(columns => columns.join(': '))
+
+    const html = imageHTML + '<br>' + titleHTML + '<br>' + detailsTable.join('<br>')
+
+    myframe.contentWindow.postMessage({
+      mcimessage_addhtml: true,
+      mcimessage_element_id: 'metacritic_extra_data',
+      mcimessage_element_style: 'display:none;',
+      mcimessage_html: html
+    }, '*')
+
+    // Wait to show the extra data to avoid making the frame to big
+    window.setTimeout(function () {
+      myframe.contentWindow.postMessage({
+        mcimessage_showelement: true,
+        mcimessage_selector: '#metacritic_extra_data'
+      }, '*')
+    }, 1000)
   }
   function loadExternalImage (url, myframe) {
     // Load external image, bypass CSP
@@ -1656,7 +1731,12 @@ function showHoverInfo (response, orgMetaUrl) {
         }
         if (typeof e.data === 'object' && 'mcimessage_addhtml' in e.data) {
           const div = document.body.appendChild(document.createElement('div'))
+          div.setAttribute('id', e.data.mcimessage_element_id)
+          div.setAttribute('style', e.data.mcimessage_element_style)
           div.innerHTML = e.data.mcimessage_html
+        }
+        if (typeof e.data === 'object' && 'mcimessage_showelement' in e.data) {
+          document.querySelector(e.data.mcimessage_selector).style.display = ''
         }
 
         if (!('mcimessage3' in e.data)) return
@@ -1676,7 +1756,102 @@ function showHoverInfo (response, orgMetaUrl) {
   }
 
   const css = `
-    #hover_div_a20230915{font-family:sans-serif;color:#262626;font-size:1rem;line-height:1.625rem}#hover_div_a20230915 a,#hover_div_a20230915 a:hover{text-decoration:none}#hover_div_a20230915 a:hover{color:#09f}#hover_div_a20230915 a{color:#000}#hover_div_a20230915 a:focus{color:grey}#hover_div_a20230915 .g-border-black,#hover_div_a20230915 .g-border-gray100{border-color:#000}#hover_div_a20230915 .g-color-black,#hover_div_a20230915 .g-color-gray100{color:#000}#hover_div_a20230915 .g-border-gray98{border-color:#191919}#hover_div_a20230915 .g-color-gray98{color:#191919}#hover_div_a20230915 .g-border-gray90{border-color:#262626}#hover_div_a20230915 .g-color-gray90{color:#262626}#hover_div_a20230915 .g-border-gray80{border-color:#404040}#hover_div_a20230915 .g-color-gray80{color:#404040}#hover_div_a20230915 .g-border-gray70{border-color:#666}#hover_div_a20230915 .g-color-gray70{color:#666}#hover_div_a20230915 .g-border-gray60{border-color:grey}#hover_div_a20230915 .g-color-gray60{color:grey}#hover_div_a20230915 .g-border-gray50{border-color:#999}#hover_div_a20230915 .g-color-gray50{color:#999}#hover_div_a20230915 .g-border-gray40{border-color:#bfbfbf}#hover_div_a20230915 .g-color-gray40{color:#bfbfbf}#hover_div_a20230915 .g-border-gray30{border-color:#d8d8d8}#hover_div_a20230915 .g-color-gray30{color:#d8d8d8}#hover_div_a20230915 .g-border-gray20{border-color:#e6e6e6}#hover_div_a20230915 .g-color-gray20{color:#e6e6e6}#hover_div_a20230915 .g-border-gray10{border-color:#f2f2f2}#hover_div_a20230915 .g-color-gray10{color:#f2f2f2}#hover_div_a20230915 .g-border-gray0,#hover_div_a20230915 .g-border-white{border-color:#fff}#hover_div_a20230915 .g-color-gray0,#hover_div_a20230915 .g-color-white{color:#fff}#hover_div_a20230915 .g-border-red{border-color:#eb0036}#hover_div_a20230915 .g-color-red{color:#eb0036}#hover_div_a20230915 .g-border-green{border-color:#01b44f}#hover_div_a20230915 .g-color-green{color:#01b44f}#hover_div_a20230915 .g-width-large{width:1.5rem}#hover_div_a20230915 .g-height-large{height:1.5rem}#hover_div_a20230915 .g-width-100{width:100%}#hover_div_a20230915 .g-height-100{height:100%}#hover_div_a20230915 .g-text-large{font-size:1.5rem;line-height:2rem}#hover_div_a20230915 .g-text-xxsmall{font-size:xx-small}#hover_div_a20230915 .g-text-bold{font-weight:700}#hover_div_a20230915 .g-text-link{text-decoration:underline}#hover_div_a20230915 .u-block{display:block}#hover_div_a20230915 .u-flexbox{display:flex}#hover_div_a20230915 .u-flexbox-column{display:flex;flex-direction:column}#hover_div_a20230915 .u-flexbox-justifyCenter{justify-content:center}#hover_div_a20230915 .u-flexbox-alignCenter{align-items:center}#hover_div_a20230915 .u-grid{display:grid;grid-gap:0;grid-gap:var(--grid-gap,0)}#hover_div_a20230915 .u-grid-2column{-ms-grid-columns:50% 50%;display:grid;grid-template:auto/repeat(2,1fr)}#hover_div_a20230915 .u-grid-3column{-ms-grid-columns:33.3% 33.3% 33.3%;display:grid;grid-template:auto/repeat(3,1fr)}#hover_div_a20230915 .u-grid-4column{-ms-grid-columns:25% 25% 25% 25%;display:grid;grid-template:auto/repeat(4,1fr)}#hover_div_a20230915 .u-grid-5column{-ms-grid-columns:20% 20% 20% 20% 20%;display:grid;grid-template:auto/repeat(5,1fr)}#hover_div_a20230915 .u-grid-7column{-ms-grid-columns:14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857%;display:grid;grid-template:auto/repeat(7,1fr)}#hover_div_a20230915 .u-grid-column-span2{grid-column-end:span 2}#hover_div_a20230915 .u-grid-column-span3{grid-column-end:span 3}#hover_div_a20230915 .u-grid-column-span4{grid-column-end:span 4}#hover_div_a20230915 .u-text-center{text-align:center}#hover_div_a20230915 .c-siteReviewScore_large{border-radius:0.5rem;height:4rem;width:4rem;font-size:2rem}#hover_div_a20230915 .c-siteReviewScore_user{border-radius:50%}#hover_div_a20230915 .c-reviewsStats{padding:1rem 0;grid-template-columns:1fr 1fr 1fr;justify-content:space-evenly;font-size:0.75rem;line-height:1.25rem}#hover_div_a20230915 div[class^=c-reviewsStats_]:first-child,#hover_div_a20230915 div[class^=c-reviewsStats_]:nth-child(2){border-right:0.0625rem solid #d8d8d8}#hover_div_a20230915 .c-ScoreCardGraph{overflow:hidden;white-space:nowrap}#hover_div_a20230915 .c-ScoreCardGraph > div{margin-left:0.25rem;padding:0 0.25rem;text-align:right;height:0.5rem;min-width:2rem;line-height:1rem}#hover_div_a20230915 .c-ScoreCardGraph > div:first-child{margin-left:0}#hover_div_a20230915 .c-ScoreCardGraph_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreSentiment{color:#00ce7a}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphPositive{background:#00ce7a;border-radius:0.25rem 0 0 0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNeutral{background:#ffbd3f}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNegative{background:#ff6874;border-radius:0 0.25rem 0.25rem 0}#hover_div_a20230915 .gray{background:#bfbfbf;height:1rem;display:inline-block}#hover_div_a20230915 .c-ScoreCard_scoreContent{display:flex;align-content:flex-start;flex-wrap:nowrap;grid-gap:10px;gap:10px;width:100%;justify-content:space-between;align-items:stretch}#hover_div_a20230915 .c-ScoreCard_scoreContent_text{line-height:normal;display:flex;flex-direction:column;justify-content:space-between}#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large,#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large .c-siteReviewScore_large{width:4rem;height:4rem}#hover_div_a20230915 .c-ScoreCard_scoreSentiment{font-size:1rem;line-height:1.25rem;text-transform:capitalize}#hover_div_a20230915 .c-ScoreCard_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-reviewsOverview_overviewDetails{grid-template-columns:1fr 1fr;grid-gap:1.25rem;border-top:1px solid #262626;margin-top:auto;padding:2px}#hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child{border-top:0 solid #262626}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915 .o-inlineScore{border-radius:0.25rem;font-size:1.25rem;font-weight:700;color:#404040;width:2.5rem;height:2.5rem;display:inline-flex;justify-content:center;align-items:center;text-decoration:none!important}#hover_div_a20230915 .o-inlineScore-green{background:#00ce7a}#hover_div_a20230915 .o-inlineScore-yellow{background:#ffbd3f}#hover_div_a20230915 .o-inlineScore-red{background:#ff6874}#hover_div_a20230915 .o-inlineScore-tbd{border:1px solid grey}#hover_div_a20230915 .u-pointer{cursor:pointer}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915{max-width:440px}
+    #hover_div_a20230915{font-family:sans-serif;color:#262626;font-size:1rem;line-height:1.625rem}#hover_div_a202309:hover15 a,#hover_div_a20230915 a:hover{text-decoration:none}#hover_div_a20230915 a:hover{color:#09f}#hover_div_a20230915 a{color:#000}#hover_div_a20230915 a:focus{color:grey}#hover_div_a20230915 .g-border-black,#hover_div_a20230915 .g-border-gray100{border-color:#000}#hover_div_a20230915 .g-color-black,#hover_div_a20230915 .g-color-gray100{color:#000}#hover_div_a20230915 .g-border-gray98{border-color:#191919}#hover_div_a20230915 .g-color-gray98{color:#191919}#hover_div_a20230915 .g-border-gray90{border-color:#262626}#hover_div_a20230915 .g-color-gray90{color:#262626}#hover_div_a20230915 .g-border-gray80{border-color:#404040}#hover_div_a20230915 .g-color-gray80{color:#404040}#hover_div_a20230915 .g-border-gray70{border-color:#666}#hover_div_a20230915 .g-color-gray70{color:#666}#hover_div_a20230915 .g-border-gray60{border-color:grey}#hover_div_a20230915 .g-color-gray60{color:grey}#hover_div_a20230915 .g-border-gray50{border-color:#999}#hover_div_a20230915 .g-color-gray50{color:#999}#hover_div_a20230915 .g-border-gray40{border-color:#bfbfbf}#hover_div_a20230915 .g-color-gray40{color:#bfbfbf}#hover_div_a20230915 .g-border-gray30{border-color:#d8d8d8}#hover_div_a20230915 .g-color-gray30{color:#d8d8d8}#hover_div_a20230915 .g-border-gray20{border-color:#e6e6e6}#hover_div_a20230915 .g-color-gray20{color:#e6e6e6}#hover_div_a20230915 .g-border-gray10{border-color:#f2f2f2}#hover_div_a20230915 .g-color-gray10{color:#f2f2f2}#hover_div_a20230915 .g-border-gray0,#hover_div_a20230915 .g-border-white{border-color:#fff}#hover_div_a20230915 .g-color-gray0,#hover_div_a20230915 .g-color-white{color:#fff}#hover_div_a20230915 .g-border-red{border-color:#eb0036}#hover_div_a20230915 .g-color-red{color:#eb0036}#hover_div_a20230915 .g-border-green{border-color:#01b44f}#hover_div_a20230915 .g-color-green{color:#01b44f}#hover_div_a20230915 .g-width-large{width:1.5rem}#hover_div_a20230915 .g-height-large{height:1.5rem}#hover_div_a20230915 .g-width-100{width:100%}#hover_div_a20230915 .g-height-100{height:100%}#hover_div_a20230915 .g-text-large{font-size:1.5rem;line-height:2rem}#hover_div_a20230915 .g-text-xxsmall{font-size:xx-small}#hover_div_a20230915 .g-text-bold{font-weight:700}#hover_div_a20230915 .g-text-link{text-decoration:underline}#hover_div_a20230915 .u-block{display:block}#hover_div_a20230915 .u-flexbox{display:flex}#hover_div_a20230915 .u-flexbox-column{display:flex;flex-direction:column}#hover_div_a20230915 .u-flexbox-justifyCenter{justify-content:center}#hover_div_a20230915 .u-flexbox-alignCenter{align-items:center}#hover_div_a20230915 .u-grid{display:grid;grid-gap:0;grid-gap:var(--grid-gap,0)}#hover_div_a20230915 .u-grid-2column{-ms-grid-columns:50% 50%;display:grid;grid-template:auto/repeat(2,1fr)}#hover_div_a20230915 .u-grid-3column{-ms-grid-columns:33.3% 33.3% 33.3%;display:grid;grid-template:auto/repeat(3,1fr)}#hover_div_a20230915 .u-grid-4column{-ms-grid-columns:25% 25% 25% 25%;display:grid;grid-template:auto/repeat(4,1fr)}#hover_div_a20230915 .u-grid-5column{-ms-grid-columns:20% 20% 20% 20% 20%;display:grid;grid-template:auto/repeat(5,1fr)}#hover_div_a20230915 .u-grid-7column{-ms-grid-columns:14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857%;display:grid;grid-template:auto/repeat(7,1fr)}#hover_div_a20230915 .u-grid-column-span2{grid-column-end:span 2}#hover_div_a20230915 .u-grid-column-span3{grid-column-end:span 3}#hover_div_a20230915 .u-grid-column-span4{grid-column-end:span 4}#hover_div_a20230915 .u-text-center{text-align:center}#hover_div_a20230915 .c-siteReviewScore_large{border-radius:0.5rem;height:4rem;width:4rem;font-size:2rem}#hover_div_a20230915 .c-siteReviewScore_user{border-radius:50%}#hover_div_a20230915 .c-reviewsStats{padding:1rem 0;grid-template-columns:1fr 1fr 1fr;justify-content:space-evenly;font-size:0.75rem;line-height:1.25rem}#hover_div_a20230915 div[class^=c-reviewsStats_]:first-child,#hover_div_a20230915 div[class^=c-reviewsStats_]:nth-child(2){border-right:0.0625rem solid #d8d8d8}#hover_div_a20230915 .c-ScoreCardGraph{overflow:hidden;white-space:nowrap}#hover_div_a20230915 .c-ScoreCardGraph > div{margin-left:0.25rem;padding:0 0.25rem;text-align:right;height:0.5rem;min-width:2rem;line-height:1rem}#hover_div_a20230915 .c-ScoreCardGraph > div:first-child{margin-left:0}#hover_div_a20230915 .c-ScoreCardGraph_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreSentiment{color:#00ce7a}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphPositive{background:#00ce7a;border-radius:0.25rem 0 0 0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNeutral{background:#ffbd3f}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNegative{background:#ff6874;border-radius:0 0.25rem 0.25rem 0}#hover_div_a20230915 .gray{background:#bfbfbf;height:1rem;display:inline-block}#hover_div_a20230915 .c-ScoreCard_scoreContent{display:flex;align-content:flex-start;flex-wrap:nowrap;grid-gap:10px;gap:10px;width:100%;justify-content:space-between;align-items:stretch}#hover_div_a20230915 .c-ScoreCard_scoreContent_text{line-height:normal;display:flex;flex-direction:column;justify-content:space-between}#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large,#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large .c-siteReviewScore_large{width:4rem;height:4rem}#hover_div_a20230915 .c-ScoreCard_scoreSentiment{font-size:1rem;line-height:1.25rem;text-transform:capitalize}#hover_div_a20230915 .c-ScoreCard_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-reviewsOverview_overviewDetails{grid-template-columns:1fr 1fr;grid-gap:1.25rem;border-top:1px solid #262626;margin-top:auto;padding:2px}#hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child{border-top:0 solid #262626}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915 .o-inlineScore{border-radius:0.25rem;font-size:1.25rem;font-weight:700;color:#404040;width:2.5rem;height:2.5rem;display:inline-flex;justify-content:center;align-items:center;text-decoration:none!important}#hover_div_a20230915 .o-inlineScore-green{background:#00ce7a}#hover_div_a20230915 .o-inlineScore-yellow{background:#ffbd3f}#hover_div_a20230915 .o-inlineScore-red{background:#ff6874}#hover_div_a20230915 .o-inlineScore-tbd{border:1px solid grey}#hover_div_a20230915 .u-pointer{cursor:pointer}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915{max-width:440px}
+  `
+
+  const cssDark = `
+  html {
+    scrollbar-color: #003c09 #00ce7a;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #003c09;
+  }
+  body {
+    background:#262626;
+    color:white;
+  }
+
+  #metacritic_extra_data {
+    color:white;
+  }
+  #metacritic_extra_data a:hover {
+    color: white;
+  }
+  #metacritic_extra_data a {
+      color: #5799ef;
+  }
+
+  #hover_div_a20230915 {
+    color: #d1d1d1;
+  }
+  #hover_div_a20230915 a:hover {
+      color: #09f;
+  }
+  #hover_div_a20230915 a {
+      color: #ffffff;
+  }
+  #hover_div_a20230915 a:focus {
+      color: rgb(184, 184, 184);
+  }
+  #hover_div_a20230915 .g-border-black,
+  #hover_div_a20230915 .g-border-gray100 {
+      border-color: #ffffff;
+  }
+  #hover_div_a20230915 .g-color-black,
+  #hover_div_a20230915 .g-color-gray100 {
+      color: #ffffff;
+  }
+  #hover_div_a20230915 .g-border-gray98 {
+      border-color: #d6d6d6;
+  }
+  #hover_div_a20230915 .g-color-gray98 {
+      color: #d6d6d6;
+  }
+  #hover_div_a20230915 .g-border-gray90 {
+      border-color: #d3d3d3;
+  }
+  #hover_div_a20230915 .g-color-gray90 {
+      color: #d3d3d3;
+  }
+  #hover_div_a20230915 .g-border-gray80 {
+      border-color: #404040;
+  }
+  #hover_div_a20230915 .g-color-gray80 {
+      color: #404040;
+  }
+  #hover_div_a20230915 .g-border-gray70 {
+      border-color: #666;
+  }
+  #hover_div_a20230915 .g-color-gray70 {
+      color: #666;
+  }
+  #hover_div_a20230915 .g-border-gray60 {
+      border-color: grey;
+  }
+  #hover_div_a20230915 .g-color-gray60 {
+      color: grey;
+  }
+  #hover_div_a20230915 .c-reviewsOverview_overviewDetails {
+      border-top: 1px solid #d1d1d1;
+  }
+  #hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child {
+      border-top: 0 solid #d1d1d1;
+  }
+  #hover_div_a20230915 .c-siteReviewScore_grey {
+      background: #404040;
+  }
+  #hover_div_a20230915 .o-inlineScore {
+      color: #404040;
+  }
+  #hover_div_a20230915 .o-inlineScore-tbd {
+      border: 1px solid grey;
+  }
+  #hover_div_a20230915 .u-pointer {
+      cursor: pointer;
+  }
+  #hover_div_a20230915 .c-siteReviewScore_grey {
+      background: #404040;
+  }
   `
 
   let framesrc = 'data:text/html,'
@@ -1685,16 +1860,54 @@ function showHoverInfo (response, orgMetaUrl) {
       <head>
         <meta charset="utf-8">
         <title>Metacritic info</title>
-        <style>html {
+        <style>
+        html {
           scrollbar-width: thin;
           scrollbar-color: #dfdfdf white;
         }
+        /* Chrome, Edge, and Safari */
+        *::-webkit-scrollbar {
+          width: 10px;
+        }
+
+        *::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        *::-webkit-scrollbar-thumb {
+          background-color: #dfdfdf;
+          border-radius: 10px;
+          border: 0px none transparent;
+        }
+
         body {
           margin:0px;
           padding:0px;
           background:white;
         }
+
         ${css}
+
+        #metacritic_extra_data {
+          font-family: sans-serif;
+          color:black;
+        }
+
+        #metacritic_extra_data a:hover {
+            color: #054585;
+        }
+        #metacritic_extra_data a {
+            color: #06c;
+        }
+
+        @media (prefers-color-scheme: dark) {
+          ${cssDark}
+        }
+
+        ${
+          darkTheme ? cssDark : ''
+        }
+
         </style>
         <script>
         const failedImages = {};
@@ -1730,15 +1943,21 @@ function showHoverInfo (response, orgMetaUrl) {
       </body>
     </html>`)
 
-  const frame = $('<iframe></iframe>').appendTo(div)
+  const frame = $('<iframe></iframe>')
   frame.attr('id', 'mciframe123')
   frame.attr('src', framesrc)
   frame.attr('scrolling', 'auto')
   frame.css({
     width: 440,
     height: 110,
-    border: 'none'
+    border: 'none',
+    opacity: '0.1',
+    transition: 'opacity 1s'
   })
+  frame.appendTo(div)
+  window.setTimeout(function () {
+    frame.css('opacity', '1.0')
+  }, 1000)
 
   window.setTimeout(function () {
     if (!frameStatus) { // Loading frame content failed.
@@ -1971,17 +2190,19 @@ const sites = {
           // If the page is not in English or the browser is not in English, request page in English.
           // Then the title in <h1> will be the English title and Metacritic always uses the English title.
           if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+            const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
+            const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
             const langM = document.cookie.match(/lc-main=([^;]+)/)
             const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
             document.cookie = 'lc-main=en-US'
             const response = await asyncRequest({
-              url: document.location.href,
+              url: homePageUrl,
               headers: {
                 'Accept-Language': 'en-US,en'
               }
             }).catch(function (response) {
-              console.warn('ShowMetacriticRatings: Error imdb02\nurl=' + document.location.href + '\nstatus=' + response.status)
+              console.warn('ShowMetacriticRatings: Error imdb02\nurl=' + homePageUrl + '\nstatus=' + response.status)
             })
             document.cookie = 'lc-main=' + langBefore
             // Extract <h1> title
@@ -1997,8 +2218,9 @@ const sites = {
             console.debug('ShowMetacriticRatings: Movie ld+json name', ld[0])
             return ld[0]
           } else {
-            console.debug('ShowMetacriticRatings: Movie <title>', document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1])
-            return document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1]
+            const m = document.title.match(/(.+?)\s+(\((\d+)\))? - /)
+            console.debug('ShowMetacriticRatings: Movie <title>', m[1])
+            return m[1]
           }
         }
       },
@@ -2015,17 +2237,19 @@ const sites = {
         type: 'tv',
         data: async function () {
           if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+            const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
+            const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
             const langM = document.cookie.match(/lc-main=([^;]+)/)
             const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
             document.cookie = 'lc-main=en-US'
             const response = await asyncRequest({
-              url: document.location.href,
+              url: homePageUrl,
               headers: {
                 'Accept-Language': 'en-US,en'
               }
             }).catch(function (response) {
-              console.warn('ShowMetacriticRatings: Error imdb03\nurl=' + document.location.href + '\nstatus=' + response.status)
+              console.warn('ShowMetacriticRatings: Error imdb03\nurl=' + homePageUrl + '\nstatus=' + response.status)
             })
             document.cookie = 'lc-main=' + langBefore
             // Extract <h1> title
@@ -2041,8 +2265,9 @@ const sites = {
             console.debug('ShowMetacriticRatings: TV ld+json name', ld[0])
             return ld[0]
           } else {
-            console.debug('ShowMetacriticRatings: TV <title>', document.title.match(/(.+?)\s+(\(\d+\))? - IMDb/)[1])
-            return document.title.match(/(.+?)\s+\(TV/)[1]
+            const m = document.title.match(/(.+?)\s+\(.+(\d{4}).+/)
+            console.debug('ShowMetacriticRatings: TV <title>', m[1])
+            return m[1]
           }
         }
       }
