@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          100
+// @version          101
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
@@ -1966,7 +1966,7 @@ function showHoverInfo (response, orgMetaUrl) {
     if (!frameStatus) { // Loading frame content failed.
       //  Directly inject the html without an iframe (this may break the site or the metacritic)
       console.debug('ShowMetacriticRatings: Loading iframe content failed. Injecting directly.')
-      $('head').append(`<style>${css}</style>`)
+      $('head').append(`<style>${css}\n\n@media (prefers-color-scheme: dark) {\n${cssDark}\n}\n</style>`)
       const noframe = $(`<div style="border:0px solid; display:block; position:relative; border-radius:0px; padding:0px; margin:0px; box-shadow:none;" class="hover_div" id="hover_div">
           <div class="hover_content">${html}</div>
           </div>`)
