@@ -100,6 +100,7 @@
 // ==/UserScript==
 
 /* globals alert, confirm, GM, DOMParser, $, Image, unsafeWindow, parent, Blob, failedImages */
+/* jshint asi: true, esversion: 8 */
 
 const scriptName = 'Show Metacritic.com ratings'
 
