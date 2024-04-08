@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name             Show Metacritic.com ratings
-// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com, GOG, Epic Games Store, save.tv, argenteam.net
+// @description      Show metacritic metascore and user ratings on: Bandcamp, Apple Itunes (Music), Amazon (Music,Movies,TV Shows), IMDb (Movies), Google Play (Music, Movies), Steam, Gamespot (PS4, XONE, PC), Rotten Tomatoes, Serienjunkies, BoxOfficeMojo, allmovie.com, fandango.com, Wikipedia (en), themoviedb.org, letterboxd, TVmaze, TVGuide, followshows.com, TheTVDB.com, ConsequenceOfSound, Pitchfork, Last.fm, TVnfo, rateyourmusic.com, GOG, Epic Games Store, save.tv
 // @namespace        cuzi
 // @icon             https://www.metacritic.com/a/img/favicon.svg
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
@@ -15,11 +15,11 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          101
+// @version          102
 // @connect          metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
-// @connect          fandom-prod.apigee.net
+// @connect          internal-prod.apigee.fandom.net
 // @match            https://*.bandcamp.com/*
 // @match            https://play.google.com/store/music/album/*
 // @match            https://play.google.com/store/movies/details/*
@@ -54,7 +54,7 @@
 // @match            https://www.allmovie.com/movie/*
 // @match            https://en.wikipedia.org/*
 // @match            https://www.fandango.com/*
-// @match            https://www.flixster.com/movie/*
+// @match            https://flixster.com/movie/*
 // @match            https://www.themoviedb.org/movie/*
 // @match            https://www.themoviedb.org/tv/*
 // @match            https://letterboxd.com/film/*
@@ -67,7 +67,7 @@
 // @match            https://consequence.net/*
 // @match            https://pitchfork.com/*
 // @match            https://www.last.fm/*
-// @match            https://tvnfo.com/s/*
+// @match            https://tvnfo.com/tv/*
 // @match            https://rateyourmusic.com/release/album/*
 // @match            https://open.spotify.com/*
 // @match            https://play.spotify.com/album/*
@@ -79,21 +79,18 @@
 // @match            https://www.epguides.com/*
 // @match            https://www.netflix.com/*
 // @match            https://www.cc.com/*
-// @match            https://www.tvhoard.com/*
 // @match            https://www.amc.com/*
 // @match            https://www.amcplus.com/*
-// @match            https://comment.rlsbb.ru/*/
+// @match            https://rlsbb.ru/*/
 // @match            https://newalbumreleases.net/*
 // @match            https://www.sho.com/*
 // @match            https://www.epicgames.com/store/*
+// @match            https://store.epicgames.com/*
 // @match            https://www.gog.com/*
 // @match            https://www.allmusic.com/album/*
-// @match            https://store.epicgames.com/*
 // @match            https://www.steamgifts.com/giveaway/*
-// @match            https://psa.pm/*
 // @match            https://psa.wf/*
 // @match            https://www.save.tv/*
-// @match            https://argenteam.net/*
 // @match            https://www.wikiwand.com/*
 // @match            https://trakt.tv/*
 // @match            http://localhost:7878/*
@@ -113,7 +110,7 @@ const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
 const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-const baseURLsearch = 'https://fandom-prod.apigee.net/v1/xapi/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
+const baseURLsearch = 'https://internal-prod.apigee.fandom.net/v1/xapi/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
 const baseURLwhitelist = 'https://met.acritic.workers.dev/whitelist.php'
@@ -2497,7 +2494,7 @@ const sites = {
     }]
   },
   flixster: {
-    host: ['www.flixster.com'],
+    host: ['flixster.com'],
     condition: () => Always,
     products: [{
       condition: () => parseLDJSON('@type') === 'Movie',
@@ -2561,7 +2558,7 @@ const sites = {
     products: [{
       condition: () => document.querySelector("meta[property='og:type']").content === 'video.tv_show',
       type: 'tv',
-      data: () => document.querySelector("meta[property='og:title']").content
+      data: () => document.querySelector("meta[property='og:title']").content.replace(/\(\d{4}\)$/, '')
     }]
   },
   TheTVDB: {
@@ -2687,13 +2684,13 @@ const sites = {
   },
   TVNfo: {
     host: ['tvnfo.com'],
-    condition: () => document.querySelector('.ui.breadcrumb a[href*="/series"]'),
+    condition: () => document.querySelector('#title #name'),
     products: [{
       condition: Always,
       type: 'tv',
       data: function () {
-        const years = document.querySelector('#title h1 .years').textContent.trim()
-        const title = document.querySelector('#title h1').textContent.replace(years, '').trim()
+        const years = document.querySelector('#title #years').textContent.trim()
+        const title = document.querySelector('#title #name').textContent.replace(years, '').trim()
         return title
       }
     }]
@@ -2817,22 +2814,6 @@ const sites = {
       data: () => document.title.match(/(.+?)\s+-\s+Series/)[1]
     }]
   },
-  TVHoard: {
-    host: ['tvhoard.com'],
-    condition: () => document.location.pathname.split('/').length > 3 &&
-      document.location.pathname.split('/')[1] === 'titles' &&
-       document.querySelector('title-primary-details-panel h1.title a'),
-    products: [{
-      condition: () => !document.querySelector('title-secondary-details-panel .detail.seasons'),
-      type: 'movie',
-      data: () => document.querySelector('title-primary-details-panel h1.title a').textContent.trim()
-    },
-    {
-      condition: () => document.querySelector('title-secondary-details-panel .detail.seasons'),
-      type: 'tv',
-      data: () => document.querySelector('title-primary-details-panel h1.title a').textContent.trim()
-    }]
-  },
   AMC: {
     host: ['amc.com'],
     condition: () => document.location.pathname.startsWith('/shows/'),
@@ -2859,7 +2840,7 @@ const sites = {
       }]
   },
   RlsBB: {
-    host: ['comment.rlsbb.ru'],
+    host: ['rlsbb.ru'],
     condition: () => document.querySelectorAll('.post').length === 1,
     products: [
       {
@@ -2912,7 +2893,13 @@ const sites = {
     products: [{
       condition: Always,
       type: 'pcgame',
-      data: () => document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
+      data: function () {
+        try {
+          return document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
+        } catch (e) {
+          return document.querySelector('h1').textContent
+        }
+      }
     }]
   },
   gog: {
@@ -2959,7 +2946,7 @@ const sites = {
     }]
   },
   psapm: {
-    host: ['psa.pm', 'psa.wf'],
+    host: ['psa.wf'],
     condition: Always,
     products: [
       {
@@ -3002,28 +2989,6 @@ const sites = {
           }
           return [title, year]
         }
-      }
-    ]
-  },
-  aRGENTeaM: {
-    host: ['argenteam.net'],
-    condition: Always,
-    products: [
-      {
-        condition: () => document.location.pathname.startsWith('/movie/'),
-        type: 'movie',
-        data: function () {
-          const partes = document.title.split('•')
-          const SinArgenteam = partes[1].trim()
-          const SoloTitulo = SinArgenteam.split('(')[0].trim()
-          const Year = SinArgenteam.split('(')[1].split(')')[0]
-          return [SoloTitulo, Year]
-        }
-      },
-      {
-        condition: () => document.location.pathname.startsWith('/episode/'),
-        type: 'tv',
-        data: () => document.querySelector('.pserie h1').firstChild.textContent.trim()
       }
     ]
   },

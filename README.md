@@ -48,7 +48,6 @@ Supported sites and products:
  * itunes.apple.com
  * epguides.com
  * save.tv
- * argenteam.net
  * wikiwand.com (only Movies and TV Shows)
  * [Radarr](https://github.com/Radarr/Radarr) - you need to set your server address in the script header, default is `@match  http://localhost:7878/*`
  * trakt.tv
