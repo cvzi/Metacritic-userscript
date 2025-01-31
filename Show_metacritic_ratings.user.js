@@ -15,11 +15,11 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          102
+// @version          103
 // @connect          metacritic.com
+// @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
 // @connect          imdb.com
-// @connect          internal-prod.apigee.fandom.net
 // @match            https://*.bandcamp.com/*
 // @match            https://play.google.com/store/music/album/*
 // @match            https://play.google.com/store/movies/details/*
@@ -110,7 +110,7 @@ const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
 const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-const baseURLsearch = 'https://internal-prod.apigee.fandom.net/v1/xapi/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
+const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
 const baseURLwhitelist = 'https://met.acritic.workers.dev/whitelist.php'
