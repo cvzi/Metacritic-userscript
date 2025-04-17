@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          103
+// @version          104
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -1628,10 +1628,18 @@ function showHoverInfo (response, orgMetaUrl) {
     const titleHTML = titleA.outerHTML
 
     const image = doc.querySelector('picture img')
+
+    if (!image.getAttribute('src') && doc.querySelector('meta[name="twitter:image"]')) {
+      console.log('Using fallback image', doc.querySelector('meta[name="twitter:image"]').content)
+      image.src = doc.querySelector('meta[name="twitter:image"]').content
+      image.style.maxHeight = `${image.height}px`
+      image.removeAttribute('height')
+      image.removeAttribute('width')
+    }
     image.style.display = ''
     const imageHTML = image.outerHTML
 
-    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
+    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer,.c-productionDetailsTv_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
 
     detailsTable = detailsTable.filter(columns => {
       if (columns[0].search(/release date/i) !== -1) {
@@ -1646,8 +1654,14 @@ function showHoverInfo (response, orgMetaUrl) {
       if (columns[0].search(/publisher/i) !== -1) {
         return true
       }
+      if (columns[0].search(/seasons/i) !== -1) {
+        return true
+      }
+      if (columns[0].search(/production/i) !== -1) {
+        return true
+      }
       return false
-    }).map(columns => columns.join(': '))
+    }).map(columns => columns.join(': ').replace(/:\s*:\s*/, ': '))
 
     const html = imageHTML + '<br>' + titleHTML + '<br>' + detailsTable.join('<br>')
 
@@ -1699,7 +1713,7 @@ function showHoverInfo (response, orgMetaUrl) {
           lastdiff = e.data.heightdiff
         } else if ('mcimessage2' in e.data) {
           f.style.height = parseInt(f.style.height) + 10 + 'px'
-        } else if ('mcimessage_loadImg' in e.data) {
+        } else if ('mcimessage_loadImg' in e.data && e.data.mcimessage_imgUrl) {
           loadExternalImage(e.data.mcimessage_imgUrl, f)
         } else {
           return
@@ -1927,9 +1941,11 @@ function showHoverInfo (response, orgMetaUrl) {
           }
         }
         function fixCSP(img) {
-          console.debug("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...");
-          failedImages[img.src] = img;
-          parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*");
+          console.debug("ShowMetacriticRatings(iFrame): Loading image failed. Bypassing CSP...", img);
+          if (img.getAttribute('src')) {
+            failedImages[img.src] = img;
+            parent.postMessage({"mcimessage_loadImg":true, "mcimessage_imgUrl": img.src},"*");
+          }
         }
         function on_load() {
           (${functions.frame.toString()})();
