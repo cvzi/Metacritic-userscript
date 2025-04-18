@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          104
+// @version          105
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -105,9 +105,9 @@ const baseURL = 'https://www.metacritic.com/'
 
 const baseURLmusic = 'https://www.metacritic.com/music/'
 const baseURLmovie = 'https://www.metacritic.com/movie/'
-const baseURLpcgame = 'https://www.metacritic.com/game/pc/'
-const baseURLps4 = 'https://www.metacritic.com/game/playstation-4/'
-const baseURLxone = 'https://www.metacritic.com/game/xbox-one/'
+const baseURLpcgame = 'https://www.metacritic.com/game/'
+const baseURLps4 = 'https://www.metacritic.com/game/'
+const baseURLxone = 'https://www.metacritic.com/game/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
 const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
@@ -150,7 +150,7 @@ function domParser () {
 
 async function versionUpdate () {
   const version = parseInt(await GM.getValue('version', 0))
-  if (version <= 93) {
+  if (version <= 104) {
     // Reset database
     await GM.setValue('map', '{}')
     await GM.setValue('black', '[]')
@@ -160,8 +160,8 @@ async function versionUpdate () {
     await GM.setValue('searchcache', false) // Unused
     await GM.setValue('autosearchcache', false) // Unused
   }
-  if (version < 94) {
-    await GM.setValue('version', 94)
+  if (version < 105) {
+    await GM.setValue('version', 105)
   }
 }
 
@@ -450,6 +450,7 @@ function absoluteMetaURL (url) {
   if (url.startsWith('/')) {
     return baseURL + url.substr(1)
   }
+  url = url.replace('/game/pc/', '/game/').replace('/game/playstation-4/', '/game/').replace('/game/xbox-one/', '/game/')
   return baseURL + url
 }
 
@@ -919,6 +920,22 @@ function extractHoverFromFullPage (response) {
     } else {
       // Fallback: Try to get the review containers from the right side of the page next to the poster/screenshot
       content = doc.querySelector('.c-productHero_scoreInfo').innerHTML
+    }
+
+    // Get the game row with the other platform scores
+    const gameRow = doc.querySelector('.c-PageProductGame_row')
+    if (gameRow) {
+      gameRow.querySelectorAll('.c-gamePlatformTile').forEach(e => {
+        const desc = e.querySelector('.c-gamePlatformTile-description')
+        if (desc.textContent.indexOf('PlayStation') !== -1) {
+          e.remove()
+        }
+      })
+
+      gameRow.querySelectorAll('.c-gamePlatformTile-description').forEach(e => {
+        e.textContent = e.querySelector('svg title').textContent
+      })
+      content += `\n\n<div class="game_row_5456d45" style="display:none">${gameRow.innerHTML}</div>`
     }
 
     if (!content) {
@@ -1607,7 +1624,7 @@ function showHoverInfo (response, orgMetaUrl) {
   // Mozilla can access parent.document
   // Chrome can use postMessage()
   let frameStatus = false // if this remains false, loading the frame content failed. A reason could be "Content Security Policy"
-  async function tryToLoadMoreMetacriticDetails (myframe) {
+  async function tryToLoadMoreMetacriticDetails (myframe, myelement, platforms) {
     console.log('ShowMetacriticRatings: tryToLoadMoreMetacriticDetails current', current)
     if (!current.metaurl) {
       return
@@ -1619,13 +1636,16 @@ function showHoverInfo (response, orgMetaUrl) {
     } else {
       url = url + '/details/'
     }
+    url = url.replace('/game/pc/', '/game/').replace('/game/playstation-4/', '/game/').replace('/game/xbox-one/', '/game/')
 
     const response = await asyncRequest({ url })
     const doc = domParser().parseFromString(response.responseText, 'text/html')
 
     const titleA = doc.querySelector('.c-productSubpageHeader_back')
-    titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
-    const titleHTML = titleA.outerHTML
+    if (titleA) {
+      titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
+    }
+    const titleHTML = titleA ? titleA.outerHTML : ''
 
     const image = doc.querySelector('picture img')
 
@@ -1635,11 +1655,20 @@ function showHoverInfo (response, orgMetaUrl) {
       image.style.maxHeight = `${image.height}px`
       image.removeAttribute('height')
       image.removeAttribute('width')
+    } else if (!image.getAttribute('src') && response.responseText.match(/"image":"https:\/\/www.metacritic.com\/[^""]+/)) {
+      const m = response.responseText.match(/"image":"(https:\/\/www.metacritic.com\/[^""]+)/)
+      if (m) {
+        image.src = m[1]
+        image.style.maxHeight = `${image.height}px`
+        image.removeAttribute('height')
+        image.removeAttribute('width')
+      }
     }
     image.style.display = ''
     const imageHTML = image.outerHTML
 
-    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer,.c-productionDetailsTv_sectionContainer')).map(e => Array.from(e.children).map(e => e.textContent.trim()))
+    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer,.c-productionDetailsTv_sectionContainer,.c-gameDetails_sectionContainer'))
+      .map(e => Array.from(e.children).map(e => e.textContent.trim()))
 
     detailsTable = detailsTable.filter(columns => {
       if (columns[0].search(/release date/i) !== -1) {
@@ -1660,26 +1689,67 @@ function showHoverInfo (response, orgMetaUrl) {
       if (columns[0].search(/production/i) !== -1) {
         return true
       }
+      if (columns[0].search(/platforms/i) !== -1) {
+        return true
+      }
+
       return false
     }).map(columns => columns.join(': ').replace(/:\s*:\s*/, ': '))
 
     const html = imageHTML + '<br>' + titleHTML + '<br>' + detailsTable.join('<br>')
 
-    myframe.contentWindow.postMessage({
-      mcimessage_addhtml: true,
-      mcimessage_element_id: 'metacritic_extra_data',
-      mcimessage_element_style: 'display:none;',
-      mcimessage_html: html
-    }, '*')
-
-    // Wait to show the extra data to avoid making the frame to big
-    window.setTimeout(function () {
+    if (myframe) {
       myframe.contentWindow.postMessage({
-        mcimessage_showelement: true,
-        mcimessage_selector: '#metacritic_extra_data'
+        mcimessage_addhtml: true,
+        mcimessage_element_id: 'metacritic_extra_data',
+        mcimessage_element_style: 'display:none;',
+        mcimessage_html: html
       }, '*')
-    }, 1000)
+
+      // Wait to show the extra data to avoid making the frame to big
+      window.setTimeout(function () {
+        myframe.contentWindow.postMessage({
+          mcimessage_showelement: true,
+          mcimessage_selector: '#metacritic_extra_data'
+        }, '*')
+        myframe.contentWindow.postMessage({
+          mcimessage_showelement: true,
+          mcimessage_selector: '.game_row_5456d45'
+        }, '*')
+      }, 1000)
+    } else {
+      const extraDiv = myelement.appendChild(document.createElement('div'))
+      extraDiv.setAttribute('id', 'metacritic_extra_data')
+      extraDiv.setAttribute('style', 'display:none;')
+      extraDiv.innerHTML = html
+      window.setTimeout(() => { extraDiv.style.display = '' }, 500)
+
+      // For gamesshow the other platforms (Wait to show the extra data to avoid making the frame to big)
+      window.setTimeout(() => {
+        myelement.querySelectorAll('.game_row_5456d45').forEach(e => { e.style.display = '' })
+      }, 500)
+    }
+
+    // For games, try to load user score for other platforms
+    platforms.forEach(async function (platformCriticsUrl) {
+      const url = platformCriticsUrl.replace('/critic-reviews', '/user-reviews')
+      const response = await asyncRequest({ url })
+      const doc = domParser().parseFromString(response.responseText, 'text/html')
+
+      const userScoreNode = doc.querySelector('.c-ScoreCardLeft_scoreContent_number')
+
+      if (myframe) {
+        myframe.contentWindow.postMessage({
+          mcimessage_appendchild: true,
+          mcimessage_selector: `.game_row_5456d45 a[href*="${platformCriticsUrl}"]`,
+          mcimessage_html: userScoreNode.outerHTML
+        }, '*')
+      } else {
+        myelement.querySelector(`.game_row_5456d45 a[href*="${platformCriticsUrl}"]`).appendChild(userScoreNode)
+      }
+    })
   }
+
   function loadExternalImage (url, myframe) {
     // Load external image, bypass CSP
     GM.xmlHttpRequest({
@@ -1704,7 +1774,11 @@ function showHoverInfo (response, orgMetaUrl) {
           return
         } else if ('mcimessage0' in e.data) {
           frameStatus = true // Frame content was loaded successfully
-          tryToLoadMoreMetacriticDetails(f)
+          let platforms = []
+          if ('mcimessage_platforms' in e.data) {
+            platforms = e.data.mcimessage_platforms
+          }
+          tryToLoadMoreMetacriticDetails(f, null, platforms)
         } else if ('mcimessage1' in e.data) {
           f.style.width = parseInt(f.style.width) + 5 + 'px'
           if (e.data.heightdiff === lastdiff) {
@@ -1728,7 +1802,10 @@ function showHoverInfo (response, orgMetaUrl) {
       })
     },
     frame: function () {
-      parent.postMessage({ mcimessage0: true }, '*') // Loading frame content was successfull
+      const platforms = Array.from(document.querySelectorAll('.game_row_5456d45 a[href^="https://www.metacritic.com/game/"][href*="critic-reviews"]'))
+        .filter(a => !a.href.includes('platform=playstation')).map(a => a.href.toString())
+
+      parent.postMessage({ mcimessage0: true, mcimessage_platforms: platforms }, '*') // Loading frame content was successfull
 
       let i = 0
       window.addEventListener('message', function (e) {
@@ -1748,7 +1825,11 @@ function showHoverInfo (response, orgMetaUrl) {
           div.innerHTML = e.data.mcimessage_html
         }
         if (typeof e.data === 'object' && 'mcimessage_showelement' in e.data) {
-          document.querySelector(e.data.mcimessage_selector).style.display = ''
+          document.querySelectorAll(e.data.mcimessage_selector).forEach(node => { node.style.display = '' })
+        }
+        if (typeof e.data === 'object' && 'mcimessage_appendchild' in e.data) {
+          const node = document.body.querySelector(e.data.mcimessage_selector).appendChild(document.createElement('div'))
+          node.outerHTML = e.data.mcimessage_html
         }
 
         if (!('mcimessage3' in e.data)) return
@@ -1769,7 +1850,62 @@ function showHoverInfo (response, orgMetaUrl) {
 
   const css = `
     #hover_div_a20230915{font-family:sans-serif;color:#262626;font-size:1rem;line-height:1.625rem}#hover_div_a202309:hover15 a,#hover_div_a20230915 a:hover{text-decoration:none}#hover_div_a20230915 a:hover{color:#09f}#hover_div_a20230915 a{color:#000;text-decoration:none;}#hover_div_a20230915 a:focus{color:grey}#hover_div_a20230915 .g-border-black,#hover_div_a20230915 .g-border-gray100{border-color:#000}#hover_div_a20230915 .g-color-black,#hover_div_a20230915 .g-color-gray100{color:#000}#hover_div_a20230915 .g-border-gray98{border-color:#191919}#hover_div_a20230915 .g-color-gray98{color:#191919}#hover_div_a20230915 .g-border-gray90{border-color:#262626}#hover_div_a20230915 .g-color-gray90{color:#262626}#hover_div_a20230915 .g-border-gray80{border-color:#404040}#hover_div_a20230915 .g-color-gray80{color:#404040}#hover_div_a20230915 .g-border-gray70{border-color:#666}#hover_div_a20230915 .g-color-gray70{color:#666}#hover_div_a20230915 .g-border-gray60{border-color:grey}#hover_div_a20230915 .g-color-gray60{color:grey}#hover_div_a20230915 .g-border-gray50{border-color:#999}#hover_div_a20230915 .g-color-gray50{color:#999}#hover_div_a20230915 .g-border-gray40{border-color:#bfbfbf}#hover_div_a20230915 .g-color-gray40{color:#bfbfbf}#hover_div_a20230915 .g-border-gray30{border-color:#d8d8d8}#hover_div_a20230915 .g-color-gray30{color:#d8d8d8}#hover_div_a20230915 .g-border-gray20{border-color:#e6e6e6}#hover_div_a20230915 .g-color-gray20{color:#e6e6e6}#hover_div_a20230915 .g-border-gray10{border-color:#f2f2f2}#hover_div_a20230915 .g-color-gray10{color:#f2f2f2}#hover_div_a20230915 .g-border-gray0,#hover_div_a20230915 .g-border-white{border-color:#fff}#hover_div_a20230915 .g-color-gray0,#hover_div_a20230915 .g-color-white{color:#fff}#hover_div_a20230915 .g-border-red{border-color:#eb0036}#hover_div_a20230915 .g-color-red{color:#eb0036}#hover_div_a20230915 .g-border-green{border-color:#01b44f}#hover_div_a20230915 .g-color-green{color:#01b44f}#hover_div_a20230915 .g-width-large{width:1.5rem}#hover_div_a20230915 .g-height-large{height:1.5rem}#hover_div_a20230915 .g-width-100{width:100%}#hover_div_a20230915 .g-height-100{height:100%}#hover_div_a20230915 .g-text-large{font-size:1.5rem;line-height:2rem}#hover_div_a20230915 .g-text-xxsmall{font-size:xx-small}#hover_div_a20230915 .g-text-bold{font-weight:700}#hover_div_a20230915 .g-text-link{text-decoration:underline}#hover_div_a20230915 .u-block{display:block}#hover_div_a20230915 .u-flexbox{display:flex}#hover_div_a20230915 .u-flexbox-column{display:flex;flex-direction:column}#hover_div_a20230915 .u-flexbox-justifyCenter{justify-content:center}#hover_div_a20230915 .u-flexbox-alignCenter{align-items:center}#hover_div_a20230915 .u-grid{display:grid;grid-gap:0;grid-gap:var(--grid-gap,0)}#hover_div_a20230915 .u-grid-2column{-ms-grid-columns:50% 50%;display:grid;grid-template:auto/repeat(2,1fr)}#hover_div_a20230915 .u-grid-3column{-ms-grid-columns:33.3% 33.3% 33.3%;display:grid;grid-template:auto/repeat(3,1fr)}#hover_div_a20230915 .u-grid-4column{-ms-grid-columns:25% 25% 25% 25%;display:grid;grid-template:auto/repeat(4,1fr)}#hover_div_a20230915 .u-grid-5column{-ms-grid-columns:20% 20% 20% 20% 20%;display:grid;grid-template:auto/repeat(5,1fr)}#hover_div_a20230915 .u-grid-7column{-ms-grid-columns:14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857%;display:grid;grid-template:auto/repeat(7,1fr)}#hover_div_a20230915 .u-grid-column-span2{grid-column-end:span 2}#hover_div_a20230915 .u-grid-column-span3{grid-column-end:span 3}#hover_div_a20230915 .u-grid-column-span4{grid-column-end:span 4}#hover_div_a20230915 .u-text-center{text-align:center}#hover_div_a20230915 .c-siteReviewScore_large{border-radius:0.5rem;height:4rem;width:4rem;font-size:2rem}#hover_div_a20230915 .c-siteReviewScore_user{border-radius:50%}#hover_div_a20230915 .c-reviewsStats{padding:1rem 0;grid-template-columns:1fr 1fr 1fr;justify-content:space-evenly;font-size:0.75rem;line-height:1.25rem}#hover_div_a20230915 div[class^=c-reviewsStats_]:first-child,#hover_div_a20230915 div[class^=c-reviewsStats_]:nth-child(2){border-right:0.0625rem solid #d8d8d8}#hover_div_a20230915 .c-ScoreCardGraph{overflow:hidden;white-space:nowrap}#hover_div_a20230915 .c-ScoreCardGraph > div{margin-left:0.25rem;padding:0 0.25rem;text-align:right;height:0.5rem;min-width:2rem;line-height:1rem}#hover_div_a20230915 .c-ScoreCardGraph > div:first-child{margin-left:0}#hover_div_a20230915 .c-ScoreCardGraph_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreSentiment{color:#00ce7a}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphPositive{background:#00ce7a;border-radius:0.25rem 0 0 0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNeutral{background:#ffbd3f}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNegative{background:#ff6874;border-radius:0 0.25rem 0.25rem 0}#hover_div_a20230915 .gray{background:#bfbfbf;height:1rem;display:inline-block}#hover_div_a20230915 .c-ScoreCard_scoreContent{display:flex;align-content:flex-start;flex-wrap:nowrap;grid-gap:10px;gap:10px;width:100%;justify-content:space-between;align-items:stretch}#hover_div_a20230915 .c-ScoreCard_scoreContent_text{line-height:normal;display:flex;flex-direction:column;justify-content:space-between}#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large,#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large .c-siteReviewScore_large{width:4rem;height:4rem}#hover_div_a20230915 .c-ScoreCard_scoreSentiment{font-size:1rem;line-height:1.25rem;text-transform:capitalize}#hover_div_a20230915 .c-ScoreCard_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-reviewsOverview_overviewDetails{grid-template-columns:1fr 1fr;grid-gap:1.25rem;border-top:1px solid #262626;margin-top:auto;padding:2px}#hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child{border-top:0 solid #262626}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915 .o-inlineScore{border-radius:0.25rem;font-size:1.25rem;font-weight:700;color:#404040;width:2.5rem;height:2.5rem;display:inline-flex;justify-content:center;align-items:center;text-decoration:none!important}#hover_div_a20230915 .o-inlineScore-green{background:#00ce7a}#hover_div_a20230915 .o-inlineScore-yellow{background:#ffbd3f}#hover_div_a20230915 .o-inlineScore-red{background:#ff6874}#hover_div_a20230915 .o-inlineScore-tbd{border:1px solid grey}#hover_div_a20230915 .u-pointer{cursor:pointer}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915{max-width:440px}
-  `
+
+    .game_row_5456d45 .c-gamePlatformTile {
+      border-radius: .game_row_5456d45 .375rem;
+      box-shadow: 0 .1875rem .625rem rgba(0,0,0,.16);
+      gap: .game_row_5456d45 .75rem;
+      grid-template-columns: 1fr 70px 70px;
+      padding: 1rem;
+    }
+
+    .game_row_5456d45 .c-gamePlatformTile-description {
+      gap: .game_row_5456d45.75rem;
+      grid-template-rows: 1fr;
+    }
+
+    .game_row_5456d45 .g-outer-spacing-right-xsmall {
+      margin-right: .25rem;
+    }
+
+    .game_row_5456d45 .c-siteReviewScore_medium {
+      border-radius: 6px;
+      font-size: 2.25rem;
+      height: 4rem;
+      line-height: 2.5rem;
+      width: 4rem;
+    }
+
+    .game_row_5456d45 .c-siteReviewScore_yellow {
+      background: #ffbd3f;
+    }
+
+    .game_row_5456d45 .u-flexbox-alignCenter {
+      align-items: center;
+    }
+
+    .game_row_5456d45 .u-flexbox-justifyCenter {
+      justify-content: center;
+    }
+
+    .game_row_5456d45 .u-flexbox-column {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .game_row_5456d45 .g-text-bold {
+      font-weight: 700;
+    }
+
+    .game_row_5456d45 .g-color-gray90 {
+      color: #262626;
+    }
+
+    .game_row_5456d45 .c-siteReviewScore_medium {
+      font-size: 2.25rem;
+      line-height: 2.5rem;
+    }
+    `
 
   const cssDark = `
   html {
@@ -1985,6 +2121,13 @@ function showHoverInfo (response, orgMetaUrl) {
           <div class="hover_content">${html}</div>
           </div>`)
       frame.replaceWith(noframe)
+
+      const platforms = Array.from(noframe[0].querySelectorAll('.game_row_5456d45 a[href^="https://www.metacritic.com/game/"][href*="critic-reviews"]'))
+        .filter(a => !a.href.includes('platform=playstation')).map(a => a.href.toString())
+
+      document.querySelector('#mcdiv123').style.maxHeight = '220px'
+
+      tryToLoadMoreMetacriticDetails(null, noframe[0], platforms)
     }
   }, 2000)
 
