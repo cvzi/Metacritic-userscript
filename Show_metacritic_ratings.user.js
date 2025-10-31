@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          106
+// @version          107
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -110,7 +110,8 @@ const baseURLps4 = 'https://www.metacritic.com/game/'
 const baseURLxone = 'https://www.metacritic.com/game/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
+//const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
+const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
 const baseURLwhitelist = 'https://met.acritic.workers.dev/whitelist.php'
@@ -1422,6 +1423,7 @@ function openSearchBox (search) {
   $('<button id="mcisearchbutton">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
 }
 
+/*
 async function getFandomProdApigeeApiKey () {
   let apiKey = await GM.getValue('fandomProdApigeeKey', false)
   if (!apiKey) {
@@ -1444,6 +1446,7 @@ async function getFandomProdApigeeApiKey () {
   return apiKey
 }
 
+
 async function findFandomProdApigeeApiKey () {
   // Get a new Api key from the metacritic website search results page
   const url = 'https://www.metacritic.com/search/Fly/'
@@ -1463,12 +1466,14 @@ async function findFandomProdApigeeApiKey () {
   console.error('ShowMetacriticRatings: Could not find fandomProdApigee api key')
   return false
 }
+  */
 
 async function fandomProdApigeeSearch (query, searchType) {
-  const apiKey = await getFandomProdApigeeApiKey()
+  //const apiKey = await getFandomProdApigeeApiKey()
 
   const type = searchType2fandomProdApigee(searchType)
-  const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query)).replace('{apiKey}', encodeURIComponent(apiKey))
+  //const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query)).replace('{apiKey}', encodeURIComponent(apiKey))
+  const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
 
   const response = await asyncRequest({ url })
 
