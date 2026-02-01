@@ -15,7 +15,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          107
+// @version          108
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -110,7 +110,7 @@ const baseURLps4 = 'https://www.metacritic.com/game/'
 const baseURLxone = 'https://www.metacritic.com/game/'
 const baseURLtv = 'https://www.metacritic.com/tv/'
 
-//const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
+// const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?apiKey={apiKey}&componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 const baseURLsearch = 'https://backend.metacritic.com/finder/metacritic/search/{query}/web?componentName=search-tabs&componentDisplayName=Search+Page+Tab+Filters&componentType=FilterConfig&mcoTypeId={type}&offset=0&limit=30'
 
 const baseURLdatabase = 'https://met.acritic.workers.dev/r.php'
@@ -487,11 +487,15 @@ function parseLDJSON (keys, condition) {
       if (scripts[i].innerText in parseLDJSONCache) {
         jsonld = parseLDJSONCache[scripts[i].innerText]
       } else {
+        let text
         try {
-          jsonld = JSON.parse(scripts[i].innerText)
+          text = scripts[i].innerText
+          text = text.replace(/^\/\*.*\*\//gm, '') // Replace comment lines
+          jsonld = JSON.parse(text)
           parseLDJSONCache[scripts[i].innerText] = jsonld
         } catch (e) {
           parseLDJSONCache[scripts[i].innerText] = null
+          console.warn(e, text)
           continue
         }
       }
@@ -1446,7 +1450,6 @@ async function getFandomProdApigeeApiKey () {
   return apiKey
 }
 
-
 async function findFandomProdApigeeApiKey () {
   // Get a new Api key from the metacritic website search results page
   const url = 'https://www.metacritic.com/search/Fly/'
@@ -1469,10 +1472,10 @@ async function findFandomProdApigeeApiKey () {
   */
 
 async function fandomProdApigeeSearch (query, searchType) {
-  //const apiKey = await getFandomProdApigeeApiKey()
+  // const apiKey = await getFandomProdApigeeApiKey()
 
   const type = searchType2fandomProdApigee(searchType)
-  //const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query)).replace('{apiKey}', encodeURIComponent(apiKey))
+  // const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query)).replace('{apiKey}', encodeURIComponent(apiKey))
   const url = baseURLsearch.replace('{type}', encodeURIComponent(type)).replace('{query}', encodeURIComponent(query))
 
   const response = await asyncRequest({ url })
@@ -2720,11 +2723,18 @@ const sites = {
   },
   letterboxd: {
     host: ['letterboxd.com'],
-    condition: () => unsafeWindow.filmData && 'name' in unsafeWindow.filmData,
+    condition: () => parseLDJSON('@type') === 'Movie',
     products: [{
       condition: Always,
       type: 'movie',
-      data: () => unsafeWindow.filmData.name
+      data: () => {
+        const ld = parseLDJSON(['name', 'releasedEvent'], (j) => (j['@type'] === 'Movie'))
+        let year = null
+        try {
+          year = parseInt(ld[1][0].startDate.substring(0, 4))
+        } catch (e) {}
+        return [ld[0], year]
+      }
     }]
   },
   TVmaze: {
