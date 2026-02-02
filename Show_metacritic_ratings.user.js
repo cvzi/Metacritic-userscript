@@ -4,7 +4,6 @@
 // @namespace        cuzi
 // @icon             https://www.metacritic.com/a/img/favicon.svg
 // @supportURL       https://github.com/cvzi/Metacritic-userscript/issues
-// @updateURL        https://openuserjs.org/meta/cuzi/Show_Metacritic.com_ratings.meta.js
 // @contributionURL  https://buymeacoff.ee/cuzi
 // @contributionURL  https://ko-fi.com/cuzicvzi
 // @grant            unsafeWindow
@@ -15,7 +14,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          108
+// @version          109
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -928,8 +927,8 @@ function extractHoverFromFullPage (response) {
     }
 
     // Get the current platform title:
-    if (doc.querySelector('.c-gamePlatformLogo title')) {
-      content = `<div class="mci_current_platform_title">Platform: ${doc.querySelector('.c-gamePlatformLogo title').textContent}</div>\n\n${content}`
+    if (doc.querySelector('.c-ProductHeroGamePlatformInfo title')) {
+      content = `<div class="mci_current_platform_title">Platform: ${doc.querySelector('.c-ProductHeroGamePlatformInfo title').textContent}</div>\n\n${content}`
     }
 
     // Get the game row with the other platform scores
@@ -951,7 +950,9 @@ function extractHoverFromFullPage (response) {
       }
       // Replace the platform icon with the platform name
       gameRow.querySelectorAll('.c-gamePlatformTile-description').forEach(e => {
-        e.textContent = e.querySelector('svg title').textContent
+        if (e.querySelector('svg title')) {
+          e.textContent = e.querySelector('svg title').textContent
+        }
       })
       content += `\n\n<div class="game_row_5456d45" style="display:none">${gameRow.innerHTML}</div>`
     }
@@ -3102,12 +3103,37 @@ const sites = {
     products: [{
       condition: Always,
       type: 'pcgame',
-      data: function () {
+      data: async function () {
+        let title = null
         try {
-          return document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
+          title = document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
         } catch (e) {
-          return document.querySelector('h1').textContent
+          title = document.querySelector('h1').textContent
         }
+        let foreignTitle = false
+        const langM = document.location.search.match(/lang=([a-z]{2})/)
+        if (langM && langM[1] !== 'en') {
+          foreignTitle = true
+        } else {
+          try {
+            name2metacritic(title)
+          } catch (e) {
+            // Could not convert name -> name probably does not contain ascii letters
+            foreignTitle = true
+          }
+        }
+        if (foreignTitle) {
+          const a = document.createElement('a')
+          a.href = document.location.href
+          a.search = '?lang=en'
+          const englishUrl = a.href
+
+          const response = await asyncRequest({ url: englishUrl }).catch(function (response) {
+            console.warn('ShowMetacriticRatings: Error epicstore\nenglishUrl=' + englishUrl + '\nstatus=' + response.status)
+          })
+          title = response.responseText.split('<title ')[1].split('>')[1].split('|')[0].trim()
+        }
+        return title
       }
     }]
   },
