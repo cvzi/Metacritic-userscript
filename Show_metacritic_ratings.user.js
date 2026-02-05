@@ -14,7 +14,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          109
+// @version          110
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -3099,17 +3099,12 @@ const sites = {
   },
   epicgames: {
     host: ['www.epicgames.com', 'store.epicgames.com'],
-    condition: () => document.querySelector('.meta-schema'),
+    condition: () => document.location.pathname.includes('/p/'),
     products: [{
-      condition: Always,
+      condition: () => parseLDJSON('@type') === 'Product',
       type: 'pcgame',
       data: async function () {
-        let title = null
-        try {
-          title = document.querySelector('.meta-schema').nextElementSibling.firstElementChild.lastElementChild.firstElementChild.firstElementChild.firstElementChild.textContent
-        } catch (e) {
-          title = document.querySelector('h1').textContent
-        }
+        let title = parseLDJSON("name", (j) => (j['@type'] === 'Product'))
         let foreignTitle = false
         const langM = document.location.search.match(/lang=([a-z]{2})/)
         if (langM && langM[1] !== 'en') {
