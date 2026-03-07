@@ -14,7 +14,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          110
+// @version          111
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -40,7 +40,6 @@
 // @match            https://www.imdb.com/title/*
 // @match            https://store.steampowered.com/app/*
 // @match            https://www.gamespot.com/*
-// @match            http://www.serienjunkies.de/*
 // @match            https://www.serienjunkies.de/*
 // @match            https://www.rottentomatoes.com/m/*
 // @match            https://rottentomatoes.com/m/*
@@ -53,7 +52,6 @@
 // @match            https://www.allmovie.com/movie/*
 // @match            https://en.wikipedia.org/*
 // @match            https://www.fandango.com/*
-// @match            https://flixster.com/movie/*
 // @match            https://www.themoviedb.org/movie/*
 // @match            https://www.themoviedb.org/tv/*
 // @match            https://letterboxd.com/film/*
@@ -912,30 +910,41 @@ async function handleJSONredirect (response) {
 
 function extractHoverFromFullPage (response) {
   let html = 'ShowMetacriticRatings:<br>Error occured in extractHoverFromFullPage()'
+  const styleSheetUrls = []
   try {
     // Try parsing HTML
     const doc = domParser().parseFromString(response.responseText, 'text/html')
+    const base = doc.createElement('base')
+    base.href = baseURL
+    doc.head.appendChild(base)
+
+    doc.head.querySelectorAll('link[rel="stylesheet"][href]').forEach(l => {
+      styleSheetUrls.push(l.href)
+    })
+
+    // Remove user rating slider
+    doc.querySelector('.user-score').remove()
 
     let content = null
     // Try to get the review containers from the bottom of the page below the actors
-    const carouselItems = doc.querySelectorAll('.c-reviewsSection_carouselContainer .c-reviewsOverview_overviewDetails')
+    const carouselItems = doc.querySelectorAll('.carouselContainer .reviews-overview__details,.top-user-reviews-section .reviews-overview__details')
     if (carouselItems.length > 0) {
       content = Array.from(carouselItems).map(e => e.outerHTML).join('\n\n')
     } else {
       // Fallback: Try to get the review containers from the right side of the page next to the poster/screenshot
-      content = doc.querySelector('.c-productHero_scoreInfo').innerHTML
+      content = doc.querySelector('.product-hero__scores').innerHTML
     }
 
     // Get the current platform title:
-    if (doc.querySelector('.c-ProductHeroGamePlatformInfo title')) {
-      content = `<div class="mci_current_platform_title">Platform: ${doc.querySelector('.c-ProductHeroGamePlatformInfo title').textContent}</div>\n\n${content}`
+    if (doc.querySelector('.c-hero-platform-selector__label title')) {
+      content = `<div class="mci_current_platform_title">Platform: ${doc.querySelector('.c-hero-platform-selector__label title').textContent}</div>\n\n${content}`
     }
 
     // Get the game row with the other platform scores
-    const gameRow = doc.querySelector('.c-PageProductGame_row')
+    const gameRow = doc.querySelector('.game-platforms__list')
     if (gameRow) {
-      // Get the currently selected platform
-      const latestCriticReviewsLink = doc.querySelector('a.c-sectionHeader_urlLink[href*="platform="]')
+      // Get the currently selected platform from the "Critic Reviews View All" link
+      const latestCriticReviewsLink = doc.querySelector('a.global-section-header__view-all[href*="platform="]')
       let platform = null
       if (latestCriticReviewsLink) {
         platform = latestCriticReviewsLink.href.match(/platform=([^&]+)/)[1]
@@ -943,13 +952,13 @@ function extractHoverFromFullPage (response) {
       }
 
       // Remove platforms that don't have a score
-      gameRow.querySelectorAll('.c-gamePlatformTile[to]').forEach(e => e.remove())
+      gameRow.querySelectorAll('.product-score-card[to]').forEach(e => e.remove())
       // Remove the currently selected platform
       if (platform) {
-        gameRow.querySelectorAll(`a.c-gamePlatformTile[href*="platform=${platform}"]`).forEach(e => e.remove())
+        gameRow.querySelectorAll(`a.product-score-card[href*="platform=${platform}"]`).forEach(e => e.remove())
       }
       // Replace the platform icon with the platform name
-      gameRow.querySelectorAll('.c-gamePlatformTile-description').forEach(e => {
+      gameRow.querySelectorAll('.game-platform-logo').forEach(e => {
         if (e.querySelector('svg title')) {
           e.textContent = e.querySelector('svg title').textContent
         }
@@ -971,15 +980,28 @@ ${content}
   } catch (e) {
     console.warn('ShowMetacriticRatings: Error parsing HTML: ' + e)
     // fallback to cutting out the relevant parts
-    const parts = response.responseText.split('c-productHero_score-container')
+    try {
+      console.debug('ShowMetacriticRatings: Trying to cut relevant content out of full page')
+      const part = response.responseText.split('class="product-hero--right-group"')[1].split('class="user-score"')[0]
 
-    html = '<div class="' + parts[1].split('c-ratingReviewWrapper')[0] + '"></div></div>'
-    if (html.length > 5000) {
+      html = '<div ' + part + '</div></div>'
+      if (html.length > 5000) {
       // Probably something went wrong, let's cut the response to prevent too long content
-      console.warn('ShowMetacriticRatings: Cutting response to 5000 chars')
-      html = html.substring(0, 5000)
+        console.warn('ShowMetacriticRatings: Cutting response to 5000 chars')
+        html = html.substring(0, 5000)
+      }
+    } catch (e) {
+      console.warn('ShowMetacriticRatings: Cutting failed')
     }
   }
+
+  if (styleSheetUrls) {
+    styleSheetUrls.forEach(url => {
+      console.debug('ShowMetacriticRatings: Adding stylesheet', url)
+      html += '\n\n<link rel="stylesheet" href="' + url + '">'
+    })
+  }
+
   return html
 }
 
@@ -1661,16 +1683,20 @@ function showHoverInfo (response, orgMetaUrl) {
     url = url.replace('/game/pc/', '/game/').replace('/game/playstation-4/', '/game/').replace('/game/xbox-one/', '/game/')
 
     const response = await asyncRequest({ url })
+    console.debug('ShowMetacriticRatings: parsing more Metacritic details')
     const doc = domParser().parseFromString(response.responseText, 'text/html')
 
-    const titleA = doc.querySelector('.c-productSubpageHeader_back')
-    if (titleA) {
-      titleA.querySelectorAll('.c-productSubpageHeader_backIcon').forEach(e => e.remove())
-    }
-    const titleHTML = titleA ? titleA.outerHTML : ''
+    const base = doc.createElement('base')
+    base.href = baseURL
+    doc.head.appendChild(base)
+
+    const titleA = doc.querySelector('.subpage-header__navigation')
+    const titleHTML = titleA ? titleA.textContent.trim() : ''
 
     let image = doc.querySelector('picture img')
-    if (!image) {
+    if (image) {
+      image.removeAttribute('class')
+    } else {
       image = doc.createElement('img')
     }
 
@@ -1692,8 +1718,14 @@ function showHoverInfo (response, orgMetaUrl) {
     image.style.display = ''
     const imageHTML = image.outerHTML
 
-    let detailsTable = Array.from(doc.querySelectorAll('.c-movieDetails_sectionContainer,.c-productionDetailsTv_sectionContainer,.c-gameDetails_sectionContainer'))
-      .map(e => Array.from(e.children).map(e => e.textContent.trim()))
+    let detailsTable = Array.from(doc.querySelectorAll('.c-product-details__section'))
+      .map(e => Array.from(e.children).map(e => {
+        if (e.querySelector('li')) {
+          return Array.from(e.querySelectorAll('li')).map(li => li.textContent).join(', ')
+        } else {
+          return e.textContent.trim()
+        }
+      }))
 
     detailsTable = detailsTable.filter(columns => {
       if (columns[0].search(/release date/i) !== -1) {
@@ -1881,7 +1913,35 @@ function showHoverInfo (response, orgMetaUrl) {
   }
 
   const css = `
-    #hover_div_a20230915{font-family:sans-serif;color:#262626;font-size:1rem;line-height:1.625rem}#hover_div_a202309:hover15 a,#hover_div_a20230915 a:hover{text-decoration:none}#hover_div_a20230915 a:hover{color:#09f}#hover_div_a20230915 a{color:#000;text-decoration:none;}#hover_div_a20230915 a:focus{color:grey}#hover_div_a20230915 .g-border-black,#hover_div_a20230915 .g-border-gray100{border-color:#000}#hover_div_a20230915 .g-color-black,#hover_div_a20230915 .g-color-gray100{color:#000}#hover_div_a20230915 .g-border-gray98{border-color:#191919}#hover_div_a20230915 .g-color-gray98{color:#191919}#hover_div_a20230915 .g-border-gray90{border-color:#262626}#hover_div_a20230915 .g-color-gray90{color:#262626}#hover_div_a20230915 .g-border-gray80{border-color:#404040}#hover_div_a20230915 .g-color-gray80{color:#404040}#hover_div_a20230915 .g-border-gray70{border-color:#666}#hover_div_a20230915 .g-color-gray70{color:#666}#hover_div_a20230915 .g-border-gray60{border-color:grey}#hover_div_a20230915 .g-color-gray60{color:grey}#hover_div_a20230915 .g-border-gray50{border-color:#999}#hover_div_a20230915 .g-color-gray50{color:#999}#hover_div_a20230915 .g-border-gray40{border-color:#bfbfbf}#hover_div_a20230915 .g-color-gray40{color:#bfbfbf}#hover_div_a20230915 .g-border-gray30{border-color:#d8d8d8}#hover_div_a20230915 .g-color-gray30{color:#d8d8d8}#hover_div_a20230915 .g-border-gray20{border-color:#e6e6e6}#hover_div_a20230915 .g-color-gray20{color:#e6e6e6}#hover_div_a20230915 .g-border-gray10{border-color:#f2f2f2}#hover_div_a20230915 .g-color-gray10{color:#f2f2f2}#hover_div_a20230915 .g-border-gray0,#hover_div_a20230915 .g-border-white{border-color:#fff}#hover_div_a20230915 .g-color-gray0,#hover_div_a20230915 .g-color-white{color:#fff}#hover_div_a20230915 .g-border-red{border-color:#eb0036}#hover_div_a20230915 .g-color-red{color:#eb0036}#hover_div_a20230915 .g-border-green{border-color:#01b44f}#hover_div_a20230915 .g-color-green{color:#01b44f}#hover_div_a20230915 .g-width-large{width:1.5rem}#hover_div_a20230915 .g-height-large{height:1.5rem}#hover_div_a20230915 .g-width-100{width:100%}#hover_div_a20230915 .g-height-100{height:100%}#hover_div_a20230915 .g-text-large{font-size:1.5rem;line-height:2rem}#hover_div_a20230915 .g-text-xxsmall{font-size:xx-small}#hover_div_a20230915 .g-text-bold{font-weight:700}#hover_div_a20230915 .g-text-link{text-decoration:underline}#hover_div_a20230915 .u-block{display:block}#hover_div_a20230915 .u-flexbox{display:flex}#hover_div_a20230915 .u-flexbox-column{display:flex;flex-direction:column}#hover_div_a20230915 .u-flexbox-justifyCenter{justify-content:center}#hover_div_a20230915 .u-flexbox-alignCenter{align-items:center}#hover_div_a20230915 .u-grid{display:grid;grid-gap:0;grid-gap:var(--grid-gap,0)}#hover_div_a20230915 .u-grid-2column{-ms-grid-columns:50% 50%;display:grid;grid-template:auto/repeat(2,1fr)}#hover_div_a20230915 .u-grid-3column{-ms-grid-columns:33.3% 33.3% 33.3%;display:grid;grid-template:auto/repeat(3,1fr)}#hover_div_a20230915 .u-grid-4column{-ms-grid-columns:25% 25% 25% 25%;display:grid;grid-template:auto/repeat(4,1fr)}#hover_div_a20230915 .u-grid-5column{-ms-grid-columns:20% 20% 20% 20% 20%;display:grid;grid-template:auto/repeat(5,1fr)}#hover_div_a20230915 .u-grid-7column{-ms-grid-columns:14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857% 14.2857%;display:grid;grid-template:auto/repeat(7,1fr)}#hover_div_a20230915 .u-grid-column-span2{grid-column-end:span 2}#hover_div_a20230915 .u-grid-column-span3{grid-column-end:span 3}#hover_div_a20230915 .u-grid-column-span4{grid-column-end:span 4}#hover_div_a20230915 .u-text-center{text-align:center}#hover_div_a20230915 .c-siteReviewScore_large{border-radius:0.5rem;height:4rem;width:4rem;font-size:2rem}#hover_div_a20230915 .c-siteReviewScore_user{border-radius:50%}#hover_div_a20230915 .c-reviewsStats{padding:1rem 0;grid-template-columns:1fr 1fr 1fr;justify-content:space-evenly;font-size:0.75rem;line-height:1.25rem}#hover_div_a20230915 div[class^=c-reviewsStats_]:first-child,#hover_div_a20230915 div[class^=c-reviewsStats_]:nth-child(2){border-right:0.0625rem solid #d8d8d8}#hover_div_a20230915 .c-ScoreCardGraph{overflow:hidden;white-space:nowrap}#hover_div_a20230915 .c-ScoreCardGraph > div{margin-left:0.25rem;padding:0 0.25rem;text-align:right;height:0.5rem;min-width:2rem;line-height:1rem}#hover_div_a20230915 .c-ScoreCardGraph > div:first-child{margin-left:0}#hover_div_a20230915 .c-ScoreCardGraph_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreSentiment{color:#00ce7a}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphPositive{background:#00ce7a;border-radius:0.25rem 0 0 0.25rem}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNeutral{background:#ffbd3f}#hover_div_a20230915 .c-ScoreCardGraph_scoreGraphNegative{background:#ff6874;border-radius:0 0.25rem 0.25rem 0}#hover_div_a20230915 .gray{background:#bfbfbf;height:1rem;display:inline-block}#hover_div_a20230915 .c-ScoreCard_scoreContent{display:flex;align-content:flex-start;flex-wrap:nowrap;grid-gap:10px;gap:10px;width:100%;justify-content:space-between;align-items:stretch}#hover_div_a20230915 .c-ScoreCard_scoreContent_text{line-height:normal;display:flex;flex-direction:column;justify-content:space-between}#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large,#hover_div_a20230915 .c-ScoreCard_scoreContent_number > .c-siteReviewScore_background-critic_large .c-siteReviewScore_large{width:4rem;height:4rem}#hover_div_a20230915 .c-ScoreCard_scoreSentiment{font-size:1rem;line-height:1.25rem;text-transform:capitalize}#hover_div_a20230915 .c-ScoreCard_scoreTitle{letter-spacing:0.25rem}#hover_div_a20230915 .c-reviewsOverview_overviewDetails{grid-template-columns:1fr 1fr;grid-gap:1.25rem;border-top:1px solid #262626;margin-top:auto;padding:2px}#hover_div_a20230915 .c-reviewsOverview_overviewDetails:first-child{border-top:0 solid #262626}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915 .o-inlineScore{border-radius:0.25rem;font-size:1.25rem;font-weight:700;color:#404040;width:2.5rem;height:2.5rem;display:inline-flex;justify-content:center;align-items:center;text-decoration:none!important}#hover_div_a20230915 .o-inlineScore-green{background:#00ce7a}#hover_div_a20230915 .o-inlineScore-yellow{background:#ffbd3f}#hover_div_a20230915 .o-inlineScore-red{background:#ff6874}#hover_div_a20230915 .o-inlineScore-tbd{border:1px solid grey}#hover_div_a20230915 .u-pointer{cursor:pointer}#hover_div_a20230915 .c-siteReviewScore_green{background:#00ce7a}#hover_div_a20230915 .c-siteReviewScore_yellow{background:#ffbd3f}#hover_div_a20230915 .c-siteReviewScore_red{background:#ff6874}#hover_div_a20230915 .c-siteReviewScore_grey{background:#404040}#hover_div_a20230915 .c-siteReviewScore_tbdCritic,#hover_div_a20230915 .c-siteReviewScore_tbdUser{border-width:0.125rem;border-style:solid}#hover_div_a20230915{max-width:440px}
+      #hover_div_a20230915 {
+        font-family: sans-serif;
+        color: #262626;
+        font-size: 1rem;
+        line-height: 1.625rem;
+        max-width: 440px
+      }
+
+     #hover_div_a20230915 .reviews-overview__details{
+       padding: 0px 6px !important;
+       display: flex !important;
+     }
+
+      #hover_div_a202309:hover15 a,#hover_div_a20230915 a:hover {
+        text-decoration: none
+      }
+
+      #hover_div_a20230915 a:hover {
+        color: #09f
+      }
+
+      #hover_div_a20230915 a {
+        color: #000;
+        text-decoration: none;
+      }
+
+      #hover_div_a20230915 a:focus {
+        color: grey
+      }
 
     .mci_current_platform_title {
       padding:0px;
@@ -2397,9 +2457,8 @@ const sites = {
             const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
             const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
-            const langM = document.cookie.match(/lc-main=([^;]+)/)
-            const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
-            document.cookie = 'lc-main=en-US'
+            document.cookie = 'international-seo=; domain=.imdb.com; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+            document.cookie = 'lc-main=en-US; path=/title/' + imdbID + '; max-age=1'
             const response = await asyncRequest({
               url: homePageUrl,
               headers: {
@@ -2408,17 +2467,15 @@ const sites = {
             }).catch(function (response) {
               console.warn('ShowMetacriticRatings: Error imdb02\nurl=' + homePageUrl + '\nstatus=' + response.status)
             })
-            document.cookie = 'lc-main=' + langBefore
+            if (!response.responseText) {
+              throw new Error(`${scriptName}: Too many requests. AWS challenge protection kicked in`)
+            }
             // Extract <h1> title
             const parts = response.responseText.split('</span></h1>')[0].split('>')
             console.debug('ShowMetacriticRatings: Movie title from English page:', parts[parts.length - 1])
             return parts[parts.length - 1]
           } else if (document.querySelector('script[type="application/ld+json"]')) {
             const ld = parseLDJSON(['name', 'alternateName'])
-            if (ld.length > 1 && ld[1]) {
-              console.debug('ShowMetacriticRatings: Movie ld+json alternateName', ld[1])
-              return ld[1]
-            }
             console.debug('ShowMetacriticRatings: Movie ld+json name', ld[0])
             return ld[0]
           } else {
@@ -2444,9 +2501,8 @@ const sites = {
             const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
             const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
-            const langM = document.cookie.match(/lc-main=([^;]+)/)
-            const langBefore = langM ? langM[0] : ';expires=Thu, 01 Jan 1970 00:00:01 GMT'
-            document.cookie = 'lc-main=en-US'
+            document.cookie = 'international-seo=; domain=.imdb.com; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT'
+            document.cookie = 'lc-main=en-US; path=/title/' + imdbID + '; max-age=1'
             const response = await asyncRequest({
               url: homePageUrl,
               headers: {
@@ -2455,17 +2511,15 @@ const sites = {
             }).catch(function (response) {
               console.warn('ShowMetacriticRatings: Error imdb03\nurl=' + homePageUrl + '\nstatus=' + response.status)
             })
-            document.cookie = 'lc-main=' + langBefore
+            if (!response.responseText) {
+              throw new Error(`${scriptName}: Too many requests. AWS challenge protection kicked in`)
+            }
             // Extract <h1> title
             const parts = response.responseText.split('</span></h1>')[0].split('>')
             console.debug('ShowMetacriticRatings: TV title from English page:', parts[parts.length - 1])
             return parts[parts.length - 1]
           } else if (document.querySelector('script[type="application/ld+json"]')) {
             const ld = parseLDJSON(['name', 'alternateName'])
-            if (ld.length > 1 && ld[1]) {
-              console.debug('ShowMetacriticRatings: TV ld+json alternateName', ld[1])
-              return ld[1]
-            }
             console.debug('ShowMetacriticRatings: TV ld+json name', ld[0])
             return ld[0]
           } else {
@@ -2492,7 +2546,7 @@ const sites = {
     products: [{
       condition: () => document.location.pathname.startsWith('/m/'),
       type: 'movie',
-      data: () => document.querySelector('h1').firstChild.textContent
+      data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
     },
     {
       condition: () => document.location.pathname.startsWith('/tv/'),
@@ -2505,7 +2559,7 @@ const sites = {
     host: ['www.serienjunkies.de'],
     condition: Always,
     products: [{
-      condition: () => document.getElementById('serienlinksbreit2aktuell'),
+      condition: () => document.querySelector('.sjf-show-menu-container'),
       type: 'tv',
       data: () => document.querySelector('h1').textContent.trim()
     },
@@ -2696,15 +2750,6 @@ const sites = {
       data: () => document.querySelector("meta[property='og:title']").content.match(/(.+?)\s+\(\d{4}\)/)[1].trim()
     }]
   },
-  flixster: {
-    host: ['flixster.com'],
-    condition: () => Always,
-    products: [{
-      condition: () => parseLDJSON('@type') === 'Movie',
-      type: 'movie',
-      data: () => parseLDJSON('name', (j) => (j['@type'] === 'Movie'))
-    }]
-  },
   themoviedb: {
     host: ['themoviedb.org'],
     condition: () => document.querySelector("meta[property='og:type']"),
@@ -2751,15 +2796,9 @@ const sites = {
     host: ['tvguide.com'],
     condition: Always,
     products: [{
-      condition: () => document.location.pathname.startsWith('/tvshows/'),
+      condition: () => document.location.pathname.startsWith('/tvshows/') && parseLDJSON('mainEntity')['@type'] === 'TVSeries',
       type: 'tv',
-      data: function () {
-        if (document.querySelector('meta[itemprop=name]')) {
-          return document.querySelector('meta[itemprop=name]').content
-        } else {
-          return document.querySelector("meta[property='og:title']").content.split('|')[0]
-        }
-      }
+      data: () => parseLDJSON('mainEntity')['name']
     }]
   },
   followshows: {
@@ -3104,7 +3143,7 @@ const sites = {
       condition: () => parseLDJSON('@type') === 'Product',
       type: 'pcgame',
       data: async function () {
-        let title = parseLDJSON("name", (j) => (j['@type'] === 'Product'))
+        let title = parseLDJSON('name', (j) => (j['@type'] === 'Product'))
         let foreignTitle = false
         const langM = document.location.search.match(/lang=([a-z]{2})/)
         if (langM && langM[1] !== 'en') {
