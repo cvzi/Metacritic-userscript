@@ -14,7 +14,7 @@
 // @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          111
+// @version          112
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -1861,6 +1861,9 @@ function showHoverInfo (response, orgMetaUrl) {
       })
     },
     frame: function () {
+      // convert aria labels to title attributes to be able to show them in the hover info
+      document.querySelectorAll('[aria-label]:not([title])').forEach(e => (e.title = e.getAttribute('aria-label')))
+
       let currentPlatform = 'playstation'
       if (document.getElementById('mci_current_platform')) {
         currentPlatform = document.getElementById('mci_current_platform').value
@@ -2079,6 +2082,14 @@ function showHoverInfo (response, orgMetaUrl) {
   #hover_div_a20230915 .g-color-gray60 {
       color: grey;
   }
+
+  #hover_div_a20230915 .text-gray-800 {
+      color: #ffffff7c;
+  }
+  #hover_div_a20230915 .text-gray-900 {
+      color: #ffffff8c;
+  }
+
   #hover_div_a20230915 .c-reviewsOverview_overviewDetails {
       border-top: 1px solid #d1d1d1;
   }
@@ -2798,7 +2809,7 @@ const sites = {
     products: [{
       condition: () => document.location.pathname.startsWith('/tvshows/') && parseLDJSON('mainEntity')['@type'] === 'TVSeries',
       type: 'tv',
-      data: () => parseLDJSON('mainEntity')['name']
+      data: () => parseLDJSON('mainEntity').name
     }]
   },
   followshows: {
