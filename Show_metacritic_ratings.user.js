@@ -11,10 +11,10 @@
 // @grant            GM.setValue
 // @grant            GM.getValue
 // @grant            GM.registerMenuCommand
-// @require          https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js
+// @require          https://code.jquery.com/jquery-4.0.0.js
 // @license          GPL-3.0-or-later; https://www.gnu.org/licenses/gpl-3.0.txt
 // @antifeature      tracking When a metacritic rating is displayed, we may store the url of the current website and the metacritic url in our database. Log files are temporarily retained by our database hoster Cloudflare Workers® and contain your IP address and browser configuration.
-// @version          112
+// @version          113
 // @connect          metacritic.com
 // @connect          backend.metacritic.com
 // @connect          met.acritic.workers.dev
@@ -671,7 +671,7 @@ function balloonAlert (message, timeout, title, css, click) {
   div.appendTo(document.body)
 
   if (click) {
-    div.click(function (ev) {
+    div.on('click', function (ev) {
       $(this).hide(500)
       click.call(this, ev)
     })
@@ -679,7 +679,7 @@ function balloonAlert (message, timeout, title, css, click) {
 
   if (!click) {
     const close = $('<div title="Close" style="cursor:pointer; position:absolute; top:0px; right:3px;">&#10062;</div>').appendTo(div)
-    close.click(function () {
+    close.on('click', function () {
       $(this.parentNode).hide(1000)
     })
   }
@@ -1447,7 +1447,7 @@ function openSearchBox (search) {
       searchBoxSearch(e, $('#mcisearchquery').val())
     }
   })
-  $('<button id="mcisearchbutton">').text('Search').appendTo(div).click((ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
+  $('<button id="mcisearchbutton">').text('Search').appendTo(div).on('click', (ev) => searchBoxSearch(ev, $('#mcisearchquery').val()))
 }
 
 /*
@@ -1611,17 +1611,17 @@ async function searchBoxSearch (ev, query) {
       : $('<div id="mcdiv123searchresults"></div>').appendTo(div)
     results.forEach(function (html) {
       const singleresult = $('<div class="result"></div>').html(fixMetacriticURLs(html) + '<div style="clear:left"></div>').appendTo(resultdiv)
-      singleresult.find('.mcdiv123_correct_entry').click(accept)
+      singleresult.find('.mcdiv123_correct_entry').on('click', accept)
     })
     resultdiv.find('.metascore_w.album').removeClass('album') // Remove some classes
     resultdiv.find('.must-see').remove() // Remove some elements
 
     const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + websiteSearchUrl + '" title="Open Metacritic">' + decodeURI(websiteSearchUrl.replace('https://www.', '')) + '</a>').appendTo(sub)
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).on('click', function () {
       document.body.removeChild(this.parentNode.parentNode)
     })
-    $('<span class="mcdiv123_incorrect" title="Assist us: None of the above is the correct item!">&cross;</span>').appendTo(sub).click(function () { if (confirm('None of the above is the correct item\nConfirm?')) denyAll() })
+    $('<span class="mcdiv123_incorrect" title="Assist us: None of the above is the correct item!">&cross;</span>').appendTo(sub).on('click', function () { if (confirm('None of the above is the correct item\nConfirm?')) denyAll() })
   } else {
     // No results
     loader.remove()
@@ -1630,7 +1630,7 @@ async function searchBoxSearch (ev, query) {
 
     const sub = $('#mcdiv123 .sub').length ? $('#mcdiv123 .sub').html('') : $('<div class="sub"></div>').appendTo(div)
     $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + websiteSearchUrl + '" title="Open Metacritic">' + decodeURI(websiteSearchUrl.replace('https://www.', '')) + '</a>').appendTo(sub)
-    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).click(function () {
+    $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px;">&#10062;</span>').appendTo(sub).on('click', function () {
       document.body.removeChild(this.parentNode.parentNode)
     })
   }
@@ -2251,20 +2251,20 @@ function showHoverInfo (response, orgMetaUrl) {
   const sub = $('<div></div>').appendTo(div)
   $('<time style="color:#b6b6b6; font-size: 11px;" datetime="' + time + '" title="' + time.toLocaleTimeString() + ' ' + time.toLocaleDateString() + '">' + minutesSince(time) + '</time>').appendTo(sub)
   $('<a style="color:#b6b6b6; font-size: 11px;" target="_blank" href="' + url + '" title="Open Metacritic">' + decodeURI(url.replace('https://www.', '@')) + '</a>').appendTo(sub)
-  $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+  $('<span title="Hide me" style="cursor:pointer; float:right; color:#b6b6b6; font-size: 11px; padding-left:5px;">&#10062;</span>').data('url', current.metaurl).appendTo(sub).on('click', function () {
     const metaurl = $(this).data('url')
     addToTemporaryBlacklist(metaurl)
     document.body.removeChild(this.parentNode.parentNode)
   })
 
-  $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+  $('<span title="Assist us: This is the correct entry!" style="cursor:pointer; float:right; color:green; font-size: 11px;">&check;</span>').data('url', current.metaurl).appendTo(sub).on('click', function () {
     const docurl = document.location.href
     const metaurl = $(this).data('url')
     addToMap(docurl, metaurl).then(function (r) {
       balloonAlert('Thanks for your submission!\n\nSaved as a correct entry.\n\n' + r[0] + '\n' + r[1], 6000, 'Success')
     })
   })
-  $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data('url', current.metaurl).appendTo(sub).click(function () {
+  $('<span title="Assist us: This is NOT the correct entry!" style="cursor:pointer; float:right; color:crimson; font-size: 11px;">&cross;</span>').data('url', current.metaurl).appendTo(sub).on('click', function () {
     if (!confirm('This is NOT the correct entry!\n\nAdd to blacklist?')) return
     const docurl = document.location.href
     const metaurl = $(this).data('url')
@@ -2464,7 +2464,8 @@ const sites = {
         data: async function () {
           // If the page is not in English or the browser is not in English, request page in English.
           // Then the title in <h1> will be the English title and Metacritic always uses the English title.
-          if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+          const pageNotEnglish = !(document.documentElement.lang || '').toLowerCase().startsWith('en') || !navigator.language.startsWith('en')
+          if (pageNotEnglish) {
             const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
             const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
@@ -2508,7 +2509,8 @@ const sites = {
         },
         type: 'tv',
         data: async function () {
-          if (document.querySelector('[for="nav-language-selector"]').textContent.toLowerCase() !== 'en' || !navigator.language.startsWith('en')) {
+          const pageNotEnglish = !(document.documentElement.lang || '').toLowerCase().startsWith('en') || !navigator.language.startsWith('en')
+          if (pageNotEnglish) {
             const imdbID = document.location.pathname.match(/\/title\/(\w+)/)[1]
             const homePageUrl = 'https://www.imdb.com/title/' + imdbID + '/?ref_=nv_sr_1'
             // Set language cookie to English, request current page in English, then restore language cookie or expire it if it didn't exist before
